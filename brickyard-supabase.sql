@@ -66,6 +66,24 @@ drop policy if exists "delete own meshes" on storage.objects;
 create policy "delete own meshes" on storage.objects for delete to authenticated
   using (bucket_id = 'meshes' and (storage.foldername(name))[1] = (select auth.uid())::text);
 
+-- ---------- Player save data (auto-saved progress in each game) ----------
+create table if not exists public.saves (
+  owner uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  game text not null check (char_length(game) between 1 and 120),
+  data jsonb not null default '{}'::jsonb check (pg_column_size(data) <= 100000),
+  updated_at timestamptz not null default now(),
+  primary key (owner, game)
+);
+alter table public.saves enable row level security;
+drop policy if exists "read own saves" on public.saves;
+create policy "read own saves" on public.saves for select to authenticated using ((select auth.uid()) = owner);
+drop policy if exists "create own saves" on public.saves;
+create policy "create own saves" on public.saves for insert to authenticated with check ((select auth.uid()) = owner);
+drop policy if exists "update own saves" on public.saves;
+create policy "update own saves" on public.saves for update to authenticated using ((select auth.uid()) = owner) with check ((select auth.uid()) = owner);
+drop policy if exists "delete own saves" on public.saves;
+create policy "delete own saves" on public.saves for delete to authenticated using ((select auth.uid()) = owner);
+
 -- ---------- Let people delete their own account ----------
 create or replace function public.delete_my_account()
 returns void

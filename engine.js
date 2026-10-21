@@ -1144,7 +1144,7 @@ function giveStarterTools(proj){proj.nodes.filter(n=>n.cls==='Tool'&&n.parent===
 const STOP={stop:true};
 const RT={gen:0,waiters:[],touch:[],click:[],key:[],msg:new Map(),died:[],vars:new Map(),stats:new Map(),warned:new Set(),t0:0,last:null};
 let t=0;
-function rtReset(){RT.gen++;MOUSE.down=0;Object.assign(RT,{ptouch:[],bases:new Map(),bmap:new Map(),land:[],hurt:[],mouse:[],spawn:[],jump:[],waiters:[],touch:[],click:[],key:[],msg:new Map(),died:[],vars:new Map(),stats:new Map(),warned:new Set(),t0:0,last:null});}
+function rtReset(){RT.gen++;MOUSE.down=0;Object.assign(RT,{dataLoaded:[],ptouch:[],bases:new Map(),bmap:new Map(),land:[],hurt:[],mouse:[],spawn:[],jump:[],waiters:[],touch:[],click:[],key:[],msg:new Map(),died:[],vars:new Map(),stats:new Map(),warned:new Set(),t0:0,last:null});}
 function sleep(s,ctx){return new Promise(res=>RT.waiters.push({at:t+Math.max(0,+s||0),res,gen:ctx.gen}));}
 function rtTick(){if(!RT.waiters.length)return;const due=[];
   RT.waiters=RT.waiters.filter(w=>{if(w.gen!==RT.gen)return false;if(w.at<=t+1e-9){due.push(w);return false;}return true;});due.forEach(w=>w.res());}
@@ -1218,6 +1218,10 @@ function ev(b,ctx){
       if(k[0]==='s'&&k.length===2){const sz=v.isGroup?boundsOf(ps).getSize(new V3()):ps[0].size;return r3(sz[k[1]]);}
       return ps[0].look?ps[0].look.transparency||0:0;}
     case 's_timer':return r3(state.time-RT.t0);
+    case 'data_get':{const k=String(ev(inp(b,'KEY'),ctx)??'');return k in SAVE.d?SAVE.d[k]:0;}
+    case 'data_has':return String(ev(inp(b,'KEY'),ctx)??'') in SAVE.d;
+    case 'data_loaded':return SAVE.loaded;
+    case 'data_returning':return SAVE.hadSave;
     case 's_pl_name':return myName();
     case 'pl_ref':return {plr:fld(b,'WHO')||'me'};
     case 'pl_ref_touchme':return {plist:otherPlayers().filter(r=>touchingMe(r))};
@@ -1253,6 +1257,50 @@ async function run(b,ctx){
   }
 }
 const D=(b,n)=>{const x=b.inputs&&b.inputs[n];return x&&x.block;};
+/* ---------- player save data (auto-saved progress) ---------- */
+const SAVE={key:null,backend:'local',d:{},loaded:false,gen:0,last:'',lastT:0,busy:false,hadSave:false};
+function saveKeyFor(def){const p=def.project;if(!p)return null;const raw=def.fromEditor?'test-'+p.id:String(p.saveId||p.id);return raw.replace(/[^A-Za-z0-9_-]/g,'_').slice(0,100)||null;}
+function saveSnapshot(){const S=game&&game.project?game.project.settings:{};const o={v:1,data:SAVE.d,t:Date.now()};
+  if(S.saveStats!==false){o.stats={};for(const [k,v] of RT.stats)if(typeof v==='number'&&isFinite(v))o.stats[String(k).slice(0,40)]=v;}
+  if(S.saveCheckpoint!==false&&W.checkpoint&&state.stage>0)o.cp={p:W.checkpoint.toArray().map(r3),s:state.stage};
+  return o;}
+function saveBody(o){const c=Object.assign({},o);delete c.t;return JSON.stringify(c);}
+async function saveRead(key,backend){
+  if(backend==='sb'){const {data,error}=await SB.client.from('saves').select('data').eq('owner',SB.uid).eq('game',key).maybeSingle();if(error)throw error;return data?data.data:null;}
+  if(backend==='claude'){const sn=await MP.db.doc('data/users/'+MP.me.id+'/saves/'+key).get();if(!sn.exists)return null;try{return JSON.parse(sn.data().d||'null');}catch(e){return null;}}
+  return store.get('save:'+key,null);}
+async function saveWrite(key,backend,o){
+  const j=JSON.stringify(o);if(j.length>60000)throw new Error('too big');
+  if(backend==='sb'){const {error}=await SB.client.from('saves').upsert({owner:SB.uid,game:key,data:o,updated_at:new Date().toISOString()},{onConflict:'owner,game'});if(error)throw error;return;}
+  if(backend==='claude'){await MP.db.doc('data/users/'+MP.me.id+'/saves/'+key).set({d:j,t:Date.now()});return;}
+  if(!store.set('save:'+key,o))throw new Error('local storage full');}
+function saveBegin(def){
+  SAVE.gen++;SAVE.key=saveKeyFor(def);SAVE.d={};SAVE.loaded=false;SAVE.last='';SAVE.lastT=performance.now();SAVE.hadSave=false;
+  if(!SAVE.key)return;
+  SAVE.backend=def.fromEditor?'local':(SB.client&&SB.uid)?'sb':(MP.db&&MP.me.id&&!MP.p2p)?'claude':'local';
+  const g=SAVE.gen,key=SAVE.key;
+  saveRead(key,SAVE.backend).catch(()=>null).then(o=>{if(g!==SAVE.gen||!running)return;saveApply(o);});}
+function saveApply(o){
+  const S=game.project.settings;let any=false;
+  if(o&&typeof o==='object'){
+    if(o.data&&typeof o.data==='object'&&!Array.isArray(o.data)){for(const [k,v] of Object.entries(o.data))if(['number','string','boolean'].includes(typeof v))SAVE.d[String(k).slice(0,40)]=v;any=Object.keys(SAVE.d).length>0;}
+    if(S.saveStats!==false&&o.stats&&typeof o.stats==='object'){for(const [k,v] of Object.entries(o.stats))if(typeof v==='number'&&isFinite(v)){RT.stats.set(String(k).slice(0,40),v);any=true;}}
+    if(S.saveCheckpoint!==false&&o.cp&&Array.isArray(o.cp.p)&&o.cp.p.length===3){const v=new V3(num(o.cp.p[0],0),num(o.cp.p[1],0),num(o.cp.p[2],0));
+      W.checkpoint=v;state.stage=Math.max(state.stage,num(o.cp.s,0));if(!P.dead){P.pos.copy(v);P.vel.set(0,0,0);}any=true;}}
+  SAVE.loaded=true;SAVE.hadSave=any;SAVE.last=saveBody(saveSnapshot());
+  if(any&&!game.fromEditor)toast('Welcome back! Your progress was loaded.','#7fd4ff',2.6);
+  (RT.dataLoaded||[]).forEach(h=>spawnRun(h.body,h));}
+async function saveFlush(force,final){
+  if(!SAVE.key||!SAVE.loaded||(SAVE.busy&&!final)||!game||!game.project)return false;
+  const o=saveSnapshot();const body=saveBody(o);if(!force&&body===SAVE.last)return true;
+  SAVE.busy=true;const key=SAVE.key,backend=SAVE.backend;
+  try{await saveWrite(key,backend,o);SAVE.last=body;SAVE.lastT=performance.now();return true;}
+  catch(e){if(!saveFlush.warned){saveFlush.warned=true;logOut('Saving progress failed: '+(e&&e.message||e),'warn');}return false;}
+  finally{SAVE.busy=false;}}
+function saveTick(){if(SAVE.loaded&&performance.now()-SAVE.lastT>8000){SAVE.lastT=performance.now();saveFlush(false);}}
+addEventListener('pagehide',()=>{if(running)saveFlush(false,true);});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&running)saveFlush(false,true);});
+function saveVal(v){return typeof v==='number'?(isFinite(v)?v:0):typeof v==='boolean'?v:String(v??'').slice(0,1000);}
 function changeStat(name,v,set){name=String(name||'Score');const cur=RT.stats.get(name)||0;RT.stats.set(name,set?v:cur+v);}
 async function stmt(b,ctx){
   await guard(ctx);
@@ -1334,6 +1382,11 @@ async function stmt(b,ctx){
     case 'pl_teleport':{const tp=topOf(partv(b,ctx));if(tp&&!P.dead){P.pos.set(tp.x,tp.y+PH.y+.3,tp.z);P.vel.set(0,0,0);}break;}
     case 'pl_launch':P.vel.y=numv(inp(b,'P'),ctx);P.onGround=false;P.coyote=0;break;
     case 'pl_speed':PHYS.walk=Math.max(0,numv(inp(b,'V'),ctx));break;
+    case 'data_set':{const k=String(ev(inp(b,'KEY'),ctx)??'').slice(0,40);if(!k)break;if(!(k in SAVE.d)&&Object.keys(SAVE.d).length>=200){warnOnce('dfull','Save data is full (200 values).');break;}SAVE.d[k]=saveVal(ev(inp(b,'V'),ctx));break;}
+    case 'data_change':{const k=String(ev(inp(b,'KEY'),ctx)??'').slice(0,40);if(!k)break;const cur=Number(SAVE.d[k])||0;SAVE.d[k]=r3(cur+numv(inp(b,'N'),ctx));break;}
+    case 'data_del':delete SAVE.d[String(ev(inp(b,'KEY'),ctx)??'')];break;
+    case 'data_clear':SAVE.d={};RT.stats.clear();state.stage=0;W.checkpoint=null;await saveFlush(true);break;
+    case 'data_now':{const ok=await saveFlush(true);if(fld(b,'SHOW')==='TRUE')toast(ok?'Progress saved':'Could not save progress',ok?'#7fd4ff':'#ff4d5e',1.6);break;}
     case 'pl_as':{const x=inp(b,'WHO');const tg=resolveTargets(x?ev(x,ctx):null);const body=D(b,'DO');if(!body||!tg.length)break;
       const others=tg.filter(r=>r!=='me'&&r.peer);
       if(others.length){if(MP.gr&&b.id&&ctx.sid)mpEmit('run',{to:others.map(r=>r.peer).slice(0,50),s:ctx.sid,b:b.id,h:W.projHash});
@@ -1414,6 +1467,7 @@ function startScriptsFor(proj,scripts,map,models,opts){
         case 'ev_jump':RT.jump.push(h);break;
         case 'ev_land':RT.land.push(h);break;
         case 'ev_hurt':RT.hurt.push(h);break;
+        case 'ev_data_loaded':RT.dataLoaded.push(h);if(SAVE.loaded)spawnRun(body,base);break;
         case 'ev_touch_player':RT.ptouch.push(Object.assign(h,{was:new Set()}));break;
         case 'ev_tool_act':case 'ev_tool_equip':case 'ev_tool_unequip':case 'ev_tool_hit':
           if(base.tool)base.tool.handlers[{ev_tool_act:'act',ev_tool_equip:'equip',ev_tool_unequip:'unequip',ev_tool_hit:'hit'}[top.type]].push(h);
@@ -1750,7 +1804,7 @@ const drop=$('#drop');
 drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)readFileThen(f,playImported);});
 
 /* ---------- projects ---------- */
-function defaultSettings(){return {gravity:196.2,walkSpeed:16,jumpPower:50,sky:'#9fd8ff',fog:900,brightness:1,timer:true};}
+function defaultSettings(){return {gravity:196.2,walkSpeed:16,jumpPower:50,sky:'#9fd8ff',fog:900,brightness:1,timer:true,saveStats:true,saveCheckpoint:true};}
 function partNode(o){return Object.assign({id:uid(),cls:'Part',name:'Part',parent:'workspace',shape:'block',pos:[0,.5,0],size:[4,1,2],rot:[0,0,0],color:'#a3a2a5',material:'Plastic',
   transparency:0,anchored:true,canCollide:true,locked:false,behavior:'none',value:0},o);}
 function scriptNode(o){return Object.assign({id:uid(),cls:'Script',name:'Script',parent:'sss',enabled:true,blocks:null},o);}
@@ -1905,7 +1959,7 @@ function startGame(def){
   P.model=null;P.debris=[];
   respawn();
   P.backpack=[];P.equipped=null;P.held=null;P.health=P.maxHealth=100;lastHp=-1;
-  if(def.project){buildRuntimeGui(def.project);startScripts(def.project);giveStarterTools(def.project);}
+  if(def.project){buildRuntimeGui(def.project);startScripts(def.project);giveStarterTools(def.project);saveBegin(def);}
   renderHotbar();$('#hp').hidden=!def.project;
   cam.yaw=def.id==='sky'?0:def.id==='tower'?Math.PI/2+.4:.6;cam.pitch=.3;cam.dist=coarse?22:20;cam.cur=cam.dist;
   $('#menu').hidden=true;$('#game').hidden=false;$('#overlay').hidden=true;$('#gcon').innerHTML='';
@@ -1927,6 +1981,7 @@ function startGame(def){
   cv.focus({preventScroll:true});
 }
 function stopGame(){
+  if(game&&game.project&&SAVE.loaded)saveFlush(false,true);SAVE.gen++;SAVE.loaded=false;
   mpLeave();
   if(P.equipped)unequipTool();P.backpack=[];renderHotbar();
   running=false;paused=false;rtReset();$('#game').hidden=true;keys.clear();jumpHeld=false;
@@ -1950,7 +2005,7 @@ $('#btnStop').addEventListener('click',()=>stopGame());
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&running&&!paused)pause();});
 
 function finish(){
-  if(state.over)return;state.over=true;SFX.win();
+  if(state.over)return;state.over=true;SFX.win();if(game.project)saveFlush(false,true);
   mpEmit('fin',{time:r3(state.time)});
   const bests=store.get('bests',{});let html='';
   if(game.mode==='race'||game.mode==='project'){const prev=bests[game.id];const nb=prev==null||state.time<prev;if(nb&&!game.fromEditor){bests[game.id]=state.time;store.set('bests',bests);}
@@ -2086,7 +2141,7 @@ function update(dt){
   for(const c of W.coins){
     if(c.got){if(c.pop>0){c.pop-=dt;c.mesh.position.y+=dt*14;c.mesh.scale.setScalar(Math.max(.01,c.pop/.3));c.mesh.rotation.y+=dt*20;}else c.mesh.visible=false;continue;}
     c.mesh.rotation.y+=dt*2.6;c.mesh.position.y=c.by+Math.sin(t*2+c.ph)*.35;}
-  if(game.project&&!state.over)scriptFrame();
+  if(game.project&&!state.over){scriptFrame();saveTick();}
   if(MP.remotes.size)updateRemotes(dt);
   if(MP.gr&&(MP.sendT-=dt)<=0){MP.sendT=.066;sendPresence();if((MP.plT=(MP.plT||0)-.066)<=0){MP.plT=1;if(MP.plistOpen)renderPlayerList();}}
   if(game.project){const hp=Math.ceil(P.health);if(hp!==lastHp){lastHp=hp;$('#hpFill').style.width=(100*P.health/P.maxHealth)+'%';$('#hpFill').style.background=P.health/P.maxHealth>.5?'':P.health/P.maxHealth>.25?'var(--warn)':'var(--bad)';$('#hpTxt').textContent=hp;}}
@@ -2555,6 +2610,8 @@ function renderProps(){
   if(id==='workspace')h=pgrp('Workspace',prow('Gravity',pnum('s.gravity',S.gravity,1,1),'p_s.gravity')+prow('Show timer',pchk('s.timer',S.timer),'p_s.timer'))+`<p class="pnote">Roblox default gravity is 196.2 studs/s². Lower it for floaty, moon-like jumps.</p>`;
   else if(id==='lighting')h=pgrp('Lighting',prow('Sky color',pcolor('s.sky',S.sky),'p_s.sky')+prow('Fog distance',pnum('s.fog',S.fog,50,100),'p_s.fog')+prow('Brightness',`<input type="range" min=".3" max="1.8" step=".05" data-k="s.brightness" id="p_s.brightness" value="${S.brightness}">`,'p_s.brightness'));
   else if(id==='player')h=pgrp('StarterPlayer',prow('WalkSpeed',pnum('s.walkSpeed',S.walkSpeed,1,0),'p_s.walkSpeed')+prow('JumpPower',pnum('s.jumpPower',S.jumpPower,1,0),'p_s.jumpPower'))+`<p class="pnote">Defaults match Roblox: WalkSpeed 16, JumpPower 50.</p>`+
+    pgrp('Saving progress',prow('Save stats',pchk('s.saveStats',S.saveStats!==false),'p_s.saveStats')+prow('Save checkpoint',pchk('s.saveCheckpoint',S.saveCheckpoint!==false),'p_s.saveCheckpoint')+
+      `<p class="pnote">Each player's progress saves by itself every few seconds and when they leave: their stats, their last checkpoint, and anything scripts store with the Saving blocks. It is kept in their Brickyard account (or in their browser if they are not signed in) and loads next time they play. Playtests use a separate test save.</p><div class="pr"><span class="l"></span><div class="btnrow"><button class="mini" type="button" data-pa="clearTestSave">Clear my test save</button></div></div>`)+
     pgrp('Scripts & animations',`<p class="pnote">Scripts here run for the player: use "when I spawn", "when I jump" and the Player blocks. Animations here can be turned into emotes with their Emote setting. Name one <b>Idle</b>, <b>Walk</b> or <b>Jump</b> to replace the player's default movement animation.</p><div class="pr"><span class="l"></span><div class="btnrow"><button class="mini pri" type="button" data-pa="playerScript">Add script</button><button class="mini" type="button" data-pa="playerAnim">Add animation</button></div></div>`);
   else if(id==='rs')h=pgrp('ReplicatedStorage',`<p class="pnote">Store templates here: parts, models, rigs and folders that stay out of the world until a script copies them in with the Storage blocks. Scripts inside a template start running in each copy.</p><div class="pr"><span class="l"></span><div class="btnrow"><button class="mini pri" type="button" data-pa="insRS">Add a part here</button></div></div>`);
   else if(id==='gui')h=pgrp('StarterGui',`<p class="pnote">On-screen interface: ScreenGuis hold Frames, TextLabels and TextButtons that show over the game for every player. Edit them on the GUI tab and script them with the GUI blocks.</p><div class="pr"><span class="l"></span><div class="btnrow"><button class="mini pri" type="button" data-pa="insGui">Add a text label</button><button class="mini" type="button" data-pa="insGuiB">Add a button</button></div></div>`);
@@ -2663,6 +2720,7 @@ $('#props').addEventListener('click',e=>{const b=e.target.closest('[data-pa]');i
   const pa=b.dataset.pa;
   if(pa==='open')openScript(b.dataset.sid);else if(pa==='addScript')insert('script');else if(pa==='addFx')insert('particles');
   else if(pa==='insRS'){select(['rs']);insert('part');}
+  else if(pa==='clearTestSave'){store.del('save:'+('test-'+ED.proj.id).replace(/[^A-Za-z0-9_-]/g,'_').slice(0,100));logOut('Cleared your test save. The next playtest starts fresh.','sys');}
   else if(pa==='playerScript'){select(['player']);insert('script');}
   else if(pa==='playerAnim'){select(['player']);insert('animation');}
   else if(pa==='editAnim'){openAnim(ED.sel[0]);}
@@ -3248,6 +3306,7 @@ function BY.rigHealth(obj) local h = rigHum(obj) return h and h.Health or 0 end
 function BY.hurt(n) local h = hum() if h then h:TakeDamage(n) end end
 function BY.heal(n) local h = hum() if h then h.Health = math.min(h.MaxHealth, h.Health + n) end end
 function BY.health() local h = hum() return h and h.Health or 0 end
+BY.saved = {} -- In Roblox, use DataStoreService to keep these between sessions.
 function BY.gui(name)
   local pl = Players.LocalPlayer
   if not pl then return nil end
@@ -3316,6 +3375,8 @@ function luaForScript(node,withLib){
     case 's_pl_nameof':return '(player() and player().Name or "")';case 's_pl_hpof':return 'BY.health()';case 's_pl_countof':return '#Players:GetPlayers()';case 's_pl_maxhp':return '(hum() and hum().MaxHealth or 100)';case 's_pl_speed':return '(hum() and hum().WalkSpeed or 16)';
     case 's_pl_moving':return '(hum() ~= nil and hum().MoveDirection.Magnitude > 0)';case 's_pl_alive':return '(hum() ~= nil and hum().Health > 0)';
     case 's_pl_shield':return '(player() and player().Character and player().Character:FindFirstChildOfClass("ForceField") ~= nil)';case 's_pl_tool':return '(function() local c = player() and player().Character local t = c and c:FindFirstChildOfClass("Tool") return t and t.Name or "" end)()';
+    case 'data_get':L.notes.add('Saved data needs DataStoreService in Roblox; the export keeps it in BY.saved for the session only.');return `(BY.saved[tostring(${V(b,'KEY','""')})] or 0)`;
+    case 'data_has':return `(BY.saved[tostring(${V(b,'KEY','""')})] ~= nil)`;case 'data_loaded':return 'true';case 'data_returning':return 'false';
     case 's_timer':return '(os.clock() - BY.t0)';case 's_stat':return `BY.stat(${luaStr(fld(b,'STAT'))}).Value`;case 's_grounded':return 'BY.grounded()';
   }return 'nil';}
   const chainL=(b,ind)=>{let s='';while(b){s+=ls(b,ind);b=b.next&&b.next.block;}return s;};
@@ -3364,6 +3425,9 @@ function luaForScript(node,withLib){
     case 'pe_toggle':return l(`BY.particles(${Pt(b)}, ${fld(b,'B')==='TRUE'?'true':'false'})`);
     case 'pl_kill':return l('BY.kill()');case 'pl_teleport':return l(`BY.teleport(${Pt(b)})`);case 'pl_launch':return l(`BY.launch(${V(b,'P','80')})`);
     case 'pl_as':L.notes.add('"as player" runs its blocks for the first player only in the Roblox export; loop over Players:GetPlayers() to target others.');return l('do -- as player '+fld(D(b,'WHO')||{},'WHO'))+body(b,'DO',i)+l('end');
+    case 'data_set':L.notes.add('Saved data needs DataStoreService in Roblox; the export keeps it in BY.saved for the session only.');return l(`BY.saved[tostring(${V(b,'KEY','""')})] = ${V(b,'V','0')}`);
+    case 'data_change':return l(`BY.saved[tostring(${V(b,'KEY','""')})] = (BY.saved[tostring(${V(b,'KEY','""')})] or 0) + ${V(b,'N','1')}`);
+    case 'data_del':return l(`BY.saved[tostring(${V(b,'KEY','""')})] = nil`);case 'data_clear':return l('BY.saved = {}');case 'data_now':return l('-- save progress now (DataStoreService)');
     case 'pl_sethp':return l(`BY.humanoid("Health", ${V(b,'N','100')})`);
     case 'pl_maxhp':return l(`BY.humanoid("MaxHealth", ${V(b,'N','100')})`)+(fld(b,'FILL')==='TRUE'?l(`BY.humanoid("Health", ${V(b,'N','100')})`):'');
     case 'pl_tpxyz':return l(`do local p = player() local c = p and p.Character if c then c:PivotTo(CFrame.new(${V(b,'X','0')}, ${V(b,'Y','0')}, ${V(b,'Z','0')})) end end`);
@@ -3401,6 +3465,7 @@ function luaForScript(node,withLib){
       case 'ev_land':out+=`Players.PlayerAdded:Connect(function(p)\n  p.CharacterAdded:Connect(function(c)\n    c:WaitForChild("Humanoid").StateChanged:Connect(function(_, s)\n      if s ~= Enum.HumanoidStateType.Landed then return end\n${chainL(nb,'      ')}    end)\n  end)\nend)\n\n`;break;
       case 'ev_hurt':out+=`Players.PlayerAdded:Connect(function(p)\n  p.CharacterAdded:Connect(function(c)\n    local h = c:WaitForChild("Humanoid")\n    local last = h.Health\n    h.HealthChanged:Connect(function(v)\n      local hurt = v < last\n      last = v\n      if not hurt then return end\n${chainL(nb,'      ')}    end)\n  end)\nend)\n\n`;break;
       case 'ev_touch_player':L.notes.add('"when I touch another player" needs a Touched handler on the character in Roblox.');out+=`--[[ when I touch another player\n${chainL(nb,'  ')}]]\n\n`;break;
+      case 'ev_data_loaded':out+=`task.spawn(function()\n${chainL(nb,'  ')}end)\n\n`;break;
       case 'ev_rig_died':out+=`do\n  local m = script:FindFirstAncestorOfClass("Model")\n  local h = m and m:FindFirstChildOfClass("Humanoid")\n  if h then h.Died:Connect(function()\n${B_}  end) end\nend\n\n`;break;
       case 'ev_touch_model':out+=`do\n  local busy = false\n  local model = script:FindFirstAncestorOfClass("Model")\n  for _, part in ipairs(model and model:GetDescendants() or {}) do\n    if part:IsA("BasePart") then\n      part.Touched:Connect(function(hit)\n        if busy or not Players:GetPlayerFromCharacter(hit.Parent) then return end\n        busy = true\n${chainL(nb,'        ')}        busy = false\n      end)\n    end\n  end\nend\n\n`;break;
       case 'ev_click_model':out+=`do\n  local model = script:FindFirstAncestorOfClass("Model")\n  local cd = model and (model:FindFirstChildOfClass("ClickDetector") or Instance.new("ClickDetector", model))\n  if cd then cd.MouseClick:Connect(function()\n${B_}  end) end\nend\n\n`;break;
@@ -3579,12 +3644,12 @@ let BLOCK_THEME=null,TOOLBOX=null;
 function defineBlocks(){
   if(BLOCK_THEME)return;
   const st={event:['#e6a800','#cc9600','#b38400'],control:['#ffab19','#ec9c13','#cf8b17'],part:['#4c97ff','#4280d7','#3373cc'],player:['#9966ff','#855cd6','#774dcb'],
-    game:['#ff6680','#ff4d6a','#ff3355'],storage:['#0fbd8c','#0da57a','#0b8e69'],gui:['#00b8a9','#00a396','#008c81'],anim:['#ff5fa2','#e84d8f','#cc3d7b'],tool:['#e8604c','#d14f3c','#b8402f'],rig:['#e6a14c','#cf8c3a','#b5782c'],fx:['#c46cff','#ad55eb','#9440d4'],sense:['#5cb1d6','#47a8d1','#2e8eb8'],ops:['#59c059','#46b946','#389438'],vars:['#ff8c1a','#ff8000','#db6e00']};
+    game:['#ff6680','#ff4d6a','#ff3355'],storage:['#0fbd8c','#0da57a','#0b8e69'],gui:['#00b8a9','#00a396','#008c81'],data:['#2e9bd6','#2789bf','#1f76a6'],anim:['#ff5fa2','#e84d8f','#cc3d7b'],tool:['#e8604c','#d14f3c','#b8402f'],rig:['#e6a14c','#cf8c3a','#b5782c'],fx:['#c46cff','#ad55eb','#9440d4'],sense:['#5cb1d6','#47a8d1','#2e8eb8'],ops:['#59c059','#46b946','#389438'],vars:['#ff8c1a','#ff8000','#db6e00']};
   const bs=(c,hat)=>Object.assign({colourPrimary:c[0],colourSecondary:c[1],colourTertiary:c[2]},hat?{hat:'cap'}:{});
   BLOCK_THEME=Blockly.Theme.defineTheme('brickyard',{base:Blockly.Themes.Classic,
-    blockStyles:{event_blocks:bs(st.event,true),control_blocks:bs(st.control),part_blocks:bs(st.part),player_blocks:bs(st.player),game_blocks:bs(st.game),storage_blocks:bs(st.storage),gui_blocks:bs(st.gui),anim_blocks:bs(st.anim),tool_blocks:bs(st.tool),rig_blocks:bs(st.rig),fx_blocks:bs(st.fx),sense_blocks:bs(st.sense),
+    blockStyles:{event_blocks:bs(st.event,true),control_blocks:bs(st.control),part_blocks:bs(st.part),player_blocks:bs(st.player),game_blocks:bs(st.game),storage_blocks:bs(st.storage),gui_blocks:bs(st.gui),data_blocks:bs(st.data),anim_blocks:bs(st.anim),tool_blocks:bs(st.tool),rig_blocks:bs(st.rig),fx_blocks:bs(st.fx),sense_blocks:bs(st.sense),
       logic_blocks:bs(st.ops),math_blocks:bs(st.ops),text_blocks:bs(st.ops),loop_blocks:bs(st.control),variable_blocks:bs(st.vars),variable_dynamic_blocks:bs(st.vars),colour_blocks:bs(st.ops),list_blocks:bs(st.ops),procedure_blocks:bs(st.game)},
-    categoryStyles:{events:{colour:st.event[0]},control:{colour:st.control[0]},parts:{colour:st.part[0]},player:{colour:st.player[0]},game:{colour:st.game[0]},storage:{colour:st.storage[0]},gui:{colour:st.gui[0]},anim:{colour:st.anim[0]},tools:{colour:st.tool[0]},rigs:{colour:st.rig[0]},fx:{colour:st.fx[0]},sensing:{colour:st.sense[0]},ops:{colour:st.ops[0]},variables:{colour:st.vars[0]}},
+    categoryStyles:{events:{colour:st.event[0]},control:{colour:st.control[0]},parts:{colour:st.part[0]},player:{colour:st.player[0]},game:{colour:st.game[0]},storage:{colour:st.storage[0]},gui:{colour:st.gui[0]},data:{colour:st.data[0]},anim:{colour:st.anim[0]},tools:{colour:st.tool[0]},rigs:{colour:st.rig[0]},fx:{colour:st.fx[0]},sensing:{colour:st.sense[0]},ops:{colour:st.ops[0]},variables:{colour:st.vars[0]}},
     componentStyles:{workspaceBackgroundColour:'#121a2b',toolboxBackgroundColour:'#162135',toolboxForegroundColour:'#edf2ff',flyoutBackgroundColour:'#1b2840',flyoutForegroundColour:'#c9d3ec',
       flyoutOpacity:.97,scrollbarColour:'#3a4c70',scrollbarOpacity:.7,insertionMarkerColour:'#ffffff',insertionMarkerOpacity:.35,cursorColour:'#ff8a1f'},
     fontStyle:{family:'Figtree, system-ui, sans-serif',weight:'700',size:11}});
@@ -3703,6 +3768,16 @@ function defineBlocks(){
     S_({type:'pl_airjumps',message0:'set extra air jumps to %1',args0:[N('N')],tooltip:'1 gives a double jump, 2 a triple jump, and so on.'},'player_blocks'),
     S_({type:'pl_face',message0:'turn the player to face %1',args0:[PT()]},'player_blocks'),
     S_({type:'pl_camera',message0:'set camera to %1 zoom %2',args0:[{type:'field_dropdown',name:'MODE',options:[['first person','first'],['third person','third'],['zoom distance','zoom']]},N('N')],tooltip:'The zoom number is only used for "zoom distance".'},'player_blocks'),
+    H_({type:'ev_data_loaded',message0:'when my save data loads',tooltip:'Runs once the player\'s saved progress has loaded, a moment after the game starts. Read saved values here.'}),
+    S_({type:'data_set',message0:'save %1 as %2',args0:[{type:'input_value',name:'KEY'},{type:'input_value',name:'V'}],tooltip:'Stores a value in this player\'s save data. It is kept for next time they play.'},'data_blocks'),
+    S_({type:'data_change',message0:'change saved %1 by %2',args0:[{type:'input_value',name:'KEY'},N('N')]},'data_blocks'),
+    S_({type:'data_del',message0:'erase saved %1',args0:[{type:'input_value',name:'KEY'}]},'data_blocks'),
+    S_({type:'data_clear',message0:'erase all my progress',tooltip:'Clears this player\'s saved values, stats and checkpoint.'},'data_blocks'),
+    S_({type:'data_now',message0:'save progress now %1 show message',args0:[{type:'field_checkbox',name:'SHOW',checked:true}],tooltip:'Progress also saves by itself every few seconds and when the player leaves.'},'data_blocks'),
+    V_({type:'data_get',message0:'saved %1',args0:[{type:'input_value',name:'KEY'}],tooltip:'A value from this player\'s save data, or 0 if nothing is saved under that name.'},null,'data_blocks'),
+    V_({type:'data_has',message0:'has saved %1 ?',args0:[{type:'input_value',name:'KEY'}]},'Boolean','data_blocks'),
+    V_({type:'data_loaded',message0:'save data loaded?'},'Boolean','data_blocks'),
+    V_({type:'data_returning',message0:'returning player?',tooltip:'True if this player had saved progress from an earlier visit.'},'Boolean','data_blocks'),
     H_({type:'ev_land',message0:'when I land',tooltip:'Runs when the player lands after a jump or a fall.'}),
     H_({type:'ev_hurt',message0:'when I take damage',tooltip:'Runs each time the player loses health.'}),
     V_({type:'s_pl_name',message0:'player name'},'String','player_blocks'),
@@ -3755,6 +3830,9 @@ function defineBlocks(){
       K('pl_sethp',{N:n_(100)}),K('pl_maxhp',{N:n_(200)}),K('pl_tpxyz',{X:n_(0),Y:n_(20),Z:n_(0)}),K('pl_respawn'),K('pl_freeze',null,{B:'TRUE'}),K('pl_visible',null,{B:'FALSE'}),
       K('pl_shirt'),K('pl_say',{TEXT:t_('Hello!'),S:n_(3)}),K('pl_shield',{S:n_(5)}),K('pl_airjumps',{N:n_(1)}),K('pl_face',{PART:{shadow:{type:'p_this'},block:{type:'p_named',fields:{NAME:'Part'}}}}),K('pl_camera',{N:n_(30)}),
       K('s_pl_name'),K('s_health'),K('s_pl_maxhp'),K('s_pl_speed'),K('s_pl_moving'),K('s_pl_alive'),K('s_pl_shield'),K('s_pl_tool'),K('s_grounded'),K('s_player')]},
+    {kind:'category',name:'Saving',categorystyle:'data',contents:[K('ev_data_loaded'),K('data_set',{KEY:t_('level'),V:n_(1)}),K('data_change',{KEY:t_('gems'),N:n_(1)}),K('data_get',{KEY:t_('level')}),K('data_has',{KEY:t_('level')}),
+      K('data_returning'),K('data_loaded'),K('data_now'),K('data_del',{KEY:t_('level')}),K('data_clear'),
+      K('ev_data_loaded',null,null,{next:{block:{type:'controls_if',inputs:{IF0:{block:{type:'data_returning'}},DO0:{block:{type:'g_msg',inputs:{TEXT:t_('Welcome back!'),S:n_(3)}}}}}}})]},
     {kind:'category',name:'Animation',categorystyle:'anim',contents:[K('ev_spawn'),K('ev_jump'),K('anim_play_me',{NAME:t_('Wave')},{MODE:'once'}),K('anim_play_rig',{NAME:t_('Dance'),PART:me()},{MODE:'loop'}),
       K('anim_stop_me'),K('anim_stop_rig',{PART:me()}),K('s_anim_playing')]},
     {kind:'category',name:'GUI',categorystyle:'gui',contents:[K('ev_gui_click'),K('gui_this'),K('gui_named'),
@@ -4017,7 +4095,7 @@ async function bootShared(){
   if(embed)code=window.BY_EMBED.code;else if(location.hash.startsWith('#g='))code=location.hash.slice(3);
   if(!code)return;
   const sec=$('#sharedSec');sec.hidden=false;
-  try{const proj=await unpackProject(code);proj.id='s'+fnv(code);const meshes=proj.__meshes||[];delete proj.__meshes;SHARED={proj,code,embed,meshes};}
+  try{const proj=await unpackProject(code);proj.saveId=proj.saveId||('s-'+String(proj.id||fnv(code)));proj.id='s'+fnv(code);const meshes=proj.__meshes||[];delete proj.__meshes;SHARED={proj,code,embed,meshes};}
   catch(e){$('#sharedTitle').textContent='This game link is broken';$('#sharedNote').textContent='Part of the link may be missing. Ask for the link again.';return;}
   if(embed){document.title=SHARED.proj.name;['mySec','commSec','drop'].forEach(id=>{const el=$('#'+id);if(el)(el.closest('.sec')||el).hidden=true;});
     const g=$('#grid');if(g)g.closest('.sec').hidden=true;$('#sharedTitle').textContent=SHARED.proj.name;$('#sharedNote').innerHTML='Made with <a href="'+SITE_URL+'" target="_blank" rel="noopener">Brickyard</a>.';$('.lede').hidden=true;}
@@ -4040,5 +4118,5 @@ renderToolbox();renderSwatches();renderCards();
 loop();
 initMP();
 bootShared();
-window.__by={findAnim,playAnim,BD,openAnim,AE,ACC,renderGuiEditor,showAccountModal,MP,arenaDef,packProject,unpackProject,standaloneHtml,get SHARED(){return SHARED},IDB,MESHCACHE,uploadMesh,finalizeMesh,get ecam(){return ecam},get tc(){return tc},cam,ED,W,RT,P,state:()=>state,startGame,openStudio,newProjectObj,saveProject,insert,select,doAct,openScript,playtest,stopGame,exportRbxlx,luaForScript,parseRbxlx,listProjects,GAMES,projectDef,running:()=>running};
+window.__by={SB,SAVE,findAnim,playAnim,BD,openAnim,AE,ACC,renderGuiEditor,showAccountModal,MP,arenaDef,packProject,unpackProject,standaloneHtml,get SHARED(){return SHARED},IDB,MESHCACHE,uploadMesh,finalizeMesh,get ecam(){return ecam},get tc(){return tc},cam,ED,W,RT,P,state:()=>state,startGame,openStudio,newProjectObj,saveProject,insert,select,doAct,openScript,playtest,stopGame,exportRbxlx,luaForScript,parseRbxlx,listProjects,GAMES,projectDef,running:()=>running};
 })();
