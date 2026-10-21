@@ -117,7 +117,7 @@ function makeRigMesh(n){
   const bx=(w,h,d,m,x,y,z,parent)=>{const me=new THREE.Mesh(BOX,m);me.scale.set(w,h,d);me.position.set(x,y,z);me.castShadow=true;me.receiveShadow=true;parent.add(me);return me;};
   const torso=bx(2,2,1,mat(c.torso||'#1e88e5'),0,.5,0,body);
   const head=bx(1.25,1.25,1.25,mat(c.head||'#f5cd30'),0,2.1,0,body);
-  const face=new THREE.Mesh(PLANE,faceDecal);face.position.set(0,2.1,.63);face.scale.set(1.2,1.2,1);body.add(face);
+  const face=new THREE.Mesh(PLANE,faceDecal);face.position.set(0,0,.504);face.scale.set(.96,.96,1);head.add(face);
   const pv=(x,y)=>{const p=new THREE.Group();p.position.set(x,y,0);body.add(p);return p;};
   const lArm=pv(-1.5,1.4),rArm=pv(1.5,1.4),lLeg=pv(-.5,-.5),rLeg=pv(.5,-.5);
   const am=mat(c.arms||'#f5cd30'),lm=mat(c.legs||'#2b3a7a');
@@ -142,6 +142,75 @@ function animateRig(u,anim,tt,moving,dt){
   L(u.lArm,'x',la);L(u.rArm,'x',ra);L(u.lLeg,'x',ll);L(u.rLeg,'x',rl);L(u.lArm,'z',laz);L(u.rArm,'z',raz);
   u.body.position.y+=(by-u.body.position.y)*k;
 }
+
+/* ---------- keyframe animations ---------- */
+const JOINTS=[['Body','Whole body'],['Head','Head'],['LeftArm','Left arm'],['RightArm','Right arm'],['LeftLeg','Left leg'],['RightLeg','Right leg']];
+const JNAMES=['Body','Head','LeftArm','RightArm','LeftLeg','RightLeg','Root'];
+const EASES=[['smooth','Smooth'],['linear','Linear'],['bounce','Bounce'],['elastic','Elastic'],['constant','Snap']];
+const EASEF={linear:f=>f,smooth:f=>f*f*(3-2*f),constant:f=>f<1?0:1,
+  bounce:f=>{const n=7.5625,d=2.75;if(f<1/d)return n*f*f;if(f<2/d)return n*(f-=1.5/d)*f+.75;if(f<2.5/d)return n*(f-=2.25/d)*f+.9375;return n*(f-=2.625/d)*f+.984375;},
+  elastic:f=>f<=0?0:f>=1?1:Math.pow(2,-10*f)*Math.sin((f*10-.75)*(2*Math.PI)/3)+1};
+const AK=(t,pose,ease)=>({t,ease:ease||'smooth',pose});
+const BUILTIN_ANIMS={
+  wave:{name:'Wave',length:1.2,loop:true,keys:[AK(0,{RightArm:[0,0,150]}),AK(.3,{RightArm:[0,0,118]}),AK(.6,{RightArm:[0,0,150]}),AK(.9,{RightArm:[0,0,118]}),AK(1.2,{RightArm:[0,0,150]})]},
+  dance:{name:'Dance',length:1,loop:true,keys:[AK(0,{Body:[0,15,0],LeftArm:[-134,0,0],RightArm:[-186,0,0],LeftLeg:[20,0,0],RightLeg:[-20,0,0]}),AK(.25,{LeftArm:[-160,0,0],RightArm:[-160,0,0],Root:[0,.35,0]}),
+    AK(.5,{Body:[0,-15,0],LeftArm:[-186,0,0],RightArm:[-134,0,0],LeftLeg:[-20,0,0],RightLeg:[20,0,0]}),AK(.75,{LeftArm:[-160,0,0],RightArm:[-160,0,0],Root:[0,.35,0]}),AK(1,{Body:[0,15,0],LeftArm:[-134,0,0],RightArm:[-186,0,0],LeftLeg:[20,0,0],RightLeg:[-20,0,0]})]},
+  cheer:{name:'Cheer',length:.6,loop:true,keys:[AK(0,{LeftArm:[-166,0,-10],RightArm:[-166,0,10]}),AK(.3,{LeftArm:[-180,0,-28],RightArm:[-180,0,28],Root:[0,.3,0]},'bounce'),AK(.6,{LeftArm:[-166,0,-10],RightArm:[-166,0,10]})]},
+  point:{name:'Point',length:1,loop:true,keys:[AK(0,{RightArm:[-90,0,0],Head:[0,-8,0]}),AK(1,{RightArm:[-90,0,0],Head:[0,-8,0]})]},
+  sit:{name:'Sit',length:1,loop:true,keys:[AK(0,{LeftLeg:[-90,0,0],RightLeg:[-90,0,0],LeftArm:[-25,0,0],RightArm:[-25,0,0],Root:[0,-1,0]}),AK(1,{LeftLeg:[-90,0,0],RightLeg:[-90,0,0],LeftArm:[-25,0,0],RightArm:[-25,0,0],Root:[0,-1,0]})]},
+  bow:{name:'Bow',length:1.6,loop:false,keys:[AK(0,{}),AK(.5,{Body:[35,0,0],LeftLeg:[-35,0,0],RightLeg:[-35,0,0],RightArm:[-25,0,0]}),AK(1.1,{Body:[35,0,0],LeftLeg:[-35,0,0],RightLeg:[-35,0,0],RightArm:[-25,0,0]}),AK(1.6,{})]},
+  jumpingjacks:{name:'Jumping jacks',length:.8,loop:true,keys:[AK(0,{}),AK(.4,{LeftArm:[0,0,-160],RightArm:[0,0,160],LeftLeg:[0,0,-22],RightLeg:[0,0,22],Root:[0,.6,0]}),AK(.8,{})]},
+  spin:{name:'Spin',length:1,loop:false,keys:[AK(0,{},'linear'),AK(.5,{Body:[0,180,0],LeftArm:[0,0,-80],RightArm:[0,0,80],Root:[0,.5,0]},'linear'),AK(1,{Body:[0,360,0]},'linear')]},
+  flex:{name:'Flex',length:1.4,loop:false,keys:[AK(0,{}),AK(.35,{LeftArm:[0,0,-90],RightArm:[0,0,90]}),AK(.6,{LeftArm:[-20,0,-90],RightArm:[-20,0,90],Head:[-10,0,0]},'bounce'),AK(1.1,{LeftArm:[-20,0,-90],RightArm:[-20,0,90],Head:[-10,0,0]}),AK(1.4,{})]},
+  idle:{name:'Idle',length:3,loop:true,keys:[AK(0,{}),AK(1.5,{LeftArm:[0,0,-5],RightArm:[0,0,5],Head:[5,0,0],Root:[0,-.05,0]}),AK(3,{})]},
+  walk:{name:'Walk',length:.8,loop:true,keys:[AK(0,{LeftArm:[35,0,0],RightArm:[-35,0,0],LeftLeg:[-35,0,0],RightLeg:[35,0,0]}),AK(.4,{LeftArm:[-35,0,0],RightArm:[35,0,0],LeftLeg:[35,0,0],RightLeg:[-35,0,0]}),AK(.8,{LeftArm:[35,0,0],RightArm:[-35,0,0],LeftLeg:[-35,0,0],RightLeg:[35,0,0]})]},
+  jump:{name:'Jump',length:.5,loop:false,keys:[AK(0,{LeftArm:[-170,0,-10],RightArm:[-170,0,10],LeftLeg:[-20,0,0],RightLeg:[10,0,0]}),AK(.5,{LeftArm:[-150,0,-20],RightArm:[-150,0,20],LeftLeg:[-30,0,0],RightLeg:[15,0,0]})]}
+};
+const EMOTE_KEYS=['wave','dance','cheer','point','sit','bow','jumpingjacks','spin','flex'];
+const Z3=[0,0,0];
+function cleanPose(p){const o={};if(p&&typeof p==='object')for(const j of JNAMES){const v=p[j];if(Array.isArray(v)&&v.length===3)o[j]=v.map(x=>Math.max(-720,Math.min(720,num(x,0))));}return o;}
+function animData(n){
+  const len=Math.max(.1,Math.min(30,num(n.length,2)));
+  const keys=(Array.isArray(n.keys)?n.keys:[]).filter(k=>k&&typeof k==='object').slice(0,300).map(k=>({t:Math.max(0,Math.min(len,num(k.t,0))),ease:EASEF[k.ease]?k.ease:'smooth',pose:cleanPose(k.pose)})).sort((a,b)=>a.t-b.t);
+  return {name:String(n.name||'Animation').slice(0,40),length:len,loop:n.loop!==false&&!!n.loop,speed:Math.max(.05,Math.min(10,num(n.speed,1))),stopOnMove:!!n.stopOnMove,keys:keys.length?keys:[{t:0,ease:'smooth',pose:{}}]};
+}
+let BUILTIN_DATA=null;function BD(){if(!BUILTIN_DATA){BUILTIN_DATA={};for(const k in BUILTIN_ANIMS)BUILTIN_DATA[k]=animData(BUILTIN_ANIMS[k]);}return BUILTIN_DATA;}
+function sampleAnim(a,time){
+  const ks=a.keys,out={};let A,B,f=0;
+  if(time<=ks[0].t){A=B=ks[0];}else if(time>=ks[ks.length-1].t){A=B=ks[ks.length-1];}
+  else{let i=0;while(i<ks.length-2&&ks[i+1].t<=time)i++;A=ks[i];B=ks[i+1];f=(EASEF[B.ease]||EASEF.smooth)((time-A.t)/Math.max(1e-6,B.t-A.t));}
+  for(const j of JNAMES){const a0=A.pose[j]||Z3,b0=B.pose[j]||Z3;out[j]=[a0[0]+(b0[0]-a0[0])*f,a0[1]+(b0[1]-a0[1])*f,a0[2]+(b0[2]-a0[2])*f];}
+  return out;
+}
+function jointObj(u,j){return j==='Body'?u.body:j==='Head'?u.head:j==='LeftArm'?u.lArm:j==='RightArm'?u.rArm:j==='LeftLeg'?u.lLeg:j==='RightLeg'?u.rLeg:null;}
+function applyPose(u,pose,w){
+  if(!u||!u.body||w<=0)return;
+  for(const j of JNAMES){const v=pose[j];if(!v)continue;
+    if(j==='Root'){const ps=u.body.position;ps.x+=(v[0]-ps.x)*w;ps.y+=(v[1]-ps.y)*w;ps.z+=(v[2]-ps.z)*w;continue;}
+    const o=jointObj(u,j);if(!o)continue;const r=o.rotation;r.x+=(v[0]*D2R-r.x)*w;r.y+=(v[1]*D2R-r.y)*w;r.z+=(v[2]*D2R-r.z)*w;}
+}
+function relaxPose(u,k,all){
+  if(!u||!u.body)return;const z=(o,ax)=>{o.rotation[ax]+=(0-o.rotation[ax])*k;};
+  ['x','y','z'].forEach(a=>{z(u.body,a);z(u.head,a);});u.body.position.x*=1-k;u.body.position.z*=1-k;
+  [u.lArm,u.rArm,u.lLeg,u.rLeg].forEach(o=>{z(o,'y');z(o,'z');});if(all)u.body.position.y*=1-k;
+}
+let ANIM_SEQ=0;
+function newAnimState(a,mode,stopOnMove){return {a,name:a.name,t:0,speed:a.speed||1,loop:mode==='loop'?true:mode==='auto'?a.loop:false,stopOnMove:stopOnMove==null?a.stopOnMove:stopOnMove,w:0,out:false,net:a.name+'|'+(++ANIM_SEQ),done:null};}
+function stepAnim(st,dt,moving){
+  if(!st)return null;
+  if(st.stopOnMove&&moving&&st.t>.15)st.out=true;
+  if(st.out){st.w-=dt*6;if(st.w<=0){if(st.done){st.done();st.done=null;}return null;}}else st.w=Math.min(1,st.w+dt*6);
+  st.t+=dt*st.speed;const L=st.a.length;
+  if(st.t>=L){if(st.loop)st.t%=L;else{st.t=L;st.out=true;}}
+  return st;
+}
+function findAnim(name){const k=String(name||'').trim().toLowerCase();if(!k)return null;return (W.anims&&W.anims.get(k))||BD()[k.replace(/[\s_-]/g,'')]||null;}
+function playAnim(target,a,mode,stopOnMove){
+  const cur=target==='me'?P.anim:target.animPlay;if(cur&&cur.done){cur.done();cur.done=null;}
+  const st=newAnimState(a,mode,stopOnMove);if(cur)st.w=cur.w;
+  if(target==='me'){P.anim=st;MP.lastSent='';}else target.animPlay=st;return st;
+}
+function stopAnim(target){const cur=target==='me'?P.anim:target.animPlay;if(cur)cur.out=true;if(target==='me')MP.lastSent='';}
 
 /* ---------- particles ---------- */
 const PU={scale:{value:600}};
@@ -222,6 +291,7 @@ const _box=new THREE.Box3();
 function disposeScene(){scene.traverse(o=>{if(o.geometry&&!o.geometry.userData.shared)o.geometry.dispose();
   if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(!m.userData.shared){if(m.map&&!(m.map.userData||{}).shared)m.map.dispose();m.dispose();}})}});}
 function newScene(o){o=o||{};
+  W.anims=new Map();W.baseAnims=null;W.emotes=[];P.anim=null;$('#emoteMenu').hidden=true;
   const gl=$('#guiLayer');if(gl)gl.innerHTML='';W.gui=new Map();W.guiByName=new Map();
   if(scene)disposeScene();
   scene=new THREE.Scene();
@@ -319,7 +389,8 @@ function updateRigs(dt){
         else{d.multiplyScalar(Math.min(dist-w.stop*.5,r.speed*dt)/dist);const np=r.pos.clone().add(d);
           const s=r.node.scale||1,gy=groundAt(np.x,np.z,r.pos.y-2.5*s+1.3,r);if(isFinite(gy))np.y=gy+2.5*s;
           setPartPos(r,np);r.yaw=Math.atan2(d.x,d.z);r.mesh.rotation.y=r.yaw;moving=true;}}}
-    animateRig(r.mesh.userData.rig,r.anim,t+r.phase,moving,dt);
+    {const u=r.mesh.userData.rig;animateRig(u,r.anim,t+r.phase,moving,dt);relaxPose(u,Math.min(1,dt*10),false);
+      if(r.animPlay){r.animPlay=stepAnim(r.animPlay,dt,moving);if(r.animPlay)applyPose(u,sampleAnim(r.animPlay.a,r.animPlay.t),r.animPlay.w);}}
     if(r.bubble&&t>r.bubbleUntil)rigSay(r,'');
   }
 }
@@ -347,15 +418,15 @@ function destroyPart(p){if(p.destroyed)return;p.destroyed=true;scene.remove(p.me
 
 /* ---------- avatar ---------- */
 function makeAvatar(shirtColor){
-  const g=new THREE.Group();
+  const g=new THREE.Group();const body=new THREE.Group();g.add(body);
   const skin=mat(0xf5cd30),sh=mat(/^#[0-9a-f]{6}$/i.test(shirtColor||'')?shirtColor:shirt),pants=mat(0x2b3a7a);
-  const bx=(w,h,d,m,x,y,z,parent)=>{const me=new THREE.Mesh(BOX,m);me.scale.set(w,h,d);me.position.set(x,y,z);me.castShadow=true;(parent||g).add(me);return me;};
+  const bx=(w,h,d,m,x,y,z,parent)=>{const me=new THREE.Mesh(BOX,m);me.scale.set(w,h,d);me.position.set(x,y,z);me.castShadow=true;(parent||body).add(me);return me;};
   bx(2,2,1,sh,0,.5,0);
-  const head=new THREE.Mesh(BOX,[skin,skin,skin,skin,faceMat,skin]);head.scale.set(1.25,1.25,1.25);head.position.set(0,2.1,0);head.castShadow=true;g.add(head);
-  const pv=(x,y)=>{const p=new THREE.Group();p.position.set(x,y,0);g.add(p);return p;};
+  const head=new THREE.Mesh(BOX,[skin,skin,skin,skin,faceMat,skin]);head.scale.set(1.25,1.25,1.25);head.position.set(0,2.1,0);head.castShadow=true;body.add(head);
+  const pv=(x,y)=>{const p=new THREE.Group();p.position.set(x,y,0);body.add(p);return p;};
   const lArm=pv(-1.5,1.4),rArm=pv(1.5,1.4),lLeg=pv(-.5,-.5),rLeg=pv(.5,-.5);
   bx(1,2,1,skin,0,-.9,0,lArm);bx(1,2,1,skin,0,-.9,0,rArm);bx(1,2,1,pants,0,-1,0,lLeg);bx(1,2,1,pants,0,-1,0,rLeg);
-  g.userData={lArm,rArm,lLeg,rLeg,head};
+  g.userData={lArm,rArm,lLeg,rLeg,head,body};
   return g;
 }
 
@@ -421,7 +492,7 @@ function physics(dt,ix,iy,sprint){
   P.vel.x+=(mx*sp-P.vel.x)*k;P.vel.z+=(mz*sp-P.vel.z)*k;
   if(P.onGround)P.coyote=.1;else P.coyote-=dt;
   P.jumpBuf-=dt;
-  if((P.jumpBuf>0||jumpHeld)&&P.coyote>0&&P.vel.y<=1){P.vel.y=PHYS.jump;P.coyote=0;P.jumpBuf=0;SFX.jump();}
+  if((P.jumpBuf>0||jumpHeld)&&P.coyote>0&&P.vel.y<=1){P.vel.y=PHYS.jump;P.coyote=0;P.jumpBuf=0;SFX.jump();if(RT.jump&&RT.jump.length)rtFire('jump');}
   P.vel.y=Math.max(P.vel.y-PHYS.gravity*dt,-160);
   const was=P.onGround;P.onGround=false;P.ground=null;
   moveAxis(0,P.vel.x*dt,was);moveAxis(2,P.vel.z*dt,was);moveAxis(1,P.vel.y*dt,false);
@@ -430,7 +501,8 @@ function physics(dt,ix,iy,sprint){
 function respawn(){
   P.debris.forEach(d=>scene.remove(d.m));P.debris=[];
   if(P.model)scene.remove(P.model);
-  P.model=makeAvatar();scene.add(P.model);
+  P.model=makeAvatar();scene.add(P.model);P.anim=null;P.baseWhich=null;
+  if(RT.spawn&&RT.spawn.length)setTimeout(()=>rtFire('spawn'),0);
   P.pos.copy(W.checkpoint||W.spawn);P.vel.set(0,0,0);P.dead=false;P.boost=0;P.onGround=false;P.ground=null;P.health=P.maxHealth;
   P.model.position.copy(P.pos);P.model.rotation.y=P.yaw;
 }
@@ -777,6 +849,8 @@ function applyPresence(r,pr){
   if(tk!==r.toolKey){r.toolKey=tk;if(r.held){r.held.parent&&r.held.parent.remove(r.held);r.held=null;}if(tk)r.held=makeRemoteHeld(pr.tool),r.model.userData.rArm.add(r.held);}
   if(num(pr.sw,0)!==r.lastSw){r.lastSw=num(pr.sw,0);if(r.lastSw)r.swT0=t;}
   r.stats=pr.st&&typeof pr.st==='object'?pr.st:{};
+  const em=typeof pr.em==='string'?pr.em.slice(0,60):'';
+  if(em!==(r.em||'')){r.em=em;if(em){const a=findAnim(em.split('|')[0]);r.anim=a?newAnimState(a,'auto',false):null;}else if(r.anim)r.anim.out=true;}
 }
 function makeRemoteHeld(tool){
   const proj=game&&game.project;const tn=proj&&proj.nodes.find(n=>n.cls==='Tool'&&n.name===tool.n);
@@ -792,6 +866,8 @@ function updateRemotes(dt){
     const u=r.model.userData;
     if(!r.air){r.walk+=r.mv*dt*.55;const sw=Math.sin(r.walk)*Math.min(1,r.mv/16)*.95;u.lLeg.rotation.x=sw;u.rLeg.rotation.x=-sw;u.lArm.rotation.x+=(-sw-u.lArm.rotation.x)*.4;u.rArm.rotation.x+=(sw-u.rArm.rotation.x)*.4;}
     else{u.lLeg.rotation.x*=.85;u.rLeg.rotation.x*=.85;u.lArm.rotation.x+=(-2.9-u.lArm.rotation.x)*.2;u.rArm.rotation.x+=(-2.9-u.rArm.rotation.x)*.2;}
+    relaxPose(u,Math.min(1,dt*10),true);
+    if(r.anim){r.anim=stepAnim(r.anim,dt,false);if(r.anim)applyPose(u,sampleAnim(r.anim.a,r.anim.t),r.anim.w);}
     if(r.held){const sw=t-r.swT0;let a=-1.57;if(sw<.32)a=sw<.12?-1.57-1.3*(sw/.12):-2.87+2.4*((sw-.12)/.2);u.rArm.rotation.x=a;}
     if(r.flashT>0){r.flashT-=dt;r.model.traverse(o=>{if(o.isMesh&&o.material!==faceMat){if(r.flashT>0){if(!o.userData.orig){o.userData.orig=o.material;o.material=FLASHMAT;}}else if(o.userData.orig){o.material=o.userData.orig;o.userData.orig=null;}}});}
     if(r.bubble&&t>r.bubbleUntil){r.model.remove(r.bubble);r.bubble.material.map.dispose();r.bubble=null;}
@@ -807,7 +883,7 @@ function myStats(){
 function sendPresence(){
   if(!MP.gr)return;
   const pr={p:[r3(P.pos.x),r3(P.pos.y),r3(P.pos.z)],yaw:r3(P.yaw),mv:r3(Math.hypot(P.vel.x,P.vel.z)),air:!P.onGround,dead:P.dead,sh:shirt,
-    tool:P.equipped?{n:P.equipped.name.slice(0,40),c:P.equipped.color}:null,sw:MP.swWall,hp:Math.round(P.health),st:myStats()};
+    tool:P.equipped?{n:P.equipped.name.slice(0,40),c:P.equipped.color}:null,sw:MP.swWall,hp:Math.round(P.health),st:myStats(),em:P.anim&&!P.anim.out?P.anim.net:''};
   if(MP.p2p)pr.nm=MP.me.name;
   const j=JSON.stringify(pr);if(j===MP.lastSent)return;MP.lastSent=j;MP.gr.presence(pr).catch(()=>{});
 }
@@ -852,9 +928,16 @@ function renderPlayerList(){
 }
 $('#btnPlayers').addEventListener('click',()=>{MP.plistOpen=!MP.plistOpen;updateOnlineUI();cv.focus({preventScroll:true});});
 function openChat(){if(!MP.gr)return;MP.chatOpen=true;$('#chatForm').hidden=false;$('#chatBtn').hidden=true;keys.clear();jumpHeld=false;const i=$('#chatIn');i.value='';i.focus();}
+function renderEmotes(){const m=$('#emoteMenu');m.innerHTML='';
+  const add=(a,label)=>{const b=document.createElement('button');b.type='button';b.textContent=label||a.name;b.onclick=()=>{playEmote(a);};m.appendChild(b);};
+  if(W.emotes&&W.emotes.length){const p=document.createElement('p');p.textContent='This game';m.appendChild(p);W.emotes.forEach(a=>add(a));}
+  const p=document.createElement('p');p.textContent='Emotes';m.appendChild(p);EMOTE_KEYS.forEach(k=>add(BD()[k]));}
+function playEmote(a){if(!running||P.dead)return;playAnim('me',a,'auto',true);$('#emoteMenu').hidden=true;$('#emoteBtn').setAttribute('aria-expanded','false');cv.focus({preventScroll:true});}
+$('#emoteBtn').addEventListener('click',()=>{const m=$('#emoteMenu');m.hidden=!m.hidden;$('#emoteBtn').setAttribute('aria-expanded',String(!m.hidden));if(!m.hidden)renderEmotes();else cv.focus({preventScroll:true});});
 function closeChat(){MP.chatOpen=false;$('#chatForm').hidden=true;$('#chatBtn').hidden=false;if(running)cv.focus({preventScroll:true});}
 $('#chatBtn').addEventListener('click',openChat);
 $('#chatForm').addEventListener('submit',e=>{e.preventDefault();const v=$('#chatIn').value.replace(/[\u0000-\u001f]/g,'').trim().slice(0,140);
+  const em=v.match(/^\/e(?:mote)?\s+(.+)$/i);if(em){const a=findAnim(em[1]);if(a)playEmote(a);else sysChat('No emote called "'+em[1].slice(0,30)+'". Try /e wave, /e dance or /e cheer.');closeChat();return;}
   if(v&&Date.now()-MP.lastChat>700){MP.lastChat=Date.now();mpEmit('chat',{t:v});}closeChat();});
 $('#chatIn').addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Escape'){e.preventDefault();closeChat();}});
 $('#chatIn').addEventListener('blur',()=>{if(MP.chatOpen)setTimeout(closeChat,100);});
@@ -1011,13 +1094,19 @@ function renderHotbar(){
 }
 $('#hotbar').addEventListener('click',e=>{const b=e.target.closest('[data-slot]');if(!b)return;equipTool(P.backpack[+b.dataset.slot]);cv.focus({preventScroll:true});});
 $('#useBtn').addEventListener('pointerdown',e=>{e.preventDefault();activateTool();});
+function registerAnims(proj){
+  W.anims=new Map();W.emotes=[];const base={};
+  for(const n of proj.nodes){if(n.cls!=='Animation')continue;const a=animData(n);const k=a.name.toLowerCase();if(!W.anims.has(k))W.anims.set(k,a);
+    if(serviceOf(proj,n.id)==='player'){if(k==='idle'||k==='walk'||k==='jump')base[k]=a;else W.emotes.push(a);}}
+  W.baseAnims=Object.keys(base).length?base:null;
+}
 function giveStarterTools(proj){proj.nodes.filter(n=>n.cls==='Tool'&&n.parent==='pack').forEach(n=>giveTool(n,true));}
 
 /* ---------- script runtime (block code interpreter) ---------- */
 const STOP={stop:true};
 const RT={gen:0,waiters:[],touch:[],click:[],key:[],msg:new Map(),died:[],vars:new Map(),stats:new Map(),warned:new Set(),t0:0,last:null};
 let t=0;
-function rtReset(){RT.gen++;Object.assign(RT,{waiters:[],touch:[],click:[],key:[],msg:new Map(),died:[],vars:new Map(),stats:new Map(),warned:new Set(),t0:0,last:null});}
+function rtReset(){RT.gen++;Object.assign(RT,{spawn:[],jump:[],waiters:[],touch:[],click:[],key:[],msg:new Map(),died:[],vars:new Map(),stats:new Map(),warned:new Set(),t0:0,last:null});}
 function sleep(s,ctx){return new Promise(res=>RT.waiters.push({at:t+Math.max(0,+s||0),res,gen:ctx.gen}));}
 function rtTick(){if(!RT.waiters.length)return;const due=[];
   RT.waiters=RT.waiters.filter(w=>{if(w.gen!==RT.gen)return false;if(w.at<=t+1e-9){due.push(w);return false;}return true;});due.forEach(w=>w.res());}
@@ -1027,6 +1116,8 @@ function rtFire(kind,arg){
   if(kind==='died')RT.died.forEach(h=>spawnRun(h.body,h));
   else if(kind==='msg')(RT.msg.get(arg)||[]).forEach(h=>spawnRun(h.body,h));
   else if(kind==='key')RT.key.forEach(h=>{if(h.key===arg)spawnRun(h.body,h);});
+  else if(kind==='spawn')(RT.spawn||[]).forEach(h=>spawnRun(h.body,h));
+  else if(kind==='jump')(RT.jump||[]).forEach(h=>spawnRun(h.body,h));
 }
 const inp=(b,n)=>{const i=b&&b.inputs&&b.inputs[n];return i?(i.block||i.shadow):null;};
 const fld=(b,n)=>b&&b.fields?b.fields[n]:undefined;
@@ -1084,6 +1175,7 @@ function ev(b,ctx){
       if(k[0]==='s'&&k.length===2){const sz=v.isGroup?boundsOf(ps).getSize(new V3()):ps[0].size;return r3(sz[k[1]]);}
       return ps[0].look?ps[0].look.transparency||0:0;}
     case 's_timer':return r3(state.time-RT.t0);
+    case 's_anim_playing':return !!(P.anim&&!P.anim.out);
     case 's_stat':return RT.stats.get(String(fld(b,'STAT')))||0;
     case 's_grounded':return P.onGround;
   }
@@ -1179,6 +1271,14 @@ async function stmt(b,ctx){
     case 'pl_teleport':{const tp=topOf(partv(b,ctx));if(tp&&!P.dead){P.pos.set(tp.x,tp.y+PH.y+.3,tp.z);P.vel.set(0,0,0);}break;}
     case 'pl_launch':P.vel.y=numv(inp(b,'P'),ctx);P.onGround=false;P.coyote=0;break;
     case 'pl_speed':PHYS.walk=Math.max(0,numv(inp(b,'V'),ctx));break;
+    case 'anim_play_me':case 'anim_play_rig':{const nm=String(ev(inp(b,'NAME'),ctx)??'');const a=findAnim(nm);const mode=fld(b,'MODE')||'once';
+      if(!a){warnOnce('anf:'+nm,'No animation named "'+nm+'" was found. Insert one with the Animation button, or use a built-in: '+EMOTE_KEYS.map(k=>BD()[k].name).join(', ')+'.');break;}
+      if(b.type==='anim_play_me'){if(P.dead)break;const st=playAnim('me',a,mode==='wait'?'once':mode,false);if(mode==='wait'){ctx.ops=0;while(P.anim===st)await sleep(.05,ctx);}}
+      else{const rs=partsOf(partv(b,ctx)).filter(p=>p.rig&&!p.dead);const sts=rs.map(r=>[r,playAnim(r,a,mode==='wait'?'once':mode,false)]);
+        if(mode==='wait'&&sts.length){ctx.ops=0;while(sts.some(([r,st])=>r.animPlay===st))await sleep(.05,ctx);}}
+      break;}
+    case 'anim_stop_me':stopAnim('me');break;
+    case 'anim_stop_rig':partsOf(partv(b,ctx)).filter(p=>p.rig).forEach(r=>stopAnim(r));break;
     case 'pl_jump':PHYS.jump=Math.max(0,numv(inp(b,'V'),ctx));break;
     case 'pl_gravity':PHYS.gravity=Math.max(1,numv(inp(b,'V'),ctx));break;
     case 'pl_checkpoint':{const tp=topOf(partv(b,ctx));if(tp)W.checkpoint=new V3(tp.x,tp.y+PH.y+.2,tp.z);break;}
@@ -1195,7 +1295,7 @@ async function stmt(b,ctx){
 }
 function startScripts(proj){
   rtReset();
-  startScriptsFor(proj,proj.nodes.filter(n=>n.cls==='Script'&&['workspace','sss','gui'].includes(serviceOf(proj,n.id))&&!hasToolAncestor(proj,n.id)),W.byId,W.models);
+  startScriptsFor(proj,proj.nodes.filter(n=>n.cls==='Script'&&['workspace','sss','gui','player'].includes(serviceOf(proj,n.id))&&!hasToolAncestor(proj,n.id)),W.byId,W.models);
 }
 function startScriptsFor(proj,scripts,map,models,opts){
   const nodes=proj.nodes;
@@ -1221,6 +1321,8 @@ function startScriptsFor(proj,scripts,map,models,opts){
           (async()=>{while(true){await sleep(n,ctx);await run(body,ctx);}})().catch(e=>rtErr(e,ctx));break;}
         case 'ev_msg':{const m=String(fld(top,'MSG'));if(!RT.msg.has(m))RT.msg.set(m,[]);RT.msg.get(m).push(h);break;}
         case 'ev_died':RT.died.push(h);break;
+        case 'ev_spawn':RT.spawn.push(h);spawnRun(body,base);break;
+        case 'ev_jump':RT.jump.push(h);break;
         case 'ev_tool_act':case 'ev_tool_equip':case 'ev_tool_unequip':case 'ev_tool_hit':
           if(base.tool)base.tool.handlers[{ev_tool_act:'act',ev_tool_equip:'equip',ev_tool_unequip:'unequip',ev_tool_hit:'hit'}[top.type]].push(h);
           else logOut(base.script+': tool events need the script to be inside a Tool.','warn');break;
@@ -1668,6 +1770,7 @@ function nodesBounds(list){const bb=new THREE.Box3();
 function buildProject(proj){
   const S=proj.settings;
   PHYS.gravity=S.gravity;PHYS.walk=S.walkSpeed;PHYS.jump=S.jumpPower;
+  registerAnims(proj);
   const list=descendantsOf(proj,'workspace');
   W.models=instantiate(proj,list,null,W.byId);
   let spawn=null,minY=Infinity,stages=0;
@@ -1858,6 +1961,13 @@ function update(dt){
     if(P.onGround){P.walk+=hs*dt*.55;const sw=Math.sin(P.walk)*Math.min(1,hs/16)*.95;
       u.lLeg.rotation.x=sw;u.rLeg.rotation.x=-sw;u.lArm.rotation.x+=(-sw-u.lArm.rotation.x)*.4;u.rArm.rotation.x+=(sw-u.rArm.rotation.x)*.4;}
     else{u.lLeg.rotation.x*=.85;u.rLeg.rotation.x*=.85;u.lArm.rotation.x+=(-2.9-u.lArm.rotation.x)*.2;u.rArm.rotation.x+=(-2.9-u.rArm.rotation.x)*.2;}
+    if(!P.equipped)u.lArm.rotation.z*=.8,u.rArm.rotation.z*=.8;
+    relaxPose(u,Math.min(1,dt*10),true);
+    {const B=W.baseAnims;if(B){const which=!P.onGround?B.jump:hs>1?B.walk:B.idle;
+      if(which!==P.baseWhich){P.baseWhich=which;P.baseT=0;P.baseW=0;}
+      if(which){P.baseT+=dt*(which.speed||1)*(which===B.walk?Math.max(.5,hs/16):1);P.baseW=Math.min(1,P.baseW+dt*8);
+        applyPose(u,sampleAnim(which,which.loop?P.baseT%which.length:Math.min(P.baseT,which.length)),P.baseW);}}}
+    if(P.anim){P.anim=stepAnim(P.anim,dt,hs>1.5||!P.onGround);if(P.anim)applyPose(u,sampleAnim(P.anim.a,P.anim.t),P.anim.w);else MP.lastSent='';}
     if(P.equipped){const e=P.equipped,sw=t-e.swingT0;let a=-1.57;
       if(sw<.32){a=sw<.12?-1.57-1.3*(sw/.12):-2.87+2.4*((sw-.12)/.2);}
       u.rArm.rotation.x=a;u.rArm.rotation.z=0;}
@@ -2115,7 +2225,7 @@ function renderExplorer(){
     `<button class="tw" data-tw="${id}" tabindex="-1" aria-label="Expand">${hasKids?(open?'▾':'▸'):''}</button><span class="ico ${icoCls}">${ico}</span>`+
     (ED.rename===id?`<input id="renameIn" value="${esc(name)}" aria-label="Rename">`:`<span class="nm${extra||''}">${esc(name)}</span>`)+`</div>`;};
   const walk=(pid,d)=>{for(const n of by.get(pid)||[]){const k=(by.get(n.id)||[]).length>0;
-    const ic=n.cls==='ScreenGui'?['SG','ScreenGui']:n.cls==='Frame'?['▭','Frame']:n.cls==='TextLabel'?['T','TextLabel']:n.cls==='TextButton'?['B','TextButton']:n.cls==='Tool'?['⚔','Tool']:n.shape==='mesh'?['MP','MeshPart']:n.cls==='ParticleEmitter'?['✦','ParticleEmitter']:[n.cls[0],n.cls];
+    const ic=n.cls==='Animation'?['◆','Animation']:n.cls==='ScreenGui'?['SG','ScreenGui']:n.cls==='Frame'?['▭','Frame']:n.cls==='TextLabel'?['T','TextLabel']:n.cls==='TextButton'?['B','TextButton']:n.cls==='Tool'?['⚔','Tool']:n.shape==='mesh'?['MP','MeshPart']:n.cls==='ParticleEmitter'?['✦','ParticleEmitter']:[n.cls[0],n.cls];
     h+=row(n.id,n.name,ic[0],ic[1],d,k,(n.cls==='Script'||n.cls==='ParticleEmitter')&&n.enabled===false?' off':'');if(k&&ED.expanded.has(n.id))walk(n.id,d+1);}};
   SERVICES.forEach(s=>{const k=(by.get(s.id)||[]).length>0;h+=row(s.id,s.name,s.ico,'svc',0,k);if(k&&ED.expanded.has(s.id))walk(s.id,1);});
   el.innerHTML=h;
@@ -2129,16 +2239,18 @@ exEl.addEventListener('click',e=>{
   const r=e.target.closest('.ex-row');if(!r||e.target.id==='renameIn')return;select([r.dataset.id],e.shiftKey||e.ctrlKey||e.metaKey);closeDrawers(false);
 });
 exEl.addEventListener('dblclick',e=>{const r=e.target.closest('.ex-row');if(!r)return;const n=nodeOf(r.dataset.id);if(!n)return;
-  if(n.cls==='Script')openScript(n.id);else{ED.rename=n.id;renderExplorer();}});
+  if(n.cls==='Script')openScript(n.id);else if(n.cls==='Animation')openAnim(n.id);else{ED.rename=n.id;renderExplorer();}});
 exEl.addEventListener('contextmenu',e=>{const r=e.target.closest('.ex-row');if(!r)return;e.preventDefault();if(!ED.sel.includes(r.dataset.id))select([r.dataset.id]);showCtx(e.clientX,e.clientY);});
 exEl.addEventListener('dragstart',e=>{const r=e.target.closest('.ex-row');if(!r)return;ED.drag=ED.sel.includes(r.dataset.id)?ED.sel.filter(id=>!isService(id)):[r.dataset.id];e.dataTransfer.setData('text/plain','x');e.dataTransfer.effectAllowed='move';});
 function canParentTo(ids,target){
-  if(target==='lighting'||target==='player')return false;
+  if(target==='lighting')return false;
+  if(target==='player'&&!ids.every(id=>['Script','Animation','Folder'].includes((nodeOf(id)||{}).cls)))return false;
+  if(ids.some(id=>(nodeOf(id)||{}).cls==='Animation')){const tn0=nodeOf(target);if(tn0&&tn0.cls==='Part')return false;}
   const tn=nodeOf(target);const tGui=target==='gui'||isGuiNode(tn);
   const movingGui=ids.map(nodeOf).filter(Boolean);
   if(tGui){if(!movingGui.every(n=>isGuiNode(n)||n.cls==='Script'))return false;if(movingGui.some(n=>n.cls==='ScreenGui')&&target!=='gui')return false;if(target==='gui'&&movingGui.some(n=>n.cls!=='ScreenGui'))return false;}
   else if(movingGui.some(isGuiNode))return false;
-  const t=nodeOf(target);if(t&&(t.cls==='Script'||t.cls==='ParticleEmitter'))return false;
+  const t=nodeOf(target);if(t&&(t.cls==='Script'||t.cls==='ParticleEmitter'||t.cls==='Animation'))return false;
   if(target==='pack'&&!ids.every(id=>(nodeOf(id)||{}).cls==='Tool'))return false;
   return ids.every(id=>id!==target&&!isAncestor(id,target)&&(nodeOf(id)||{}).cls!==undefined);
 }
@@ -2153,10 +2265,11 @@ exEl.addEventListener('dragend',()=>{ED.drag=null;});
 function showCtx(x,y){
   const id=ED.sel[0];const n=nodeOf(id);const m=$('#ctxMenu');let h='';
   const it=(act,label,key)=>`<button type="button" data-act="${act}">${label}${key?`<span>${key}</span>`:''}</button>`;
-  if(n){h+=it('rename','Rename','F2');if(n.cls==='Script')h+=it('openscript','Edit blocks')+it('toggleScript',n.enabled===false?'Enable':'Disable');
+  if(n){h+=it('rename','Rename','F2');if(n.cls==='Animation')h+=it('openanim','Edit animation');if(n.cls==='Script')h+=it('openscript','Edit blocks')+it('toggleScript',n.enabled===false?'Enable':'Disable');
     h+=it('dup','Duplicate','Ctrl+D')+it('copy','Copy','Ctrl+C')+it('paste','Paste into','Ctrl+V')+it('del','Delete','Del')+'<hr>';
     if(n.cls!=='Script')h+=it('group','Group','Ctrl+G');if(n.cls==='Model'||n.cls==='Folder')h+=it('ungroup','Ungroup','Ctrl+U');
     h+=it('ins-script','Insert script')+it('focus','Zoom to','F');}
+  else if(id==='player')h+=it('ins-script','Insert script')+it('ins-anim','Insert animation')+it('paste','Paste into','Ctrl+V');
   else if(id==='workspace'||id==='sss')h+=it('ins-script','Insert script')+it('paste','Paste into','Ctrl+V')+(id==='workspace'?it('ins-folder','Insert folder'):'');
   else return;
   m.innerHTML=h;m.hidden=false;const W_=innerWidth,H_=innerHeight;const r=m.getBoundingClientRect();
@@ -2169,6 +2282,8 @@ $('#ctxMenu').addEventListener('click',e=>{const b=e.target.closest('[data-act]'
 function targetParent(forScript,allowTool){
   if(ED.sel[0]==='rs')return 'rs';
   const n=nodeOf(ED.sel[0]);
+  if(forScript&&ED.sel[0]==='player')return 'player';
+  if(n&&n.cls==='Animation'){if(forScript)return n.parent;const pp=nodeOf(n.parent);return pp&&['Folder','Model'].includes(pp.cls)?pp.id:'workspace';}
   if(forScript){if(n&&n.cls==='ParticleEmitter')return n.parent;if(n&&n.cls!=='Script')return n.id;if(n&&n.cls==='Script')return n.parent;if(ED.sel[0]==='workspace')return 'workspace';return 'sss';}
   const okC=c=>c==='Folder'||c==='Model'||(allowTool&&c==='Tool');
   if(n&&okC(n.cls))return n.id;
@@ -2206,6 +2321,12 @@ function emitterNode(o,preset){return Object.assign({id:uid(),cls:'ParticleEmitt
 function insertedNote(n){if(serviceOf(ED.proj,n.id)==='rs')logOut('Added '+n.name+' to ReplicatedStorage. It stays out of the world until a script copies it in with a Storage block.','sys');else logOut('Inserted '+n.name+'.','sys');}
 function insert(kind){
   if(kind==='mesh'){showPane('assets');if(innerWidth<=900){closeDrawers();$('#stLeft').classList.add('open');$('#scrim').classList.add('on');}if(!ED.assets.length)$('#meshFile').click();return;}
+  if(kind==='animation'){
+    let par='player';const s0=nodeOf(ED.sel[0]);
+    if(ED.sel[0]==='rs'||ED.sel[0]==='player')par=ED.sel[0];else if(s0&&['Rig','Folder','Model'].includes(s0.cls))par=s0.id;else if(s0&&s0.cls==='Animation')par=s0.parent;
+    const n={id:uid(),cls:'Animation',name:nextName('Animation'),parent:par,length:2,loop:false,speed:1,stopOnMove:false,keys:[AK(0,{}),AK(1,{RightArm:[0,0,150]}),AK(2,{})]};
+    ED.proj.nodes.push(n);ED.expanded.add(par);commit();refreshAll();select([n.id]);openAnim(n.id);
+    logOut('Added an Animation. Move the playhead, press + Keyframe and drag the sliders to pose the character.','sys');return;}
   if(kind.startsWith('gui-')){const cls={'gui-text':'TextLabel','gui-button':'TextButton','gui-frame':'Frame'}[kind];const out=[];
     let par=null;const s0=nodeOf(ED.sel[0]);
     if(s0&&(s0.cls==='ScreenGui'||s0.cls==='Frame'))par=s0.id;else if(s0&&isGuiNode(s0))par=s0.parent;
@@ -2277,6 +2398,7 @@ function focusSel(){
 function doAct(a){
   switch(a){
     case 'undo':undo();break;case 'redo':redo();break;case 'copy':copySel();break;case 'paste':paste();break;
+    case 'openanim':openAnim(ED.sel[0]);break;case 'ins-anim':insert('animation');break;
     case 'turn':turnSelection('y');break;case 'tilt':turnSelection('x');break;
     case 'dup':duplicate();break;case 'del':del();break;case 'group':group();break;case 'ungroup':ungroup();break;
     case 'snap':ED.snap=!ED.snap;updateSnapUI();break;
@@ -2326,7 +2448,8 @@ function renderProps(){
   const S=ED.proj.settings;let h='';
   if(id==='workspace')h=pgrp('Workspace',prow('Gravity',pnum('s.gravity',S.gravity,1,1),'p_s.gravity')+prow('Show timer',pchk('s.timer',S.timer),'p_s.timer'))+`<p class="pnote">Roblox default gravity is 196.2 studs/s². Lower it for floaty, moon-like jumps.</p>`;
   else if(id==='lighting')h=pgrp('Lighting',prow('Sky color',pcolor('s.sky',S.sky),'p_s.sky')+prow('Fog distance',pnum('s.fog',S.fog,50,100),'p_s.fog')+prow('Brightness',`<input type="range" min=".3" max="1.8" step=".05" data-k="s.brightness" id="p_s.brightness" value="${S.brightness}">`,'p_s.brightness'));
-  else if(id==='player')h=pgrp('StarterPlayer',prow('WalkSpeed',pnum('s.walkSpeed',S.walkSpeed,1,0),'p_s.walkSpeed')+prow('JumpPower',pnum('s.jumpPower',S.jumpPower,1,0),'p_s.jumpPower'))+`<p class="pnote">Defaults match Roblox: WalkSpeed 16, JumpPower 50.</p>`;
+  else if(id==='player')h=pgrp('StarterPlayer',prow('WalkSpeed',pnum('s.walkSpeed',S.walkSpeed,1,0),'p_s.walkSpeed')+prow('JumpPower',pnum('s.jumpPower',S.jumpPower,1,0),'p_s.jumpPower'))+`<p class="pnote">Defaults match Roblox: WalkSpeed 16, JumpPower 50.</p>`+
+    pgrp('Scripts & animations',`<p class="pnote">Scripts here run for the player: use "when I spawn", "when I jump" and the Player blocks. Animations here become emotes in the Emotes menu. Name one <b>Idle</b>, <b>Walk</b> or <b>Jump</b> to replace the player's default movement animation.</p><div class="pr"><span class="l"></span><div class="btnrow"><button class="mini pri" type="button" data-pa="playerScript">Add script</button><button class="mini" type="button" data-pa="playerAnim">Add animation</button></div></div>`);
   else if(id==='rs')h=pgrp('ReplicatedStorage',`<p class="pnote">Store templates here: parts, models, rigs and folders that stay out of the world until a script copies them in with the Storage blocks. Scripts inside a template start running in each copy.</p><div class="pr"><span class="l"></span><div class="btnrow"><button class="mini pri" type="button" data-pa="insRS">Add a part here</button></div></div>`);
   else if(id==='gui')h=pgrp('StarterGui',`<p class="pnote">On-screen interface: ScreenGuis hold Frames, TextLabels and TextButtons that show over the game for every player. Edit them on the GUI tab and script them with the GUI blocks.</p><div class="pr"><span class="l"></span><div class="btnrow"><button class="mini pri" type="button" data-pa="insGui">Add a text label</button><button class="mini" type="button" data-pa="insGuiB">Add a button</button></div></div>`);
   else if(id==='pack')h=pgrp('StarterPack',`<p class="pnote">Tools here go into every player's hotbar when the game starts. Build a tool in Workspace so you can see it, then drag it here.</p><div class="pr"><span class="l"></span><div class="btnrow"><button class="mini pri" type="button" data-pa="insTool">Add a tool here</button></div></div>`);
@@ -2339,7 +2462,12 @@ function renderProps(){
     const scriptsBox=()=>pgrp('Scripts',kidsOf(n.id).filter(k=>k.cls==='Script').map(s=>`<div class="pr"><span class="l">${esc(s.name)}</span><div class="btnrow"><button class="mini" type="button" data-pa="open" data-sid="${s.id}">Edit blocks</button></div></div>`).join('')+
       `<div class="pr"><span class="l"></span><div class="btnrow"><button class="mini pri" type="button" data-pa="addScript">Add script</button><button class="mini" type="button" data-pa="addFx">Add particles</button></div></div>`);
     const pv4=(k,arr,lbl)=>`<div class="v3" style="grid-template-columns:repeat(2,minmax(0,1fr));row-gap:4px">${[0,1,2,3].map(i=>`<input type="number" step="${i%2?1:.01}" data-k="${k}" data-i="${i}" value="${r3(num(arr[i],0))}" aria-label="${lbl} ${['X scale','X offset','Y scale','Y offset'][i]}" title="${['X scale','X offset (px)','Y scale','Y offset (px)'][i]}">`).join('')}</div>`;
-    if(n.cls==='ScreenGui'){h+=pgrp('ScreenGui',prow('Enabled',pchk('visible',n.visible!==false),'p_visible'))+scriptsBox()+`<p class="pnote">A ScreenGui fills the screen. Put Frames, TextLabels and TextButtons inside it.</p>`;}
+    if(n.cls==='Animation'){const a=animData(n);
+      h+=pgrp('Animation',prow('Length (s)',pnum('length',a.length,.1,.1),'p_length')+prow('Loop',pchk('loop',a.loop),'p_loop')+prow('Speed',pnum('speed',a.speed,.1,.05),'p_speed')+
+        prow('Stop when moving',pchk('stopOnMove',a.stopOnMove),'p_stopOnMove')+`<div class="pr"><span class="l">Keyframes</span><span class="ro">${a.keys.length}</span></div>`+
+        `<div class="pr"><span class="l"></span><div class="btnrow"><button class="mini pri" type="button" data-pa="editAnim">Edit animation</button></div></div>`)+
+        `<p class="pnote">Play it with "play animation ${esc(a.name)}" in the Animation blocks.${serviceOf(ED.proj,n.id)==='player'?' It is also in the in-game Emotes menu.':' Put it in StarterPlayer to make it an emote.'}</p>`;}
+    else if(n.cls==='ScreenGui'){h+=pgrp('ScreenGui',prow('Enabled',pchk('visible',n.visible!==false),'p_visible'))+scriptsBox()+`<p class="pnote">A ScreenGui fills the screen. Put Frames, TextLabels and TextButtons inside it.</p>`;}
     else if(isGuiNode(n)){
       h+=pgrp('Layout',prow('Position',pv4('gpos',n.gpos||[0,0,0,0],'Position'))+prow('Size',pv4('gsize',n.gsize||[0,100,0,40],'Size'))+
         prow('Anchor',`<div class="v3" style="grid-template-columns:repeat(2,minmax(0,1fr))">${[0,1].map(i=>`<input type="number" step=".5" min="0" max="1" data-k="anchor" data-i="${i}" value="${r3(num((n.anchor||[0,0])[i],0))}" aria-label="Anchor ${'XY'[i]}">`).join('')}</div>`)+
@@ -2417,7 +2545,8 @@ function applyProp(el,commitIt){
     }
   }
   if(k==='name'){renderExplorer();renderTabs();}
-  if(isGuiNode(first)){renderGuiEditor();}
+  if(first.cls==='Animation'){if(ED.tab===first.id)renderAnimEditor();}
+  else if(isGuiNode(first)){renderGuiEditor();}
   else if(k!=='name'&&first.cls!=='Script'&&first.cls!=='Folder'&&first.cls!=='Model'&&first.cls!=='Tool'){rebuildWorld();if(ED.sel.length===1)refreshGizmo();}
   if(commitIt){commit();if(['behavior','anchored','shape','enabled','preset'].includes(k)){renderProps();renderExplorer();}}
 }
@@ -2428,6 +2557,9 @@ $('#props').addEventListener('click',e=>{const b=e.target.closest('[data-pa]');i
   const pa=b.dataset.pa;
   if(pa==='open')openScript(b.dataset.sid);else if(pa==='addScript')insert('script');else if(pa==='addFx')insert('particles');
   else if(pa==='insRS'){select(['rs']);insert('part');}
+  else if(pa==='playerScript'){select(['player']);insert('script');}
+  else if(pa==='playerAnim'){select(['player']);insert('animation');}
+  else if(pa==='editAnim'){openAnim(ED.sel[0]);}
   else if(pa==='insGui'){select(['gui']);insert('gui-text');}
   else if(pa==='insGuiB'){select(['gui']);insert('gui-button');}
   else if(pa==='insTool'){insert('tool');const tn=nodeOf(ED.sel[0]);if(tn){tn.parent='pack';commit();refreshAll();logOut('Added a Tool to StarterPack. Drag it into Workspace to see and shape it.','sys');}}
@@ -2462,6 +2594,13 @@ const PREFABS=[
       partNode({parent:bl.id,name:'Hub',pos:[o.x,o.y+14,o.z+2],size:[1.6,1.6,1.6],color:'#455a64'}),
       partNode({parent:bl.id,name:'BladeA',pos:[o.x,o.y+14,o.z+2],size:[14,1.4,.4],color:'#f5f5f5'}),partNode({parent:bl.id,name:'BladeB',pos:[o.x,o.y+14,o.z+2],size:[1.4,14,.4],color:'#f5f5f5'}),
       scriptNode({parent:bl.id,name:'SpinScript',blocks:SCR.spinModel()})];}},
+  ...['wave','dance','cheer','bow','jumpingjacks','spin','flex','sit','point'].map(k=>({sec:'Animations',name:BUILTIN_ANIMS[k].name+' emote',desc:'A keyframe animation in StarterPlayer, so players can use it from the Emotes menu. Open it to edit the poses.',ico:['Animation','#ff5fa2'],
+    make:()=>[{id:uid(),cls:'Animation',name:BUILTIN_ANIMS[k].name,parent:'player',length:BUILTIN_ANIMS[k].length,loop:BUILTIN_ANIMS[k].loop,speed:1,stopOnMove:true,keys:JSON.parse(JSON.stringify(BUILTIN_ANIMS[k].keys))}]})),
+  {sec:'Animations',name:'Custom walk',desc:'Replaces the player\'s walk with a big arm-swing walk you can edit.',ico:['Animation','#ff5fa2'],make:()=>[{id:uid(),cls:'Animation',name:'Walk',parent:'player',length:.8,loop:true,speed:1,keys:JSON.parse(JSON.stringify(BUILTIN_ANIMS.walk.keys))}]},
+  {sec:'Animations',name:'Custom idle',desc:'Replaces the player\'s standing pose with a gentle breathing idle.',ico:['Animation','#ff5fa2'],make:()=>[{id:uid(),cls:'Animation',name:'Idle',parent:'player',length:3,loop:true,speed:1,keys:JSON.parse(JSON.stringify(BUILTIN_ANIMS.idle.keys))}]},
+  {sec:'Animations',name:'Dancing NPC',desc:'A rig that dances forever with the Dance animation.',ico:['Rig','#ff5fa2'],make:o=>{const r=rigNode({name:'Dancer',pos:[o.x,o.y+2.6,o.z],colors:{head:'#f5cd30',torso:'#ff5fa2',arms:'#f5cd30',legs:'#2b3a7a'}});
+    return [r,scriptNode({parent:r.id,name:'DanceScript',blocks:scriptOf(chain(blk('ev_start'),blk('anim_play_rig',{NAME:bt('Dance'),PART:bme()},{MODE:'loop'})))})];}},
+  {sec:'Animations',name:'Wave on spawn',desc:'A StarterPlayer script: your character waves every time you spawn.',ico:['Script','#9966ff'],make:()=>[scriptNode({parent:'player',name:'SpawnWave',blocks:scriptOf(chain(blk('ev_spawn'),blk('c_wait',{S:bn(.5)}),blk('anim_play_me',{NAME:bt('Wave')},{MODE:'once'})))})]},
   {sec:'GUI',name:'Coin counter',desc:'A label in the top corner that shows your Coins stat.',ico:['TextLabel','#b2f0e8'],make:()=>{const sg=guiNode('ScreenGui',{name:'CoinGui'});
     const lb=guiNode('TextLabel',{parent:sg.id,name:'CoinLabel',text:'Coins: 0',gpos:[1,-20,0,76],anchor:[1,0],gsize:[0,200,0,48],bg:'#ffc72c',bgT:.05,tc:'#2a1a00',font:'Display',ts:24,radius:24});
     return [sg,lb,scriptNode({parent:lb.id,name:'CoinScript',blocks:scriptOf(chain(blk('ev_start'),blk('c_forever',{DO:doIn(blk('gui_settext',{GUI:{shadow:{type:'gui_this'}},
@@ -2546,9 +2685,103 @@ function renderToolbox(){let h='',sec='';PREFABS.forEach((p,i)=>{if(p.sec!==sec)
   h+=`<button type="button" class="tb-item" data-pf="${i}"><span class="ico ${p.ico[0]}" style="background:${p.ico[1]}"></span><span><b>${esc(p.name)}</b><span>${esc(p.desc)}</span></span></button>`;});$('#toolbox').innerHTML=h;}
 $('#toolbox').addEventListener('click',e=>{const b=e.target.closest('[data-pf]');if(!b)return;const pf=PREFABS[+b.dataset.pf];
   const p=dropPoint([1,0,1]);const nodes=pf.make({x:p[0],y:r3(p[1]),z:p[2]});const par=targetParent();
-  nodes.forEach(n=>{if(n.parent!=='rs'&&n.parent!=='gui'&&!nodes.some(m=>m.id===n.parent))n.parent=par;});
-  ED.proj.nodes.push(...nodes);if(nodes.some(n=>n.parent==='rs'))ED.expanded.add('rs');if(nodes.some(n=>n.parent==='gui'))ED.expanded.add('gui');commit();refreshAll();select([(nodes.find(n=>n.parent!=='rs')||nodes[0]).id]);closeDrawers();logOut('Inserted '+pf.name+'.','sys');
+  nodes.forEach(n=>{if(n.parent!=='rs'&&n.parent!=='gui'&&n.parent!=='player'&&!nodes.some(m=>m.id===n.parent))n.parent=par;});
+  ED.proj.nodes.push(...nodes);if(nodes.some(n=>n.parent==='rs'))ED.expanded.add('rs');if(nodes.some(n=>n.parent==='player'))ED.expanded.add('player');if(nodes.some(n=>n.parent==='gui'))ED.expanded.add('gui');commit();refreshAll();select([(nodes.find(n=>n.parent!=='rs')||nodes[0]).id]);closeDrawers();logOut('Inserted '+pf.name+'.','sys');
   if(nodes.some(n=>n.parent==='rs'))logOut('Its template is in ReplicatedStorage.','sys');});
+
+/* ---- animation editor ---- */
+const AE={r:null,scene:null,cam:null,rig:null,yaw:.7,pitch:.12,dist:13,time:0,playing:false,selKey:null,raf:0,last:0,drag:null};
+function openAnim(id){const n=nodeOf(id);if(!n||n.cls!=='Animation')return;if(!ED.tabs.includes(id))ED.tabs.push(id);switchTab(id);closeDrawers();}
+function curAnimNode(){const n=nodeOf(ED.tab);return n&&n.cls==='Animation'?n:null;}
+function ensureAnimView(){
+  if(AE.r)return true;
+  try{AE.r=new THREE.WebGLRenderer({canvas:$('#anCv'),antialias:true});}catch(e){logOut('The animation preview could not start WebGL.','err');return false;}
+  AE.r.setPixelRatio(Math.min(2,devicePixelRatio||1));AE.r.setClearColor(0x1a2438);
+  AE.scene=new THREE.Scene();AE.scene.add(new THREE.HemisphereLight(0xdfefff,0x334055,.9));const dl=new THREE.DirectionalLight(0xffffff,.8);dl.position.set(5,10,7);AE.scene.add(dl);
+  const grid=new THREE.GridHelper(20,20,0x3a4c70,0x24324d);grid.position.y=-3;AE.scene.add(grid);
+  AE.cam=new THREE.PerspectiveCamera(40,1,.1,200);
+  AE.rig=makeRigMesh({name:'',showName:false,colors:{}});AE.scene.add(AE.rig);
+  const cv=$('#anCv');let drag=null;
+  cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};cv.setPointerCapture(e.pointerId);cv.style.cursor='grabbing';});
+  cv.addEventListener('pointermove',e=>{if(!drag)return;AE.yaw-=(e.clientX-drag.x)*.01;AE.pitch=Math.max(-.6,Math.min(1.2,AE.pitch+(e.clientY-drag.y)*.01));drag={x:e.clientX,y:e.clientY};});
+  const up=()=>{drag=null;cv.style.cursor='';};cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);
+  cv.addEventListener('wheel',e=>{e.preventDefault();AE.dist=Math.max(6,Math.min(30,AE.dist*(1+Math.sign(e.deltaY)*.1)));},{passive:false});
+  const ps=$('#anPreset');Object.keys(BUILTIN_ANIMS).forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=BUILTIN_ANIMS[k].name;ps.appendChild(o);});
+  return true;
+}
+function animLoop(ts){
+  const n=curAnimNode();if(!n||!ED.open){AE.raf=0;AE.playing=false;return;}
+  const dt=Math.min(.1,(ts-(AE.last||ts))/1000);AE.last=ts;const a=animData(n);
+  if(AE.playing){AE.time+=dt*a.speed;if(AE.time>=a.length){if(a.loop)AE.time%=a.length;else{AE.time=a.length;AE.playing=false;updateAnimBar(n);}}updateAnimHead(a);}
+  const u=AE.rig.userData.rig;relaxPose(u,1,true);applyPose(u,sampleAnim(a,AE.time),1);
+  const cv=$('#anCv'),w=cv.clientWidth,h=cv.clientHeight;
+  if(w&&h){if(cv.width!==Math.round(w*AE.r.getPixelRatio())||cv.height!==Math.round(h*AE.r.getPixelRatio())){AE.r.setSize(w,h,false);AE.cam.aspect=w/h;AE.cam.updateProjectionMatrix();}
+    AE.cam.position.set(Math.sin(AE.yaw)*Math.cos(AE.pitch)*AE.dist,.6+Math.sin(AE.pitch)*AE.dist,Math.cos(AE.yaw)*Math.cos(AE.pitch)*AE.dist);AE.cam.lookAt(0,.6,0);AE.r.render(AE.scene,AE.cam);}
+  if(AE.playing&&AE.selKey)AE.selKey=null,renderAnimSide(n);
+  AE.raf=requestAnimationFrame(animLoop);
+}
+function renderAnimEditor(){
+  const n=curAnimNode();if(!n||!ensureAnimView())return;
+  n.keys=animData(n).keys;n.length=animData(n).length;
+  if(AE.selKey&&!n.keys.includes(AE.selKey))AE.selKey=n.keys.find(k=>Math.abs(k.t-AE.time)<.001)||null;
+  AE.time=Math.min(AE.time,n.length);updateAnimBar(n);renderAnimTimeline(n);renderAnimSide(n);
+  if(!AE.raf){AE.last=0;AE.raf=requestAnimationFrame(animLoop);}
+}
+function updateAnimBar(n){const a=animData(n);$('#anPlay').textContent=AE.playing?'❚❚ Pause':'▶ Play';$('#anLoop').checked=a.loop;
+  if(document.activeElement!==$('#anLen'))$('#anLen').value=a.length;if(document.activeElement!==$('#anSpd'))$('#anSpd').value=a.speed;}
+function updateAnimHead(a){$('#anHead').style.left=`calc(8px + (100% - 16px) * ${AE.time/a.length})`;$('#anTimeTxt').textContent=AE.time.toFixed(2)+' s / '+a.length.toFixed(2)+' s';}
+function renderAnimTimeline(n){
+  const a=animData(n);const ru=$('#anRuler');ru.innerHTML='';const step=a.length<=2?.25:a.length<=6?.5:a.length<=15?1:2;
+  for(let x=0;x<=a.length+1e-6;x+=step){const i=document.createElement('i');i.style.left=(x/a.length*100)+'%';const sp=document.createElement('span');sp.textContent=r3(x)+'s';i.appendChild(sp);ru.appendChild(i);}
+  const ks=$('#anKeys');ks.innerHTML='';
+  n.keys.forEach((k,i)=>{const b=document.createElement('button');b.type='button';b.className='an-key'+(k===AE.selKey?' sel':'');b.style.left=(k.t/a.length*100)+'%';b.dataset.ki=i;b.title='Keyframe at '+k.t.toFixed(2)+' s';b.setAttribute('aria-label',b.title);ks.appendChild(b);});
+  updateAnimHead(a);
+}
+function renderAnimSide(n){
+  const a=animData(n);const k=AE.selKey;const pose=k?k.pose:sampleAnim(a,AE.time);const dis=k?'':' disabled';
+  let h=k?`<h4>Keyframe at ${k.t.toFixed(2)} s</h4><div class="pr"><span class="l">Easing in</span><select data-ae="ease">${EASES.map(([v,l])=>`<option value="${v}"${k.ease===v?' selected':''}>${l}</option>`).join('')}</select></div>`
+    :`<p class="an-note">Showing the pose at ${AE.time.toFixed(2)} s. Click a ◆ on the timeline to edit that keyframe, or press <b>+ Keyframe</b> to add one here.</p>`;
+  for(const [j,label] of JOINTS){const v=pose[j]||Z3;h+=`<h4>${label}</h4>`+['X','Y','Z'].map((ax,i)=>`<div class="jr"><b>${ax}</b><input type="range" min="-180" max="180" step="1" value="${Math.round(v[i])}" data-ae="j" data-j="${j}" data-i="${i}" aria-label="${label} ${ax} rotation"${dis}><span>${Math.round(v[i])}°</span></div>`).join('');
+    if(j==='Body'){const rv=(pose.Root||Z3)[1];h+=`<div class="jr"><b>↕</b><input type="range" min="-3" max="3" step=".05" value="${rv}" data-ae="j" data-j="Root" data-i="1" aria-label="Body height"${dis}><span>${r3(rv)}</span></div>`;}}
+  if(k)h+=`<div class="row" style="margin-top:10px;gap:6px"><button class="mini" type="button" data-ae="zero">Reset this pose</button><button class="mini" type="button" data-ae="copyprev">Copy previous</button></div>`;
+  $('#anSide').innerHTML=h;
+}
+$('#anSide').addEventListener('input',e=>{const el=e.target;const k=AE.selKey;if(!k||el.dataset.ae!=='j')return;const j=el.dataset.j,i=+el.dataset.i;
+  const v=(k.pose[j]||[0,0,0]).slice();v[i]=parseFloat(el.value)||0;k.pose[j]=v;el.nextElementSibling.textContent=j==='Root'?r3(v[i]):Math.round(v[i])+'°';});
+$('#anSide').addEventListener('change',e=>{const el=e.target;const k=AE.selKey;if(!k)return;if(el.dataset.ae==='ease'){k.ease=el.value;}commit();});
+$('#anSide').addEventListener('click',e=>{const b=e.target.closest('button[data-ae]');const n=curAnimNode();const k=AE.selKey;if(!b||!n||!k)return;
+  if(b.dataset.ae==='zero')k.pose={};
+  else if(b.dataset.ae==='copyprev'){const i=n.keys.indexOf(k);if(i>0)k.pose=JSON.parse(JSON.stringify(n.keys[i-1].pose));}
+  commit();renderAnimSide(n);});
+$('#anPlay').addEventListener('click',()=>{const n=curAnimNode();if(!n)return;const a=animData(n);if(!AE.playing&&AE.time>=a.length-1e-3)AE.time=0;AE.playing=!AE.playing;AE.selKey=null;updateAnimBar(n);renderAnimTimeline(n);renderAnimSide(n);});
+$('#anLoop').addEventListener('change',e=>{const n=curAnimNode();if(!n)return;n.loop=e.target.checked;commit();renderProps();});
+$('#anLen').addEventListener('change',e=>{const n=curAnimNode();if(!n)return;const v=Math.max(.1,Math.min(30,parseFloat(e.target.value)||n.length));
+  const f=v/n.length;n.keys.forEach(k=>k.t=r3(k.t*f));n.length=v;AE.time=Math.min(AE.time*f,v);commit();renderAnimEditor();renderProps();});
+$('#anSpd').addEventListener('change',e=>{const n=curAnimNode();if(!n)return;n.speed=Math.max(.05,Math.min(10,parseFloat(e.target.value)||1));commit();renderProps();});
+$('#anPreset').addEventListener('change',e=>{const n=curAnimNode();const k=e.target.value;e.target.value='';if(!n||!BUILTIN_ANIMS[k])return;const B=BUILTIN_ANIMS[k];
+  n.length=B.length;n.loop=B.loop;n.keys=JSON.parse(JSON.stringify(B.keys));AE.selKey=null;AE.time=0;commit();renderAnimEditor();renderProps();logOut('Loaded the '+B.name+' preset. Undo (Ctrl+Z) brings your keyframes back.','sys');});
+$('#anMirror').addEventListener('click',()=>{const n=curAnimNode();if(!n)return;
+  n.keys.forEach(k=>{[['LeftArm','RightArm'],['LeftLeg','RightLeg']].forEach(([l,r])=>{const v=k.pose[l];if(v)k.pose[r]=[v[0],-v[1],-v[2]];else delete k.pose[r];});});
+  commit();renderAnimSide(n);logOut('Mirrored the left arm and leg onto the right side.','sys');});
+$('#anAdd').addEventListener('click',()=>{const n=curAnimNode();if(!n)return;AE.playing=false;const a=animData(n);const t0=r3(Math.round(AE.time/.05)*.05);
+  let k=n.keys.find(x=>Math.abs(x.t-t0)<.001);if(!k){const sp=sampleAnim(a,t0);const pose={};JNAMES.forEach(j=>{const v=sp[j];if(v&&v.some(c=>Math.abs(c)>.01))pose[j]=v.map(c=>r3(c));});
+    k={t:t0,ease:'smooth',pose};n.keys.push(k);n.keys.sort((x,y)=>x.t-y.t);commit();}
+  AE.selKey=k;AE.time=k.t;updateAnimBar(n);renderAnimTimeline(n);renderAnimSide(n);});
+$('#anDel').addEventListener('click',()=>{const n=curAnimNode();if(!n||!AE.selKey)return;if(n.keys.length<=1){logOut('An animation needs at least one keyframe.','warn');return;}
+  n.keys=n.keys.filter(k=>k!==AE.selKey);AE.selKey=null;commit();renderAnimTimeline(n);renderAnimSide(n);renderProps();});
+function trackTime(e,a){const r=$('#anKeys').getBoundingClientRect();return Math.max(0,Math.min(a.length,(e.clientX-r.left)/r.width*a.length));}
+$('#anTrack').addEventListener('pointerdown',e=>{const n=curAnimNode();if(!n)return;const a=animData(n);AE.playing=false;updateAnimBar(n);
+  const kb=e.target.closest('.an-key');$('#anTrack').setPointerCapture(e.pointerId);
+  if(kb){const k=n.keys[+kb.dataset.ki];AE.selKey=k;AE.time=k.t;AE.drag={k,x:e.clientX,moved:false};}
+  else{AE.time=trackTime(e,a);const near=n.keys.find(k=>Math.abs(k.t-AE.time)<a.length*.015);if(near){AE.selKey=near;AE.time=near.t;}else AE.selKey=null;AE.drag={scrub:true};}
+  renderAnimTimeline(n);renderAnimSide(n);e.preventDefault();});
+$('#anTrack').addEventListener('pointermove',e=>{const d=AE.drag;const n=curAnimNode();if(!d||!n)return;const a=animData(n);
+  if(d.scrub){AE.time=trackTime(e,a);AE.selKey=null;updateAnimHead(a);return;}
+  if(Math.abs(e.clientX-d.x)>3)d.moved=true;if(!d.moved)return;d.k.t=r3(Math.round(trackTime(e,a)/.05)*.05);AE.time=d.k.t;
+  const el=$('#anKeys').querySelector('.an-key.sel');if(el)el.style.left=(d.k.t/a.length*100)+'%';updateAnimHead(a);});
+const anUp=()=>{const d=AE.drag;AE.drag=null;const n=curAnimNode();if(!d||!n)return;if(d.scrub){renderAnimSide(n);return;}
+  if(d.moved){const dup=n.keys.find(k=>k!==d.k&&Math.abs(k.t-d.k.t)<.001);if(dup)n.keys=n.keys.filter(k=>k!==dup);n.keys.sort((x,y)=>x.t-y.t);commit();}renderAnimTimeline(n);renderAnimSide(n);};
+$('#anTrack').addEventListener('pointerup',anUp);$('#anTrack').addEventListener('pointercancel',anUp);
 
 /* ---- GUI editor ---- */
 let GUIE={k:1,w:1280,h:720,drag:null};
@@ -2665,21 +2898,23 @@ function openScript(id){const n=nodeOf(id);if(!n||n.cls!=='Script')return;if(!ED
 function switchTab(id){
   if(ED.tab!=='viewport'&&ED.tab!==id)saveWs();
   ED.tab=id;renderTabs();
-  const isV=id==='viewport',isG=id==='gui';$('#stView').hidden=!isV;$('#stBlocks').hidden=isV||isG;$('#stGui').hidden=!isG;
+  const isV=id==='viewport',isG=id==='gui',isA=!isV&&!isG&&(nodeOf(id)||{}).cls==='Animation';$('#stView').hidden=!isV;$('#stBlocks').hidden=isV||isG||isA;$('#stGui').hidden=!isG;$('#stAnim').hidden=!isA;
   if(isV){requestAnimationFrame(resizeStudio);return;}
+  if(isA){AE.selKey=null;AE.time=0;AE.playing=false;requestAnimationFrame(renderAnimEditor);return;}
   if(isG){requestAnimationFrame(renderGuiEditor);return;}
   if(!ensureBlockly())return;
   requestAnimationFrame(()=>{Blockly.svgResize(ED.ws);loadScriptToWs(nodeOf(id));});
 }
 function loadScriptToWs(n){
-  if(!ED.ws||!n)return;ED.loadingWs=true;
+  if(n&&n.cls==='Animation'){renderAnimEditor();return;}
+  if(!ED.ws||!n||n.cls!=='Script')return;ED.loadingWs=true;
   Blockly.Events.disable();
   try{ED.ws.clear();Blockly.serialization.workspaces.load(n.blocks||SCR.startDefault(),ED.ws);}
   catch(e){logOut('Could not load blocks for '+n.name+': '+e.message,'err');}
   Blockly.Events.enable();ED.loadingWs=false;
   ED.ws.scroll(0,0);
 }
-function saveWs(){if(!ED.ws||ED.tab==='viewport'||ED.tab==='gui')return;const n=nodeOf(ED.tab);if(!n)return;n.blocks=Blockly.serialization.workspaces.save(ED.ws);}
+function saveWs(){if(!ED.ws||ED.tab==='viewport'||ED.tab==='gui')return;const n=nodeOf(ED.tab);if(!n||n.cls!=='Script')return;n.blocks=Blockly.serialization.workspaces.save(ED.ws);}
 let wsSaveT=0;
 function ensureBlockly(){
   if(ED.ws)return true;
@@ -2930,6 +3165,7 @@ function luaForScript(node,withLib){
     case 'variables_get':return `(BY.vars[${vn(b)}] or 0)`;
     case 'p_this':return 'script.Parent';case 'p_named':return `workspace:FindFirstChild(${luaStr(fld(b,'NAME'))}, true)`;
     case 'rs_last':return 'BY.last';
+    case 's_anim_playing':return 'false';
     case 'gui_this':return 'script.Parent';case 'gui_named':return `BY.gui(${luaStr(fld(b,'NAME'))})`;case 's_gui_text':return `BY.guiText(${V(b,'GUI','script.Parent')})`;
     case 'tool_hitpart':return 'hitPart';case 's_isplayer':return `BY.isPlayer(${Pt(b)})`;case 's_players':return '#Players:GetPlayers()';case 's_isrig':return `BY.isRig(${Pt(b)})`;case 's_health':return 'BY.health()';
     case 's_rig_health':return `BY.rigHealth(${Pt(b)})`;case 's_has_tool':return `BY.hasTool(${luaStr(fld(b,'NAME'))})`;
@@ -2974,6 +3210,8 @@ function luaForScript(node,withLib){
     case 'gui_settext':return l(`BY.setText(${V(b,'GUI','script.Parent')}, ${V(b,'TEXT','""')})`);
     case 'gui_visible':return l(`BY.setGui(${V(b,'GUI','script.Parent')}, "Visible", ${fld(b,'B')==='TRUE'?'true':'false'})`);
     case 'gui_color':return l(`BY.setGui(${V(b,'GUI','script.Parent')}, "${fld(b,'WHAT')==='text'?'TextColor3':'BackgroundColor3'}", Color3.fromHex(${luaStr(fld(b,'COLOUR')||'#ffffff')}))`);
+    case 'anim_play_me':case 'anim_play_rig':L.notes.add('Brickyard keyframe animations need to be re-made in the Roblox Animation Editor, so play blocks become comments.');return l(`-- play animation ${V(b,'NAME','""')}${b.type==='anim_play_rig'?' on rig':' on the player'} (${fld(b,'MODE')})`);
+    case 'anim_stop_me':case 'anim_stop_rig':return l('-- stop animation');
     case 'tool_swing':L.notes.add('The swing animation needs an Animation asset in Roblox. The hit window still works.');return l('BY.swing(BY.tool(script))');
     case 'tool_shoot':return l(`BY.shoot(BY.tool(script), Color3.fromHex(${luaStr(fld(b,'COLOUR')||'#5cc8ff')}), ${V(b,'S','120')})`);
     case 'tool_give':return l(`BY.giveTool(${luaStr(fld(b,'NAME'))})`);case 'tool_take':return l(`BY.takeTool(${luaStr(fld(b,'NAME'))})`);case 'tool_unequip':return l('BY.unequip()');
@@ -3002,6 +3240,8 @@ function luaForScript(node,withLib){
         out+=`do\n  local tool = BY.tool(script)\n  if tool then tool.${evn}:Connect(function()\n${B_}  end) end\nend\n\n`;break;}
       case 'ev_tool_hit':out+=`BY.onToolHit(BY.tool(script), function(hitPart)\n${chainL(nb,'  ')}end)\n\n`;break;
       case 'ev_gui_click':out+=`script.Parent.MouseButton1Click:Connect(function()\n${chainL(nb,'  ')}end)\n\n`;break;
+      case 'ev_spawn':out+=`Players.PlayerAdded:Connect(function(p)\n  p.CharacterAdded:Connect(function(c)\n${chainL(nb,'    ')}  end)\nend)\n\n`;break;
+      case 'ev_jump':out+=`Players.PlayerAdded:Connect(function(p)\n  p.CharacterAdded:Connect(function(c)\n    c:WaitForChild("Humanoid").StateChanged:Connect(function(_, s)\n      if s ~= Enum.HumanoidStateType.Jumping then return end\n${chainL(nb,'      ')}    end)\n  end)\nend)\n\n`;break;
       case 'ev_rig_died':out+=`do\n  local m = script:FindFirstAncestorOfClass("Model")\n  local h = m and m:FindFirstChildOfClass("Humanoid")\n  if h then h.Died:Connect(function()\n${B_}  end) end\nend\n\n`;break;
       case 'ev_touch_model':out+=`do\n  local busy = false\n  local model = script:FindFirstAncestorOfClass("Model")\n  for _, part in ipairs(model and model:GetDescendants() or {}) do\n    if part:IsA("BasePart") then\n      part.Touched:Connect(function(hit)\n        if busy or not Players:GetPlayerFromCharacter(hit.Parent) then return end\n        busy = true\n${chainL(nb,'        ')}        busy = false\n      end)\n    end\n  end\nend\n\n`;break;
       case 'ev_click_model':out+=`do\n  local model = script:FindFirstAncestorOfClass("Model")\n  local cd = model and (model:FindFirstChildOfClass("ClickDetector") or Instance.new("ClickDetector", model))\n  if cd then cd.MouseClick:Connect(function()\n${B_}  end) end\nend\n\n`;break;
@@ -3033,6 +3273,7 @@ function exportRbxlx(proj){
       TX=prev;return `<Item class="Tool" referent="${R()}"><Properties><string name="Name">${x(n.name)}</string><string name="ToolTip">${x(n.tooltip||'')}</string><bool name="RequiresHandle">true</bool><bool name="CanBeDropped">true</bool></Properties>${kids_}${hr?welds:''}</Item>`;}
     const kids=(by.get(n.id)||[]).map(item).join('');
     if(n.cls==='Script')return n.enabled===false?'':scriptItem(n.name,luaForScript(n,true));
+    if(n.cls==='Animation')return '';
     if(n.cls==='Folder'||n.cls==='Model')return `<Item class="${n.cls}" referent="${R()}"><Properties><string name="Name">${x(n.name)}</string></Properties>${kids}</Item>`;
     if(n.cls==='ParticleEmitter'){const c0=new THREE.Color(n.rainbow?'#ffffff':n.color0),c1=new THREE.Color(n.rainbow?'#ffffff':n.color1);const cs=c=>`${r3(c.r)} ${r3(c.g)} ${r3(c.b)}`;
       const ND={Right:0,Top:1,Back:2,Left:3,Bottom:4,Front:5};
@@ -3076,6 +3317,7 @@ function exportRbxlx(proj){
   };
   const ws=(by.get('workspace')||[]).map(item).join('');
   const sss=(by.get('sss')||[]).map(item).join('');
+  const spx=proj.nodes.filter(n=>n.cls==='Script'&&n.enabled!==false&&serviceOf(proj,n.id)==='player').map(n=>`<Item class="LocalScript" referent="${R()}"><Properties><string name="Name">${x(n.name)}</string><ProtectedString name="Source"><![CDATA[${luaForScript(n,true).replace(/\]\]>/g,']] >')}]]></ProtectedString></Properties></Item>`).join('');
   const rsx=(by.get('rs')||[]).map(item).join('');
   const packx=(by.get('pack')||[]).map(item).join('');
   const c3=hex=>{const c=new THREE.Color(/^#[0-9a-f]{6}$/i.test(hex||'')?hex:'#000000');return `<R>${r3(c.r)}</R><G>${r3(c.g)}</G><B>${r3(c.b)}</B>`;};
@@ -3095,7 +3337,7 @@ function exportRbxlx(proj){
     `<Item class="StarterGui" referent="${R()}"><Properties><string name="Name">StarterGui</string></Properties>${guix}</Item>\n`+
     `<Item class="StarterPack" referent="${R()}"><Properties><string name="Name">StarterPack</string></Properties>${packx}</Item>\n`+
     `<Item class="ReplicatedStorage" referent="${R()}"><Properties><string name="Name">ReplicatedStorage</string></Properties>${rsx}</Item>\n`+
-    `<Item class="StarterPlayer" referent="${R()}"><Properties><string name="Name">StarterPlayer</string><float name="CharacterWalkSpeed">${S.walkSpeed}</float><bool name="CharacterUseJumpPower">true</bool><float name="CharacterJumpPower">${S.jumpPower}</float></Properties></Item>\n`+
+    `<Item class="StarterPlayer" referent="${R()}"><Properties><string name="Name">StarterPlayer</string><float name="CharacterWalkSpeed">${S.walkSpeed}</float><bool name="CharacterUseJumpPower">true</bool><float name="CharacterJumpPower">${S.jumpPower}</float></Properties><Item class="StarterPlayerScripts" referent="${R()}"><Properties><string name="Name">StarterPlayerScripts</string></Properties>${spx}</Item></Item>\n`+
     `<Item class="ServerScriptService" referent="${R()}"><Properties><string name="Name">ServerScriptService</string></Properties>${sss}</Item>\n</roblox>\n`;
 }
 
@@ -3130,6 +3372,11 @@ addEventListener('keydown',e=>{
   if(e.key==='F5'){e.preventDefault();playtest();return;}
   if(inField)return;
   const inBlocks=ED.tab!=='viewport'&&(e.target.closest&&e.target.closest('#stBlocks,.blocklyWidgetDiv,.blocklyDropDownDiv'));
+  if(!inBlocks&&curAnimNode()&&!e.target.closest('input,select,textarea')){const mod0=e.ctrlKey||e.metaKey,k0=e.key.toLowerCase();
+    if(mod0&&k0==='z'&&!e.shiftKey){e.preventDefault();undo();}else if(mod0&&(k0==='y'||(k0==='z'&&e.shiftKey))){e.preventDefault();redo();}
+    else if(e.key===' '){e.preventDefault();$('#anPlay').click();}else if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();$('#anDel').click();}
+    else if(e.key==='k'||e.key==='K'){e.preventDefault();$('#anAdd').click();}
+    return;}
   if(inBlocks||(ED.tab!=='viewport'&&ED.tab!=='gui'))return;
   const mod=e.ctrlKey||e.metaKey;
   if(mod){const k=e.key.toLowerCase();
@@ -3171,12 +3418,12 @@ let BLOCK_THEME=null,TOOLBOX=null;
 function defineBlocks(){
   if(BLOCK_THEME)return;
   const st={event:['#e6a800','#cc9600','#b38400'],control:['#ffab19','#ec9c13','#cf8b17'],part:['#4c97ff','#4280d7','#3373cc'],player:['#9966ff','#855cd6','#774dcb'],
-    game:['#ff6680','#ff4d6a','#ff3355'],storage:['#0fbd8c','#0da57a','#0b8e69'],gui:['#00b8a9','#00a396','#008c81'],tool:['#e8604c','#d14f3c','#b8402f'],rig:['#e6a14c','#cf8c3a','#b5782c'],fx:['#c46cff','#ad55eb','#9440d4'],sense:['#5cb1d6','#47a8d1','#2e8eb8'],ops:['#59c059','#46b946','#389438'],vars:['#ff8c1a','#ff8000','#db6e00']};
+    game:['#ff6680','#ff4d6a','#ff3355'],storage:['#0fbd8c','#0da57a','#0b8e69'],gui:['#00b8a9','#00a396','#008c81'],anim:['#ff5fa2','#e84d8f','#cc3d7b'],tool:['#e8604c','#d14f3c','#b8402f'],rig:['#e6a14c','#cf8c3a','#b5782c'],fx:['#c46cff','#ad55eb','#9440d4'],sense:['#5cb1d6','#47a8d1','#2e8eb8'],ops:['#59c059','#46b946','#389438'],vars:['#ff8c1a','#ff8000','#db6e00']};
   const bs=(c,hat)=>Object.assign({colourPrimary:c[0],colourSecondary:c[1],colourTertiary:c[2]},hat?{hat:'cap'}:{});
   BLOCK_THEME=Blockly.Theme.defineTheme('brickyard',{base:Blockly.Themes.Classic,
-    blockStyles:{event_blocks:bs(st.event,true),control_blocks:bs(st.control),part_blocks:bs(st.part),player_blocks:bs(st.player),game_blocks:bs(st.game),storage_blocks:bs(st.storage),gui_blocks:bs(st.gui),tool_blocks:bs(st.tool),rig_blocks:bs(st.rig),fx_blocks:bs(st.fx),sense_blocks:bs(st.sense),
+    blockStyles:{event_blocks:bs(st.event,true),control_blocks:bs(st.control),part_blocks:bs(st.part),player_blocks:bs(st.player),game_blocks:bs(st.game),storage_blocks:bs(st.storage),gui_blocks:bs(st.gui),anim_blocks:bs(st.anim),tool_blocks:bs(st.tool),rig_blocks:bs(st.rig),fx_blocks:bs(st.fx),sense_blocks:bs(st.sense),
       logic_blocks:bs(st.ops),math_blocks:bs(st.ops),text_blocks:bs(st.ops),loop_blocks:bs(st.control),variable_blocks:bs(st.vars),variable_dynamic_blocks:bs(st.vars),colour_blocks:bs(st.ops),list_blocks:bs(st.ops),procedure_blocks:bs(st.game)},
-    categoryStyles:{events:{colour:st.event[0]},control:{colour:st.control[0]},parts:{colour:st.part[0]},player:{colour:st.player[0]},game:{colour:st.game[0]},storage:{colour:st.storage[0]},gui:{colour:st.gui[0]},tools:{colour:st.tool[0]},rigs:{colour:st.rig[0]},fx:{colour:st.fx[0]},sensing:{colour:st.sense[0]},ops:{colour:st.ops[0]},variables:{colour:st.vars[0]}},
+    categoryStyles:{events:{colour:st.event[0]},control:{colour:st.control[0]},parts:{colour:st.part[0]},player:{colour:st.player[0]},game:{colour:st.game[0]},storage:{colour:st.storage[0]},gui:{colour:st.gui[0]},anim:{colour:st.anim[0]},tools:{colour:st.tool[0]},rigs:{colour:st.rig[0]},fx:{colour:st.fx[0]},sensing:{colour:st.sense[0]},ops:{colour:st.ops[0]},variables:{colour:st.vars[0]}},
     componentStyles:{workspaceBackgroundColour:'#121a2b',toolboxBackgroundColour:'#162135',toolboxForegroundColour:'#edf2ff',flyoutBackgroundColour:'#1b2840',flyoutForegroundColour:'#c9d3ec',
       flyoutOpacity:.97,scrollbarColour:'#3a4c70',scrollbarOpacity:.7,insertionMarkerColour:'#ffffff',insertionMarkerOpacity:.35,cursorColour:'#ff8a1f'},
     fontStyle:{family:'Figtree, system-ui, sans-serif',weight:'700',size:11}});
@@ -3231,6 +3478,13 @@ function defineBlocks(){
     H_({type:'ev_tool_unequip',message0:'when this tool is put away'}),
     H_({type:'ev_tool_hit',message0:'when this tool hits a part',tooltip:'Runs when a swing or a projectile from this tool hits something. Use the "hit part" block inside.'}),
     H_({type:'ev_rig_died',message0:'when this rig dies'}),
+    H_({type:'ev_spawn',message0:'when I spawn',tooltip:'Runs when the game starts and every time the player respawns. Great in StarterPlayer scripts.'}),
+    H_({type:'ev_jump',message0:'when I jump',tooltip:'Runs each time the player jumps.'}),
+    S_({type:'anim_play_me',message0:'play animation %1 on my character %2',args0:[{type:'input_value',name:'NAME'},{type:'field_dropdown',name:'MODE',options:[['once','once'],['once and wait','wait'],['looping','loop']]}],tooltip:'Plays an Animation from your game (by name) or a built-in one: Wave, Dance, Cheer, Point, Sit, Bow, Jumping jacks, Spin, Flex.'},'anim_blocks'),
+    S_({type:'anim_play_rig',message0:'play animation %1 on rig %2 %3',args0:[{type:'input_value',name:'NAME'},PT(),{type:'field_dropdown',name:'MODE',options:[['once','once'],['once and wait','wait'],['looping','loop']]}]},'anim_blocks'),
+    S_({type:'anim_stop_me',message0:'stop my animation'},'anim_blocks'),
+    S_({type:'anim_stop_rig',message0:'stop animation on rig %1',args0:[PT()]},'anim_blocks'),
+    V_({type:'s_anim_playing',message0:'my animation is playing?'},'Boolean','anim_blocks'),
     H_({type:'ev_gui_click',message0:'when this button is clicked',tooltip:'Runs when the player clicks or taps the TextButton this script is in.'}),
     V_({type:'gui_this',message0:'this gui',tooltip:'The GUI element this script is inside.'},'Gui','gui_blocks'),
     V_({type:'gui_named',message0:'gui named %1',args0:[{type:'field_input',name:'NAME',text:'Label'}]},'Gui','gui_blocks'),
@@ -3293,6 +3547,8 @@ function defineBlocks(){
       K('p_collide',{PART:me()},{B:'FALSE'}),K('p_visible',{PART:me()},{B:'FALSE'}),K('p_anchor',{PART:me()},{B:'FALSE'}),K('p_deadly',{PART:me()}),K('p_clone',xyz(0,5,0)),K('p_destroy',{PART:me()})]},
     {kind:'category',name:'Player',categorystyle:'player',contents:[K('pl_kill'),K('pl_damage',{N:n_(20)}),K('pl_heal',{N:n_(20)}),K('pl_teleport',{PART:{shadow:{type:'p_this'},block:{type:'p_named',fields:{NAME:'Part'}}}}),K('pl_launch',{P:n_(90)}),
       K('pl_speed',{V:n_(24)}),K('pl_jump',{V:n_(70)}),K('pl_gravity',{V:n_(100)}),K('pl_checkpoint',{PART:me()})]},
+    {kind:'category',name:'Animation',categorystyle:'anim',contents:[K('ev_spawn'),K('ev_jump'),K('anim_play_me',{NAME:t_('Wave')},{MODE:'once'}),K('anim_play_rig',{NAME:t_('Dance'),PART:me()},{MODE:'loop'}),
+      K('anim_stop_me'),K('anim_stop_rig',{PART:me()}),K('s_anim_playing')]},
     {kind:'category',name:'GUI',categorystyle:'gui',contents:[K('ev_gui_click'),K('gui_this'),K('gui_named'),
       K('gui_settext',{GUI:{shadow:{type:'gui_this'},block:{type:'gui_named',fields:{NAME:'Label'}}},TEXT:t_('Hello!')}),
       K('gui_visible',{GUI:{shadow:{type:'gui_this'}}},{B:'FALSE'}),K('gui_color',{GUI:{shadow:{type:'gui_this'}}}),K('s_gui_text',{GUI:{shadow:{type:'gui_this'}}})]},
@@ -3576,5 +3832,5 @@ renderToolbox();renderSwatches();renderCards();
 loop();
 initMP();
 bootShared();
-window.__by={SB,ACC,renderGuiEditor,showAccountModal,MP,arenaDef,packProject,unpackProject,standaloneHtml,get SHARED(){return SHARED},IDB,MESHCACHE,uploadMesh,finalizeMesh,get ecam(){return ecam},get tc(){return tc},cam,ED,W,RT,P,state:()=>state,startGame,openStudio,newProjectObj,saveProject,insert,select,doAct,openScript,playtest,stopGame,exportRbxlx,luaForScript,parseRbxlx,listProjects,GAMES,projectDef,running:()=>running};
+window.__by={findAnim,playAnim,BD,openAnim,AE,ACC,renderGuiEditor,showAccountModal,MP,arenaDef,packProject,unpackProject,standaloneHtml,get SHARED(){return SHARED},IDB,MESHCACHE,uploadMesh,finalizeMesh,get ecam(){return ecam},get tc(){return tc},cam,ED,W,RT,P,state:()=>state,startGame,openStudio,newProjectObj,saveProject,insert,select,doAct,openScript,playtest,stopGame,exportRbxlx,luaForScript,parseRbxlx,listProjects,GAMES,projectDef,running:()=>running};
 })();
