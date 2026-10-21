@@ -315,6 +315,19 @@ kbd{font-family:var(--body);font-weight:800;font-size:12px;background:var(--pane
 .pr .ro{color:var(--muted);font-size:12px}
 .pr .btnrow{display:flex;gap:6px;flex-wrap:wrap}
 .pnote{color:var(--muted);font-size:12px;line-height:1.45;padding:10px 12px}
+.ex-row .exadd{margin-left:auto;flex:none;width:20px;height:20px;border-radius:5px;border:1px solid var(--line2);background:var(--panel2);color:var(--ink);font-size:14px;line-height:1;padding:0;cursor:pointer;opacity:0;display:grid;place-items:center}
+.ex-row:hover .exadd,.ex-row.sel .exadd,.ex-row .exadd:focus-visible,.coarse .ex-row .exadd{opacity:1}
+.ex-row .exadd:hover{border-color:var(--sky);color:var(--sky)}
+#insMenu{position:fixed;z-index:65;width:260px;max-height:min(440px,70vh);display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line2);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.5);overflow:hidden}
+#insMenu .ihead{padding:8px;border-bottom:1px solid var(--line)}
+#insMenu .ihead b{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#insMenu input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:13px}
+#insMenu .ilist{overflow:auto;padding:4px}
+#insMenu .isec{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:8px 8px 2px}
+#insMenu .iitem{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:transparent;border:0;border-radius:7px;padding:6px 8px;font-size:13px;cursor:pointer}
+#insMenu .iitem:hover,#insMenu .iitem.hl{background:var(--panel2)}
+#insMenu .iitem small{margin-left:auto;color:var(--muted);font-size:11px}
+#insMenu .inone{padding:12px;color:var(--muted);font-size:13px}
 .ctx{position:fixed;z-index:60;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:4px;min-width:170px;box-shadow:0 10px 30px rgba(0,0,0,.45)}
 .ctx button{display:flex;justify-content:space-between;gap:16px;width:100%;text-align:left;background:transparent;border:0;border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer}
 .ctx button:hover{background:var(--panel2)}

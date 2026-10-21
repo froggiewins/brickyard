@@ -2489,6 +2489,69 @@ function viewportPick(e){
   select([id],e.shiftKey);
 }
 
+/* ---- Insert Object menu (the + on each Explorer row) ---- */
+const INS_KINDS=[
+  ['Parts','part','Part','P','Part'],['Parts','ball','Ball','P','Part'],['Parts','cyl','Cylinder','P','Part'],['Parts','wedge','Wedge','P','Part'],['Parts','mesh','MeshPart (from Assets)','MP','Part'],
+  ['Gameplay','spawn','SpawnLocation','P','Part'],['Gameplay','kill','Kill brick','P','Part'],['Gameplay','check','Checkpoint','P','Part'],['Gameplay','jump','Jump pad','P','Part'],['Gameplay','speed','Speed pad','P','Part'],['Gameplay','coin','Coin','P','Part'],['Gameplay','finish','Finish','P','Part'],
+  ['Containers','model','Model','M','Model'],['Containers','folder','Folder','F','Folder'],
+  ['Scripting','script','Script','S','Script'],['Scripting','animation','Animation','◆','Animation'],
+  ['Characters & effects','rig','Rig','R','Rig'],['Characters & effects','tool','Tool','⚔','Tool'],['Characters & effects','particles','ParticleEmitter','✦','ParticleEmitter'],
+  ['GUI','gui-screen','ScreenGui','SG','ScreenGui'],['GUI','gui-frame','Frame','▭','Frame'],['GUI','gui-text','TextLabel','T','TextLabel'],['GUI','gui-button','TextButton','B','TextButton']];
+function insertKindsFor(pid){
+  const n=nodeOf(pid);const c=n?n.cls:null;let ok;
+  const world=k=>['Part','Model','Folder','Script','Rig','Tool','Animation'].includes(k);
+  if(pid==='lighting')ok=()=>false;
+  else if(pid==='gui')ok=k=>k==='ScreenGui';
+  else if(pid==='player')ok=k=>['Script','Animation','Folder'].includes(k);
+  else if(pid==='pack')ok=k=>k==='Tool';
+  else if(pid==='sss')ok=k=>['Script','Folder'].includes(k);
+  else if(pid==='workspace'||pid==='rs')ok=world;
+  else if(!n)ok=()=>false;
+  else if(c==='ScreenGui'||c==='Frame'||c==='TextLabel'||c==='TextButton')ok=k=>['Frame','TextLabel','TextButton','Script'].includes(k);
+  else if(c==='Folder'||c==='Model')ok=k=>world(k)||k==='ParticleEmitter'&&false;
+  else if(c==='Part')ok=k=>['Script','ParticleEmitter'].includes(k);
+  else if(c==='Rig')ok=k=>['Script','ParticleEmitter','Animation'].includes(k);
+  else if(c==='Tool')ok=k=>['Part','Script','ParticleEmitter'].includes(k);
+  else ok=()=>false;
+  return INS_KINDS.filter(x=>ok(x[4])&&!(x[1]==='particles'&&c==='Tool')&&!(x[1]==='mesh'&&!['workspace','rs'].includes(pid)&&c!=='Folder'&&c!=='Model'&&c!=='Tool'));
+}
+let insState=null;
+function showInsertMenu(pid,x,y){
+  const kinds=insertKindsFor(pid);if(!kinds.length)return;const n=nodeOf(pid);const nm=n?n.name:(SERVICES.find(s=>s.id===pid)||{}).name||pid;
+  let m=$('#insMenu');if(!m){m=document.createElement('div');m.id='insMenu';m.setAttribute('role','dialog');m.setAttribute('aria-label','Insert object');document.body.appendChild(m);}
+  m.innerHTML=`<div class="ihead"><b>Insert into ${esc(nm)}</b><input type="search" placeholder="Search objects" aria-label="Search objects" autocomplete="off"></div><div class="ilist" role="listbox"></div>`;
+  insState={pid,kinds,hl:0};m.hidden=false;
+  const inp=m.querySelector('input'),list=m.querySelector('.ilist');
+  const draw=()=>{const q=inp.value.trim().toLowerCase();const items=kinds.filter(k=>!q||k[2].toLowerCase().includes(q)||k[0].toLowerCase().includes(q)||k[4].toLowerCase().includes(q));insState.items=items;insState.hl=Math.min(insState.hl,Math.max(0,items.length-1));
+    if(!items.length){list.innerHTML='<div class="inone">Nothing matches, or it can’t go inside '+esc(nm)+'.</div>';return;}
+    let h='',sec='';items.forEach((k,i)=>{if(k[0]!==sec&&!q){sec=k[0];h+=`<div class="isec">${sec}</div>`;}
+      h+=`<button class="iitem${i===insState.hl?' hl':''}" type="button" role="option" data-ik="${k[1]}"><span class="ico ${k[4]}">${k[3]}</span>${esc(k[2])}${k[2]!==k[4]&&k[4]!=='Part'?'':''}</button>`;});list.innerHTML=h;};
+  draw();
+  inp.addEventListener('input',()=>{insState.hl=0;draw();});
+  inp.addEventListener('keydown',e=>{e.stopPropagation();const it=insState.items||[];
+    if(e.key==='Escape'){e.preventDefault();closeInsertMenu();}
+    else if(e.key==='ArrowDown'){e.preventDefault();insState.hl=Math.min(it.length-1,insState.hl+1);draw();}
+    else if(e.key==='ArrowUp'){e.preventDefault();insState.hl=Math.max(0,insState.hl-1);draw();}
+    else if(e.key==='Enter'){e.preventDefault();const k=it[insState.hl];if(k){closeInsertMenu();insertInto(k[1],pid);}}});
+  list.addEventListener('click',e=>{const b=e.target.closest('[data-ik]');if(!b)return;closeInsertMenu();insertInto(b.dataset.ik,pid);});
+  const r=m.getBoundingClientRect();m.style.left=Math.max(8,Math.min(x,innerWidth-r.width-8))+'px';m.style.top=Math.max(8,Math.min(y,innerHeight-r.height-8))+'px';
+  setTimeout(()=>inp.focus(),0);
+}
+function closeInsertMenu(){const m=$('#insMenu');if(m)m.hidden=true;insState=null;}
+document.addEventListener('pointerdown',e=>{if(insState&&!e.target.closest('#insMenu')&&!e.target.closest('[data-add]'))closeInsertMenu();});
+function insertInto(kind,pid){
+  const before=new Set(ED.proj.nodes.map(n=>n.id));const hi0=ED.hi;
+  select([pid]);insert(kind);if(kind==='mesh')return;
+  const fresh=ED.proj.nodes.filter(n=>!before.has(n.id));if(!fresh.length)return;
+  const ids=new Set(fresh.map(n=>n.id));const tops=fresh.filter(n=>!ids.has(n.parent));
+  const move=tops.filter(n=>n.parent!==pid);
+  if(move.length){if(canParentTo(move.map(n=>n.id),pid)){move.forEach(n=>{n.parent=pid;});
+      const pn=nodeOf(pid);if(pn&&pn.pos&&(pn.cls==='Part'||pn.cls==='Rig'))move.forEach(n=>{if(n.pos&&n.cls==='Part')n.pos=[pn.pos[0],r3(pn.pos[1]+(pn.size?pn.size[1]/2:2)+(n.size?n.size[1]/2:1)),pn.pos[2]];});
+      if(ED.hi>hi0){ED.hist[ED.hi]=snapshot();}else commit();
+      ED.expanded.add(pid);refreshAll();select(tops.map(n=>n.id));}
+    else logOut('That can’t go inside '+((nodeOf(pid)||{}).name||pid)+', so it was added next to it.','warn');}
+}
+
 /* ---- explorer ---- */
 function renderExplorer(){
   const el=$('#explorer');const by=new Map();
@@ -2497,7 +2560,8 @@ function renderExplorer(){
   const row=(id,name,ico,icoCls,depth,hasKids,extra)=>{const sel=ED.sel.includes(id)?' sel':'';const open=ED.expanded.has(id);
     return `<div class="ex-row${sel}" data-id="${id}" draggable="${isService(id)?'false':'true'}" style="padding-left:${6+depth*14}px" role="treeitem" aria-selected="${!!sel}" aria-expanded="${hasKids?open:''}">`+
     `<button class="tw" data-tw="${id}" tabindex="-1" aria-label="Expand">${hasKids?(open?'▾':'▸'):''}</button><span class="ico ${icoCls}">${ico}</span>`+
-    (ED.rename===id?`<input id="renameIn" value="${esc(name)}" aria-label="Rename">`:`<span class="nm${extra||''}">${esc(name)}</span>`)+`</div>`;};
+    (ED.rename===id?`<input id="renameIn" value="${esc(name)}" aria-label="Rename">`:`<span class="nm${extra||''}">${esc(name)}</span>`)+
+    (insertKindsFor(id).length?`<button class="exadd" type="button" data-add="${id}" tabindex="-1" title="Insert object into ${esc(name)}" aria-label="Insert object into ${esc(name)}">+</button>`:'')+`</div>`;};
   const walk=(pid,d)=>{for(const n of by.get(pid)||[]){const k=(by.get(n.id)||[]).length>0;
     const ic=n.cls==='Animation'?['◆','Animation']:n.cls==='ScreenGui'?['SG','ScreenGui']:n.cls==='Frame'?['▭','Frame']:n.cls==='TextLabel'?['T','TextLabel']:n.cls==='TextButton'?['B','TextButton']:n.cls==='Tool'?['⚔','Tool']:n.shape==='mesh'?['MP','MeshPart']:n.cls==='ParticleEmitter'?['✦','ParticleEmitter']:[n.cls[0],n.cls];
     h+=row(n.id,n.name,ic[0],ic[1],d,k,(n.cls==='Script'||n.cls==='ParticleEmitter')&&n.enabled===false?' off':'');if(k&&ED.expanded.has(n.id))walk(n.id,d+1);}};
@@ -2509,6 +2573,7 @@ function renderExplorer(){
 }
 const exEl=$('#explorer');
 exEl.addEventListener('click',e=>{
+  const ad=e.target.closest('[data-add]');if(ad){e.stopPropagation();const r=ad.getBoundingClientRect();showInsertMenu(ad.dataset.add,r.right+6,r.top);return;}
   const tw=e.target.closest('[data-tw]');if(tw){const id=tw.dataset.tw;ED.expanded.has(id)?ED.expanded.delete(id):ED.expanded.add(id);renderExplorer();return;}
   const r=e.target.closest('.ex-row');if(!r||e.target.id==='renameIn')return;select([r.dataset.id],e.shiftKey||e.ctrlKey||e.metaKey);closeDrawers(false);
 });
@@ -2542,7 +2607,7 @@ function showCtx(x,y){
   if(n){h+=it('rename','Rename','F2');if(n.cls==='Animation')h+=it('openanim','Edit animation');if(n.cls==='Script')h+=it('openscript','Edit blocks')+it('toggleScript',n.enabled===false?'Enable':'Disable');
     h+=it('dup','Duplicate','Ctrl+D')+it('copy','Copy','Ctrl+C')+it('paste','Paste into','Ctrl+V')+it('del','Delete','Del')+'<hr>';
     if(n.cls!=='Script')h+=it('group','Group','Ctrl+G');if(n.cls==='Model'||n.cls==='Folder')h+=it('ungroup','Ungroup','Ctrl+U');
-    h+=it('ins-script','Insert script')+it('focus','Zoom to','F');}
+    if(insertKindsFor(id).length)h+=it('ins-obj','Insert object…','Ctrl+I');h+=it('ins-script','Insert script')+it('focus','Zoom to','F');}
   else if(id==='player')h+=it('ins-script','Insert script')+it('ins-anim','Insert animation')+it('paste','Paste into','Ctrl+V');
   else if(id==='workspace'||id==='sss')h+=it('ins-script','Insert script')+it('paste','Paste into','Ctrl+V')+(id==='workspace'?it('ins-folder','Insert folder'):'');
   else return;
@@ -2601,6 +2666,7 @@ function insert(kind){
     const n={id:uid(),cls:'Animation',name:nextName('Animation'),parent:par,length:2,loop:false,speed:1,stopOnMove:false,keys:[AK(0,{}),AK(1,{RightArm:[0,0,150]}),AK(2,{})]};
     ED.proj.nodes.push(n);ED.expanded.add(par);commit();refreshAll();select([n.id]);openAnim(n.id);
     logOut('Added an Animation. Move the playhead, press + Keyframe and drag the sliders to pose the character.','sys');return;}
+  if(kind==='gui-screen'){const g=guiNode('ScreenGui',{name:nextName('ScreenGui')});ED.proj.nodes.push(g);ED.expanded.add('gui');commit();refreshAll();select([g.id]);return;}
   if(kind.startsWith('gui-')){const cls={'gui-text':'TextLabel','gui-button':'TextButton','gui-frame':'Frame'}[kind];const out=[];
     let par=null;const s0=nodeOf(ED.sel[0]);
     if(s0&&(s0.cls==='ScreenGui'||s0.cls==='Frame'))par=s0.id;else if(s0&&isGuiNode(s0))par=s0.parent;
@@ -2672,6 +2738,7 @@ function focusSel(){
 function doAct(a){
   switch(a){
     case 'undo':undo();break;case 'redo':redo();break;case 'copy':copySel();break;case 'paste':paste();break;
+    case 'ins-obj':{const id=ED.sel[0]||'workspace';const row=exEl.querySelector(`.ex-row[data-id="${id}"]`);const r=row?row.getBoundingClientRect():{right:innerWidth/2-130,top:innerHeight/3};showInsertMenu(id,r.right+6,r.top);break;}
     case 'openanim':openAnim(ED.sel[0]);break;case 'ins-anim':insert('animation');break;
     case 'turn':turnSelection('y');break;case 'tilt':turnSelection('x');break;
     case 'dup':duplicate();break;case 'del':del();break;case 'group':group();break;case 'ungroup':ungroup();break;
@@ -3814,6 +3881,7 @@ addEventListener('keydown',e=>{
     if(k==='z'&&!e.shiftKey){e.preventDefault();undo();}else if(k==='y'||(k==='z'&&e.shiftKey)){e.preventDefault();redo();}
     else if(k==='d'){e.preventDefault();duplicate();}else if(k==='c'){copySel();}else if(k==='v'){paste();}
     else if(k==='r'&&ED.tab==='viewport'){e.preventDefault();turnSelection('y');}else if(k==='t'&&ED.tab==='viewport'){e.preventDefault();turnSelection('x');}
+    else if(k==='i'){e.preventDefault();doAct('ins-obj');}
     else if(k==='g'){e.preventDefault();group();}else if(k==='u'){e.preventDefault();ungroup();}
     return;}
   if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();del();return;}
