@@ -606,6 +606,8 @@ function resolveTargets(v){
     case 'nearest':{let best=null,bd=Infinity;for(const r of os){const d=r.pos.distanceToSquared(P.pos);if(d<bd){bd=d;best=r;}}return best?[best]:[];}
   }return [];
 }
+function playersTouching(ps){const out=[];if(!ps.length)return out;if(!P.dead&&ps.some(p=>p.active!==false&&partOverlap(p,-.12)))out.push('me');
+  for(const r of otherPlayers()){if(r.dead)continue;if(ps.some(p=>r.min.x<p.max.x&&r.max.x>p.min.x&&r.min.y<p.max.y+.3&&r.max.y>p.min.y&&r.min.z<p.max.z&&r.max.z>p.min.z))out.push(r);}return out;}
 function targetName(x){return x==='me'?myName():nameOf(x.by);}
 function healPlayer(n){if(P.dead)return;P.health=Math.min(P.maxHealth,P.health+Math.max(0,n));}
 
@@ -1302,6 +1304,8 @@ function ev(b,ctx){
     case 'pl_ref_touchme':return {plist:otherPlayers().filter(r=>touchingMe(r))};
     case 'pl_touched':if(!ctx.touched)warnOnce('tp:'+ctx.script,ctx.script+': "touched player" only has a value inside "when I touch another player".');return ctx.touched||null;
     case 's_touch_player':{const x=inp(b,'WHO');const tg=resolveTargets(x?ev(x,ctx):{plr:'others'});return tg.some(r=>r!=='me'&&touchingMe(r));}
+    case 's_touch_count':{const ps=ctx.part?[ctx.part]:ctx.model?ctx.model.parts:[];if(!ctx.part&&!ctx.model){warnOnce('tc:'+ctx.script,ctx.script+': "players touching this part" needs the script to be inside a part or model.');return 0;}
+      return playersTouching(ps.filter(p=>!p.destroyed)).length;}
     case 'pl_ref_touch':{const ps=partsOf(partv(b,ctx));const out=[];if(!ps.length)return {plist:out};
       if(!P.dead&&ps.some(p=>partOverlap(p,-.12)))out.push('me');
       for(const r of otherPlayers()){if(r.dead)continue;if(ps.some(p=>r.min.x<p.max.x&&r.max.x>p.min.x&&r.min.y<p.max.y&&r.max.y>p.min.y&&r.min.z<p.max.z&&r.max.z>p.min.z))out.push(r);}
@@ -3494,6 +3498,7 @@ function luaForScript(node,withLib){
     case 's_touching':return `BY.touching(${Pt(b)})`;case 's_distance':return `BY.dist(${Pt(b)})`;
     case 's_player':return `BY.ppos(${luaStr(fld(b,'AXIS'))})`;case 's_prop':return `BY.prop(${Pt(b)}, ${luaStr(fld(b,'PROP'))})`;
     case 's_pl_ragdoll':return 'false';
+    case 's_touch_count':return '(function() local n = 0 for _, plr in Players:GetPlayers() do local c = plr.Character if c then for _, p in workspace:GetPartsInPart(script.Parent) do if p:IsDescendantOf(c) then n += 1 break end end end end return n end)()';
     case 's_pl_name':return '(player() and player().Name or "")';case 's_touch_player':L.notes.add('Player-to-player touch checks need a Touched handler on the character in Roblox.');return 'false';case 'pl_ref':case 'pl_ref_touchme':case 'pl_touched':case 'pl_ref_touch':case 'pl_ref_named':return 'Players:GetPlayers()';
     case 's_pl_nameof':return '(player() and player().Name or "")';case 's_pl_hpof':return 'BY.health()';case 's_pl_countof':return '#Players:GetPlayers()';case 's_pl_maxhp':return '(hum() and hum().MaxHealth or 100)';case 's_pl_speed':return '(hum() and hum().WalkSpeed or 16)';
     case 's_pl_moving':return '(hum() ~= nil and hum().MoveDirection.Magnitude > 0)';case 's_pl_alive':return '(hum() ~= nil and hum().Health > 0)';
@@ -3880,6 +3885,7 @@ function defineBlocks(){
     {type:'pl_as',message0:'as player %1 do',args0:[{type:'input_value',name:'WHO',check:['Player','Part']}],message1:'%1',args1:[{type:'input_statement',name:'DO'}],previousStatement:null,nextStatement:null,style:'player_blocks',
       tooltip:'Runs the blocks inside for other players too. Each chosen player runs them on their own character, so "damage the player", "freeze", "teleport" and the rest affect them. Works in online games.'},
     V_({type:'pl_ref',message0:'%1',args0:[{type:'field_dropdown',name:'WHO',options:[['everyone','all'],['everyone else','others'],['me','me'],['a random other player','random'],['the nearest other player','nearest']]}]},'Player','player_blocks'),
+    V_({type:'s_touch_count',message0:'number of players touching this part',tooltip:'How many players (you included) are standing on or bumping into the part or model this script is in. Online, it counts everyone in the game.'},'Number','sense_blocks'),
     V_({type:'s_touch_player',message0:'touching player %1 ?',args0:[{type:'input_value',name:'WHO',check:['Player','Part']}],tooltip:'True while your character is bumping into one of these players. Leave it as "everyone else" to check for any player.'},'Boolean','player_blocks'),
     V_({type:'pl_ref_touchme',message0:'players touching me'},'Player','player_blocks'),
     V_({type:'pl_touched',message0:'touched player'},'Player','player_blocks'),
@@ -3964,7 +3970,7 @@ function defineBlocks(){
       K('pl_speed',{V:n_(24)}),K('pl_jump',{V:n_(70)}),K('pl_gravity',{V:n_(100)}),K('pl_checkpoint',{PART:me()}),
       K('pl_as',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'others'}}},DO:{block:{type:'pl_freeze',fields:{B:'TRUE'},next:{block:{type:'c_wait',inputs:{S:n_(3)},next:{block:{type:'pl_freeze',fields:{B:'FALSE'}}}}}}}}),
       K('pl_as',{WHO:{block:{type:'tool_hitpart'}},DO:{block:{type:'pl_launch',inputs:{P:n_(90)}}}}),
-      K('s_touch_player',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'others'}}}}),K('ev_touch_player'),
+      K('s_touch_player',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'others'}}}}),K('s_touch_count'),K('ev_touch_player'),
       K('pl_as',{WHO:{block:{type:'pl_touched'}},DO:{block:{type:'pl_say',inputs:{TEXT:t_("You're it!"),S:n_(2)}}}}),
       K('pl_touched'),K('pl_ref_touchme'),K('pl_ref',null,{WHO:'others'}),K('pl_ref_touch',{PART:me()}),K('pl_ref_named',{NAME:t_('Player1')}),
       K('s_pl_nameof',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'nearest'}}}}),K('s_pl_hpof',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'nearest'}}}}),K('s_pl_countof',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'others'}}}}),
@@ -3990,7 +3996,7 @@ function defineBlocks(){
     {kind:'category',name:'Storage',categorystyle:'storage',contents:[{kind:'label',text:'ReplicatedStorage'},K('rs_copy',{X:n_(0),Y:n_(20),Z:n_(0)}),K('rs_onto',{PART:me()}),K('rs_last')]},
     {kind:'category',name:'Game',categorystyle:'game',contents:[K('g_msg',{TEXT:t_('Hello!'),S:n_(2)}),K('g_print',{TEXT:t_('Hello from my script')}),K('g_stat_change',{N:n_(1)}),K('g_stat_set',{N:n_(0)}),
       K('g_win'),K('g_sound'),K('g_sky'),K('g_reset_timer')]},
-    {kind:'category',name:'Sensing',categorystyle:'sensing',contents:[K('s_health'),K('s_players'),K('s_touching',{PART:me()}),K('s_key'),K('s_mouse_down'),K('s_mouse_part'),K('s_mouse_xy'),K('s_grounded'),K('s_distance',{PART:me()}),K('s_player'),K('s_prop',{PART:me()}),K('s_timer'),K('s_stat')]},
+    {kind:'category',name:'Sensing',categorystyle:'sensing',contents:[K('s_health'),K('s_players'),K('s_touching',{PART:me()}),K('s_touch_count'),K('s_key'),K('s_mouse_down'),K('s_mouse_part'),K('s_mouse_xy'),K('s_grounded'),K('s_distance',{PART:me()}),K('s_player'),K('s_prop',{PART:me()}),K('s_timer'),K('s_stat')]},
     {kind:'category',name:'Operators',categorystyle:'ops',contents:[K('math_number'),K('math_arithmetic',{A:n_(1),B:n_(1)}),K('math_random_int',{FROM:n_(1),TO:n_(10)}),
       K('logic_compare',{A:n_(0),B:n_(0)}),K('logic_operation'),K('logic_negate'),K('logic_boolean'),K('text'),K('text_join',{ADD0:t_('Score: ')})]},
     {kind:'category',name:'Variables',categorystyle:'variables',custom:'BY_VARS'}
