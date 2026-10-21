@@ -3038,8 +3038,22 @@ function loadScriptToWs(n){
 }
 function saveWs(){if(!ED.ws||ED.tab==='viewport'||ED.tab==='gui')return;const n=nodeOf(ED.tab);if(!n||n.cls!=='Script')return;n.blocks=Blockly.serialization.workspaces.save(ED.ws);}
 let wsSaveT=0;
+/* In-page replacements for prompt/confirm/alert, which are blocked inside embedded pages. Blockly uses them to create, rename and delete variables. */
+function byDialog(kind,msg,def,cb){
+  const wrap=document.createElement('div');wrap.className='emodal bdlg';wrap.setAttribute('role','dialog');wrap.setAttribute('aria-modal','true');
+  wrap.innerHTML=`<div class="panel"><p class="bdmsg"></p>${kind==='prompt'?'<input type="text" autocomplete="off" spellcheck="false">':''}<div class="row"><button class="btn" type="button" data-b="ok">OK</button>${kind==='alert'?'':'<button class="btn ghost" type="button" data-b="no">Cancel</button>'}</div></div>`;
+  wrap.querySelector('.bdmsg').textContent=String(msg||'');const inp=wrap.querySelector('input');if(inp)inp.value=def==null?'':String(def);
+  const prevFocus=document.activeElement;let done=false;
+  const finish=ok=>{if(done)return;done=true;wrap.remove();try{prevFocus&&prevFocus.focus&&prevFocus.focus({preventScroll:true});}catch(e){}
+    if(kind==='prompt')cb&&cb(ok?inp.value:null);else if(kind==='confirm')cb&&cb(!!ok);else cb&&cb();};
+  wrap.addEventListener('click',e=>{const b=e.target.closest('[data-b]');if(b)finish(b.dataset.b==='ok');else if(e.target===wrap&&kind!=='alert')finish(false);});
+  wrap.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();finish(true);}else if(e.key==='Escape'){e.preventDefault();finish(kind==='alert');}});
+  document.body.appendChild(wrap);setTimeout(()=>{(inp||wrap.querySelector('[data-b="ok"]')).focus();if(inp)inp.select();},20);
+}
 function ensureBlockly(){
   if(ED.ws)return true;
+  if(window.Blockly&&Blockly.dialog&&!ensureBlockly.dlg){ensureBlockly.dlg=true;
+    Blockly.dialog.setPrompt((m,d,cb)=>byDialog('prompt',m,d,cb));Blockly.dialog.setConfirm((m,cb)=>byDialog('confirm',m,null,cb));Blockly.dialog.setAlert((m,cb)=>byDialog('alert',m,null,cb));}
   if(!window.Blockly){$('#blockly').innerHTML='<div class="bl-empty">The block editor could not load. Check your connection and reload the page.</div>';return false;}
   defineBlocks();
   ED.ws=Blockly.inject('blockly',{toolbox:TOOLBOX,renderer:'zelos',theme:BLOCK_THEME,sounds:false,media:'',trashcan:false,
