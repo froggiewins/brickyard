@@ -1108,7 +1108,7 @@ function giveStarterTools(proj){proj.nodes.filter(n=>n.cls==='Tool'&&n.parent===
 const STOP={stop:true};
 const RT={gen:0,waiters:[],touch:[],click:[],key:[],msg:new Map(),died:[],vars:new Map(),stats:new Map(),warned:new Set(),t0:0,last:null};
 let t=0;
-function rtReset(){RT.gen++;Object.assign(RT,{spawn:[],jump:[],waiters:[],touch:[],click:[],key:[],msg:new Map(),died:[],vars:new Map(),stats:new Map(),warned:new Set(),t0:0,last:null});}
+function rtReset(){RT.gen++;MOUSE.down=0;Object.assign(RT,{mouse:[],spawn:[],jump:[],waiters:[],touch:[],click:[],key:[],msg:new Map(),died:[],vars:new Map(),stats:new Map(),warned:new Set(),t0:0,last:null});}
 function sleep(s,ctx){return new Promise(res=>RT.waiters.push({at:t+Math.max(0,+s||0),res,gen:ctx.gen}));}
 function rtTick(){if(!RT.waiters.length)return;const due=[];
   RT.waiters=RT.waiters.filter(w=>{if(w.gen!==RT.gen)return false;if(w.at<=t+1e-9){due.push(w);return false;}return true;});due.forEach(w=>w.res());}
@@ -1169,6 +1169,9 @@ function ev(b,ctx){
     case 'p_model':if(!ctx.model)warnOnce('thism:'+ctx.script,ctx.script+': "this model" only works in a script inside a Model, or inside a part of one.');return ctx.model||null;
     case 'p_model_named':{const nm=String(fld(b,'NAME')||'');const m=(W.modelsByName.get(nm)||[])[0];if(!m)warnOnce('nfm:'+nm,'No model named "'+nm+'" was found.');return m||null;}
     case 's_key':return keys.has(fld(b,'KEY'));
+    case 's_mouse_down':return MOUSE.down>0&&!paused;
+    case 's_mouse_part':return mousePart();
+    case 's_mouse_xy':{const r=cv.getBoundingClientRect();if(!r.width)return 0;return fld(b,'AXIS')==='x'?Math.round((MOUSE.x-r.left)/r.width*480-240):Math.round(180-(MOUSE.y-r.top)/r.height*360);}
     case 's_touching':{const ps=partsOf(partv(b,ctx));return !P.dead&&ps.some(p=>partOverlap(p,-.15));}
     case 's_distance':{const c=centerOf(partv(b,ctx));return c?r3(c.distanceTo(P.pos)):0;}
     case 's_player':{const a=fld(b,'AXIS');if(a==='speed')return r3(Math.hypot(P.vel.x,P.vel.z));return r3(a==='y'?P.pos.y-PH.y:P.pos[a]);}
@@ -1319,6 +1322,7 @@ function startScriptsFor(proj,scripts,map,models,opts){
         case 'ev_click_model':if(model)RT.click.push(Object.assign(h,{group:model,parts:model.parts}));else logOut(base.script+': "when this model is clicked" needs the script to be inside a Model.','warn');break;
         case 'ev_click':if(part)RT.click.push(h);else logOut(base.script+': "when this part is clicked" needs the script to be inside a part.','warn');break;
         case 'ev_key':RT.key.push(Object.assign(h,{key:fld(top,'KEY')}));break;
+        case 'ev_mouse':RT.mouse.push(h);break;
         case 'ev_every':{const n=Math.max(.05,Number(fld(top,'S'))||1);const ctx=Object.assign({},base,{gen:RT.gen,ops:0});
           (async()=>{while(true){await sleep(n,ctx);await run(body,ctx);}})().catch(e=>rtErr(e,ctx));break;}
         case 'ev_msg':{const m=String(fld(top,'MSG'));if(!RT.msg.has(m))RT.msg.set(m,[]);RT.msg.get(m).push(h);break;}
@@ -1902,11 +1906,19 @@ cv.addEventListener('pointermove',e=>{
 });
 const endDrag=e=>{if(!drag||drag.id!==e.pointerId)return;const tap=drag.moved<7;drag=null;
   if(!tap||e.type!=='pointerup'||!running||paused)return;
+  if(RT.mouse&&RT.mouse.length)RT.mouse.forEach(h=>spawnRun(h.body,h));
   if(game.mode==='build')builderClick(e);
   else{let used=false;if(RT.click.length){const owns=(h,p)=>h.part===p||(h.parts&&h.parts.includes(p));const hit=pickAt(e,p=>RT.click.some(h=>owns(h,p)));if(hit){used=true;const p=hit.object.userData.part;RT.click.filter(h=>owns(h,p)).forEach(h=>spawnRun(h.body,h));}}
     if(!used&&P.equipped)activateTool();}
 };
 cv.addEventListener('pointerup',endDrag);cv.addEventListener('pointercancel',endDrag);
+/* mouse state for the Sensing blocks */
+const MOUSE={down:0,x:0,y:0,seen:false};
+cv.addEventListener('pointerdown',e=>{if(e.button===0||e.pointerType!=='mouse'){MOUSE.down++;}MOUSE.x=e.clientX;MOUSE.y=e.clientY;MOUSE.seen=true;});
+const mUp=e=>{if(e.button===0||e.pointerType!=='mouse')MOUSE.down=Math.max(0,MOUSE.down-1);};
+addEventListener('pointerup',mUp);addEventListener('pointercancel',mUp);addEventListener('blur',()=>{MOUSE.down=0;});
+cv.addEventListener('pointermove',e=>{MOUSE.x=e.clientX;MOUSE.y=e.clientY;MOUSE.seen=true;});
+function mousePart(){if(!MOUSE.seen)return null;const hit=pickAt({clientX:MOUSE.x,clientY:MOUSE.y});return hit?hit.object.userData.part:null;}
 cv.addEventListener('wheel',e=>{e.preventDefault();cam.dist=Math.max(.5,Math.min(80,cam.dist*(1+e.deltaY*.0012)));if(cam.dist<1.6)cam.dist=.5;},{passive:false});
 const joyEl=$('#joy'),knob=$('#knob');let joyId=null;
 joyEl.addEventListener('pointerdown',e=>{joyId=e.pointerId;joyEl.setPointerCapture(e.pointerId);joyMove(e);});
@@ -3172,6 +3184,9 @@ function luaForScript(node,withLib){
     case 'tool_hitpart':return 'hitPart';case 's_isplayer':return `BY.isPlayer(${Pt(b)})`;case 's_players':return '#Players:GetPlayers()';case 's_isrig':return `BY.isRig(${Pt(b)})`;case 's_health':return 'BY.health()';
     case 's_rig_health':return `BY.rigHealth(${Pt(b)})`;case 's_has_tool':return `BY.hasTool(${luaStr(fld(b,'NAME'))})`;
     case 'p_model':return 'script:FindFirstAncestorOfClass("Model")';case 'p_model_named':return `workspace:FindFirstChild(${luaStr(fld(b,'NAME'))}, true)`;
+    case 's_mouse_down':L.notes.add('Mouse checks need a LocalScript in Roblox (UserInputService), so they are false here.');return 'false';
+    case 's_mouse_part':L.notes.add('"part under mouse" needs a LocalScript in Roblox (Player:GetMouse().Target).');return 'nil';
+    case 's_mouse_xy':return '0';
     case 's_key':L.notes.add('Key-press checks need a LocalScript in Roblox, so they are false here.');return 'false';
     case 's_touching':return `BY.touching(${Pt(b)})`;case 's_distance':return `BY.dist(${Pt(b)})`;
     case 's_player':return `BY.ppos(${luaStr(fld(b,'AXIS'))})`;case 's_prop':return `BY.prop(${Pt(b)}, ${luaStr(fld(b,'PROP'))})`;
@@ -3247,6 +3262,7 @@ function luaForScript(node,withLib){
       case 'ev_rig_died':out+=`do\n  local m = script:FindFirstAncestorOfClass("Model")\n  local h = m and m:FindFirstChildOfClass("Humanoid")\n  if h then h.Died:Connect(function()\n${B_}  end) end\nend\n\n`;break;
       case 'ev_touch_model':out+=`do\n  local busy = false\n  local model = script:FindFirstAncestorOfClass("Model")\n  for _, part in ipairs(model and model:GetDescendants() or {}) do\n    if part:IsA("BasePart") then\n      part.Touched:Connect(function(hit)\n        if busy or not Players:GetPlayerFromCharacter(hit.Parent) then return end\n        busy = true\n${chainL(nb,'        ')}        busy = false\n      end)\n    end\n  end\nend\n\n`;break;
       case 'ev_click_model':out+=`do\n  local model = script:FindFirstAncestorOfClass("Model")\n  local cd = model and (model:FindFirstChildOfClass("ClickDetector") or Instance.new("ClickDetector", model))\n  if cd then cd.MouseClick:Connect(function()\n${B_}  end) end\nend\n\n`;break;
+      case 'ev_mouse':L.notes.add('Mouse click events need a LocalScript in Roblox.');out+=`--[[ when mouse clicked (needs a LocalScript)\n${chainL(nb,'  ')}]]\n\n`;break;
       case 'ev_key':L.notes.add('Key-press events need a LocalScript in Roblox.');out+=`--[[ when ${fld(top,'KEY')} pressed (needs a LocalScript)\n${chainL(nb,'  ')}]]\n\n`;break;
       case 'ev_every':out+=`task.spawn(function()\n  while true do\n    task.wait(${luaNum(fld(top,'S'))})\n${chainL(nb,'    ')}  end\nend)\n\n`;break;
       case 'ev_msg':out+=`BY.listen(${luaStr(fld(top,'MSG'))}, function()\n${chainL(nb,'  ')}end)\n\n`;break;
@@ -3440,6 +3456,7 @@ function defineBlocks(){
     H_({type:'ev_click',message0:'when this part is clicked',tooltip:'Runs when the player clicks or taps the part this script is in.'}),
     H_({type:'ev_touch_model',message0:'when player touches this model',tooltip:'Runs when the player touches any part of the Model this script is in.'}),
     H_({type:'ev_click_model',message0:'when this model is clicked',tooltip:'Runs when the player clicks any part of the Model this script is in.'}),
+    H_({type:'ev_mouse',message0:'when mouse clicked',tooltip:'Runs every time the player clicks or taps anywhere in the game.'}),
     H_({type:'ev_key',message0:'when %1 key pressed',args0:[{type:'field_dropdown',name:'KEY',options:KEYOPTS}]}),
     H_({type:'ev_every',message0:'every %1 seconds',args0:[{type:'field_number',name:'S',value:1,min:.05,precision:.05}]}),
     H_({type:'ev_msg',message0:'when I receive %1',args0:[{type:'field_input',name:'MSG',text:'open'}],tooltip:'Runs when any script broadcasts this message.'}),
@@ -3528,6 +3545,9 @@ function defineBlocks(){
     S_({type:'g_sound',message0:'play sound %1',args0:[{type:'field_dropdown',name:'SND',options:[['coin','coin'],['jump','jump'],['boing','pad'],['checkpoint','check'],['victory','win'],['whoosh','boost'],['click','click'],['boom','explode'],['oof','die']]}]},'game_blocks'),
     S_({type:'g_sky',message0:'set sky color to %1',args0:[{type:'field_colour',name:'COLOUR',colour:'#1a1f3d'}]},'game_blocks'),
     S_({type:'g_reset_timer',message0:'reset timer'},'game_blocks'),
+    V_({type:'s_mouse_down',message0:'mouse down?',tooltip:'True while the player holds the left mouse button (or a finger) on the game.'},'Boolean','sense_blocks'),
+    V_({type:'s_mouse_part',message0:'part under mouse',tooltip:'The part the mouse is pointing at, or nothing.'},'Part','sense_blocks'),
+    V_({type:'s_mouse_xy',message0:'mouse %1',args0:[{type:'field_dropdown',name:'AXIS',options:[['x','x'],['y','y']]}],tooltip:'Mouse position like Scratch: x from -240 to 240, y from -180 to 180, with 0, 0 in the middle.'},'Number','sense_blocks'),
     V_({type:'s_touching',message0:'player touching %1 ?',args0:[PT()]},'Boolean','sense_blocks'),
     V_({type:'s_key',message0:'key %1 pressed?',args0:[{type:'field_dropdown',name:'KEY',options:KEYOPTS}]},'Boolean','sense_blocks'),
     V_({type:'s_grounded',message0:'player on ground?'},'Boolean','sense_blocks'),
@@ -3541,7 +3561,7 @@ function defineBlocks(){
   const n_=v=>({shadow:{type:'math_number',fields:{NUM:v}}}),t_=s=>({shadow:{type:'text',fields:{TEXT:s}}}),me=()=>({shadow:{type:'p_this'}});
   const xyz=(x,y,z)=>({PART:me(),X:n_(x),Y:n_(y),Z:n_(z)});
   TOOLBOX={kind:'categoryToolbox',contents:[
-    {kind:'category',name:'Events',categorystyle:'events',contents:[K('ev_start'),K('ev_touch'),K('ev_click'),K('ev_touch_model'),K('ev_click_model'),K('ev_key'),K('ev_every'),K('ev_msg'),K('c_broadcast'),K('ev_died')]},
+    {kind:'category',name:'Events',categorystyle:'events',contents:[K('ev_start'),K('ev_touch'),K('ev_click'),K('ev_touch_model'),K('ev_click_model'),K('ev_key'),K('ev_mouse'),K('ev_every'),K('ev_msg'),K('c_broadcast'),K('ev_died')]},
     {kind:'category',name:'Control',categorystyle:'control',contents:[K('c_wait',{S:n_(1)}),K('c_forever'),K('controls_repeat_ext',{TIMES:n_(10)}),K('controls_if'),
       K('controls_if',null,null,{extraState:{hasElse:true}}),K('c_wait_until'),K('controls_whileUntil'),K('c_stop')]},
     {kind:'category',name:'Parts',categorystyle:'parts',contents:[K('p_this'),K('p_named'),K('p_model'),K('p_model_named'),K('p_glide',Object.assign(xyz(0,0,10),{S:n_(2)})),K('p_glideto',Object.assign(xyz(0,10,0),{S:n_(2)})),
@@ -3562,7 +3582,7 @@ function defineBlocks(){
     {kind:'category',name:'Storage',categorystyle:'storage',contents:[{kind:'label',text:'ReplicatedStorage'},K('rs_copy',{X:n_(0),Y:n_(20),Z:n_(0)}),K('rs_onto',{PART:me()}),K('rs_last')]},
     {kind:'category',name:'Game',categorystyle:'game',contents:[K('g_msg',{TEXT:t_('Hello!'),S:n_(2)}),K('g_print',{TEXT:t_('Hello from my script')}),K('g_stat_change',{N:n_(1)}),K('g_stat_set',{N:n_(0)}),
       K('g_win'),K('g_sound'),K('g_sky'),K('g_reset_timer')]},
-    {kind:'category',name:'Sensing',categorystyle:'sensing',contents:[K('s_health'),K('s_players'),K('s_touching',{PART:me()}),K('s_key'),K('s_grounded'),K('s_distance',{PART:me()}),K('s_player'),K('s_prop',{PART:me()}),K('s_timer'),K('s_stat')]},
+    {kind:'category',name:'Sensing',categorystyle:'sensing',contents:[K('s_health'),K('s_players'),K('s_touching',{PART:me()}),K('s_key'),K('s_mouse_down'),K('s_mouse_part'),K('s_mouse_xy'),K('s_grounded'),K('s_distance',{PART:me()}),K('s_player'),K('s_prop',{PART:me()}),K('s_timer'),K('s_stat')]},
     {kind:'category',name:'Operators',categorystyle:'ops',contents:[K('math_number'),K('math_arithmetic',{A:n_(1),B:n_(1)}),K('math_random_int',{FROM:n_(1),TO:n_(10)}),
       K('logic_compare',{A:n_(0),B:n_(0)}),K('logic_operation'),K('logic_negate'),K('logic_boolean'),K('text'),K('text_join',{ADD0:t_('Score: ')})]},
     {kind:'category',name:'Variables',categorystyle:'variables',custom:'VARIABLE'}
