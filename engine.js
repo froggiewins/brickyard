@@ -1301,12 +1301,13 @@ function ev(b,ctx){
       if(k[0]==='s'&&k.length===2){const sz=v.isGroup?boundsOf(ps).getSize(new V3()):ps[0].size;return r3(sz[k[1]]);}
       return ps[0].look?ps[0].look.transparency||0:0;}
     case 's_timer':return r3(state.time-RT.t0);
+    case 'data_get_or':{const k=String(ev(inp(b,'KEY'),ctx)??'');return k in SAVE.d?SAVE.d[k]:ev(inp(b,'DEF'),ctx);}
     case 'data_get':{const k=String(ev(inp(b,'KEY'),ctx)??'');return k in SAVE.d?SAVE.d[k]:0;}
     case 'data_has':return String(ev(inp(b,'KEY'),ctx)??'') in SAVE.d;
     case 'data_loaded':return SAVE.loaded;
     case 'data_returning':return SAVE.hadSave;
     case 's_pl_name':return myName();
-    case 'pl_ref':return {plr:fld(b,'WHO')||'me'};
+    case 'pl_ref':{const w=fld(b,'WHO')||'me';if(w==='sender'){const r=ctx.from&&MP.remotes.get(ctx.from);return r?{plist:[r]}:{plr:'me'};}return {plr:w};}
     case 'pl_ref_touchme':return {plist:otherPlayers().filter(r=>touchingMe(r))};
     case 'pl_touched':if(!ctx.touched)warnOnce('tp:'+ctx.script,ctx.script+': "touched player" only has a value inside "when I touch another player".');return ctx.touched||null;
     case 's_touch_player':{const x=inp(b,'WHO');const tg=resolveTargets(x?ev(x,ctx):{plr:'others'});return tg.some(r=>r!=='me'&&touchingMe(r));}
@@ -1475,6 +1476,10 @@ async function stmt(b,ctx){
     case 'pl_kill':die('kill');break;
     case 'pl_teleport':{const tp=topOf(partv(b,ctx));if(tp&&!P.dead){P.pos.set(tp.x,tp.y+PH.y+.3,tp.z);P.vel.set(0,0,0);}break;}
     case 'pl_launch':P.vel.y=numv(inp(b,'P'),ctx);P.onGround=false;P.coyote=0;break;
+    case 'pl_knock':{if(P.dead)break;const x=inp(b,'WHO');const tg=resolveTargets(x?ev(x,ctx):null);const src=tg[0]==='me'||!tg.length?null:tg[0];
+      const pw=Math.max(0,Math.min(400,numv(inp(b,'P'),ctx)));const d=src?new V3(P.pos.x-src.pos.x,0,P.pos.z-src.pos.z):new V3(-Math.sin(P.yaw),0,-Math.cos(P.yaw));
+      if(d.lengthSq()<.01)d.set(Math.random()-.5,0,Math.random()-.5);d.normalize().multiplyScalar(pw*.7);d.y=pw*.45;
+      if(fld(b,'RAG')==='TRUE')ragdollPlayer(2,d);else{P.vel.copy(d);P.onGround=false;P.coyote=0;P.boost=Math.max(P.boost,.6);}break;}
     case 'pl_speed':PHYS.walk=Math.max(0,numv(inp(b,'V'),ctx));break;
     case 'data_set':{const k=String(ev(inp(b,'KEY'),ctx)??'').slice(0,40);if(!k)break;if(!(k in SAVE.d)&&Object.keys(SAVE.d).length>=200){warnOnce('dfull','Save data is full (200 values).');break;}SAVE.d[k]=saveVal(ev(inp(b,'V'),ctx));break;}
     case 'data_change':{const k=String(ev(inp(b,'KEY'),ctx)??'').slice(0,40);if(!k)break;const cur=Number(SAVE.d[k])||0;SAVE.d[k]=r3(cur+numv(inp(b,'N'),ctx));break;}
@@ -3567,6 +3572,7 @@ function luaForScript(node,withLib){
     case 's_pl_moving':return '(hum() ~= nil and hum().MoveDirection.Magnitude > 0)';case 's_pl_alive':return '(hum() ~= nil and hum().Health > 0)';
     case 's_pl_shield':return '(player() and player().Character and player().Character:FindFirstChildOfClass("ForceField") ~= nil)';case 's_pl_tool':return '(function() local c = player() and player().Character local t = c and c:FindFirstChildOfClass("Tool") return t and t.Name or "" end)()';
     case 'data_get':L.notes.add('Saved data needs DataStoreService in Roblox; the export keeps it in BY.saved for the session only.');return `(BY.saved[tostring(${V(b,'KEY','""')})] or 0)`;
+    case 'data_get_or':return `(BY.saved[tostring(${V(b,'KEY','""')})] or ${V(b,'DEF','0')})`;
     case 'data_has':return `(BY.saved[tostring(${V(b,'KEY','""')})] ~= nil)`;case 'data_loaded':return 'true';case 'data_returning':return 'false';
     case 's_timer':return '(os.clock() - BY.t0)';case 's_stat':return `BY.stat(${luaStr(fld(b,'STAT'))}).Value`;case 's_grounded':return 'BY.grounded()';
   }return 'nil';}
@@ -3623,6 +3629,7 @@ function luaForScript(node,withLib){
     case 'data_set':L.notes.add('Saved data needs DataStoreService in Roblox; the export keeps it in BY.saved for the session only.');return l(`BY.saved[tostring(${V(b,'KEY','""')})] = ${V(b,'V','0')}`);
     case 'data_change':return l(`BY.saved[tostring(${V(b,'KEY','""')})] = (BY.saved[tostring(${V(b,'KEY','""')})] or 0) + ${V(b,'N','1')}`);
     case 'data_del':return l(`BY.saved[tostring(${V(b,'KEY','""')})] = nil`);case 'data_clear':return l('BY.saved = {}');case 'data_now':return l('-- save progress now (DataStoreService)');
+    case 'pl_knock':return l(`BY.launch(${V(b,'P','60')})`);
     case 'pl_ragdoll':case 'pl_fling':case 'pl_getup':L.notes.add('Ragdolls need a ragdoll script in Roblox (Humanoid physics state plus BallSocketConstraints).');return l('-- '+b.type.replace('pl_','')+' the player');
     case 'rig_ragdoll':case 'rig_fling':return l('-- '+b.type.replace('rig_','')+' the rig');case 'data_enable':return l('-- turn auto-save '+(fld(b,'B')==='TRUE'?'on':'off'));
     case 'pl_sethp':return l(`BY.humanoid("Health", ${V(b,'N','100')})`);
@@ -3947,7 +3954,7 @@ function defineBlocks(){
     S_({type:'pl_gravity',message0:'set gravity to %1',args0:[N('V')]},'player_blocks'),
     {type:'pl_as',message0:'as player %1 do',args0:[{type:'input_value',name:'WHO',check:['Player','Part']}],message1:'%1',args1:[{type:'input_statement',name:'DO'}],previousStatement:null,nextStatement:null,style:'player_blocks',
       tooltip:'Runs the blocks inside for other players too. Each chosen player runs them on their own character, so "damage the player", "freeze", "teleport" and the rest affect them. Works in online games.'},
-    V_({type:'pl_ref',message0:'%1',args0:[{type:'field_dropdown',name:'WHO',options:[['everyone','all'],['everyone else','others'],['me','me'],['a random other player','random'],['the nearest other player','nearest']]}]},'Player','player_blocks'),
+    V_({type:'pl_ref',message0:'%1',args0:[{type:'field_dropdown',name:'WHO',options:[['everyone','all'],['everyone else','others'],['me','me'],['a random other player','random'],['the nearest other player','nearest'],['the player who sent this','sender']]}]},'Player','player_blocks'),
     V_({type:'s_touch_name',message0:'name of %1 touching this part',args0:[{type:'field_dropdown',name:'MODE',options:[['the player','first'],['all players','all']]}],tooltip:'The name of the player standing on or bumping into the part or model this script is in (blank if nobody is). "all players" lists every name, separated by commas.'},'String','sense_blocks'),
     V_({type:'s_touch_count',message0:'number of players touching this part',tooltip:'How many players (you included) are standing on or bumping into the part or model this script is in. Online, it counts everyone in the game.'},'Number','sense_blocks'),
     V_({type:'s_touch_player',message0:'touching player %1 ?',args0:[{type:'input_value',name:'WHO',check:['Player','Part']}],tooltip:'True while your character is bumping into one of these players. Leave it as "everyone else" to check for any player.'},'Boolean','player_blocks'),
@@ -3961,6 +3968,7 @@ function defineBlocks(){
     V_({type:'s_pl_countof',message0:'number of %1',args0:[{type:'input_value',name:'WHO',check:['Player','Part']}]},'Number','player_blocks'),
     S_({type:'var_share_set',message0:'set %1 for everyone to %2',args0:[{type:'field_variable',name:'VAR',variable:'item'},{type:'input_value',name:'VALUE'}],tooltip:'Sets this variable for you and every other player in an online game.'},'variable_blocks'),
     S_({type:'var_share_change',message0:'change %1 for everyone by %2',args0:[{type:'field_variable',name:'VAR',variable:'item'},N('N')],tooltip:'Changes this variable for you and every other player in an online game.'},'variable_blocks'),
+    S_({type:'pl_knock',message0:'knock the player away from %1 with power %2 %3 ragdoll',args0:[{type:'input_value',name:'WHO',check:['Player','Part']},N('P'),{type:'field_checkbox',name:'RAG',checked:false}],tooltip:'Pushes the player away from another player. Inside "as player", use "the player who sent this" to push them away from you.'},'player_blocks'),
     S_({type:'pl_ragdoll',message0:'ragdoll the player for %1 seconds',args0:[N('S')],tooltip:'The player goes limp and tumbles with physics, then gets back up.'},'player_blocks'),
     S_({type:'pl_fling',message0:'fling the player with power %1',args0:[N('P')],tooltip:'Throws the player backwards and up as a ragdoll.'},'player_blocks'),
     S_({type:'pl_getup',message0:'make the player get up'},'player_blocks'),
@@ -3987,6 +3995,7 @@ function defineBlocks(){
     S_({type:'data_clear',message0:'erase all my progress',tooltip:'Clears this player\'s saved values, stats and checkpoint.'},'data_blocks'),
     S_({type:'data_now',message0:'save progress now %1 show message',args0:[{type:'field_checkbox',name:'SHOW',checked:true}],tooltip:'Progress also saves by itself every few seconds and when the player leaves.'},'data_blocks'),
     V_({type:'data_get',message0:'saved %1',args0:[{type:'input_value',name:'KEY'}],tooltip:'A value from this player\'s save data, or 0 if nothing is saved under that name.'},null,'data_blocks'),
+    V_({type:'data_get_or',message0:'saved %1 or %2 if nothing saved',args0:[{type:'input_value',name:'KEY'},{type:'input_value',name:'DEF'}],tooltip:'Reads a saved value, but gives the second value when this player has nothing saved yet (for example on their first visit).'},null,'data_blocks'),
     V_({type:'data_has',message0:'has saved %1 ?',args0:[{type:'input_value',name:'KEY'}]},'Boolean','data_blocks'),
     V_({type:'data_loaded',message0:'save data loaded?'},'Boolean','data_blocks'),
     V_({type:'data_returning',message0:'returning player?',tooltip:'True if this player had saved progress from an earlier visit.'},'Boolean','data_blocks'),
@@ -4038,12 +4047,13 @@ function defineBlocks(){
       K('pl_as',{WHO:{block:{type:'pl_touched'}},DO:{block:{type:'pl_say',inputs:{TEXT:t_("You're it!"),S:n_(2)}}}}),
       K('pl_touched'),K('pl_ref_touchme'),K('pl_ref',null,{WHO:'others'}),K('pl_ref_touch',{PART:me()}),K('pl_ref_named',{NAME:t_('Player1')}),
       K('s_pl_nameof',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'nearest'}}}}),K('s_pl_hpof',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'nearest'}}}}),K('s_pl_countof',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'others'}}}}),
+      K('pl_as',{WHO:{block:{type:'pl_ref_touchme'}},DO:{block:{type:'pl_knock',inputs:{WHO:{shadow:{type:'pl_ref',fields:{WHO:'sender'}}},P:n_(60)}}}}),K('pl_knock',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'sender'}}},P:n_(60)}),
       K('pl_ragdoll',{S:n_(3)}),K('pl_fling',{P:n_(80)}),K('pl_getup'),K('s_pl_ragdoll'),
       K('ev_spawn'),K('ev_jump'),K('ev_land'),K('ev_hurt'),
       K('pl_sethp',{N:n_(100)}),K('pl_maxhp',{N:n_(200)}),K('pl_tpxyz',{X:n_(0),Y:n_(20),Z:n_(0)}),K('pl_respawn'),K('pl_freeze',null,{B:'TRUE'}),K('pl_visible',null,{B:'FALSE'}),
       K('pl_shirt'),K('pl_say',{TEXT:t_('Hello!'),S:n_(3)}),K('pl_shield',{S:n_(5)}),K('pl_airjumps',{N:n_(1)}),K('pl_face',{PART:{shadow:{type:'p_this'},block:{type:'p_named',fields:{NAME:'Part'}}}}),K('pl_camera',{N:n_(30)}),
       K('s_pl_name'),K('s_health'),K('s_pl_maxhp'),K('s_pl_speed'),K('s_pl_moving'),K('s_pl_alive'),K('s_pl_shield'),K('s_pl_tool'),K('s_grounded'),K('s_player')]},
-    {kind:'category',name:'Saving',categorystyle:'data',contents:[K('ev_data_loaded'),K('data_set',{KEY:t_('level'),V:n_(1)}),K('data_change',{KEY:t_('gems'),N:n_(1)}),K('data_get',{KEY:t_('level')}),K('data_has',{KEY:t_('level')}),
+    {kind:'category',name:'Saving',categorystyle:'data',contents:[K('ev_data_loaded'),K('data_set',{KEY:t_('level'),V:n_(1)}),K('data_change',{KEY:t_('gems'),N:n_(1)}),K('data_get',{KEY:t_('level')}),K('data_get_or',{KEY:t_('strength'),DEF:n_(50)}),K('data_has',{KEY:t_('level')}),
       K('data_returning'),K('data_loaded'),K('data_now'),K('data_enable',null,{B:'FALSE'}),K('data_del',{KEY:t_('level')}),K('data_clear'),
       K('ev_data_loaded',null,null,{next:{block:{type:'controls_if',inputs:{IF0:{block:{type:'data_returning'}},DO0:{block:{type:'g_msg',inputs:{TEXT:t_('Welcome back!'),S:n_(3)}}}}}}})]},
     {kind:'category',name:'Animation',categorystyle:'anim',contents:[K('ev_spawn'),K('ev_jump'),K('anim_play_me',{NAME:t_('Wave')},{MODE:'once'}),K('anim_play_rig',{NAME:t_('Dance'),PART:me()},{MODE:'loop'}),
