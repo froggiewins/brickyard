@@ -291,7 +291,7 @@ const _box=new THREE.Box3();
 function disposeScene(){scene.traverse(o=>{if(o.geometry&&!o.geometry.userData.shared)o.geometry.dispose();
   if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(!m.userData.shared){if(m.map&&!(m.map.userData||{}).shared)m.map.dispose();m.dispose();}})}});}
 function newScene(o){o=o||{};
-  W.anims=new Map();W.baseAnims=null;W.emotes=[];P.anim=null;$('#emoteMenu').hidden=true;
+  W.anims=new Map();W.baseAnims=null;W.emotes=[];P.anim=null;Object.assign(P,{frozen:false,hidden:false,shieldUntil:0,airJumps:0,airLeft:0,shirtOverride:null,airT:0,sayText:''});$('#emoteMenu').hidden=true;
   const gl=$('#guiLayer');if(gl)gl.innerHTML='';W.gui=new Map();W.guiByName=new Map();
   if(scene)disposeScene();
   scene=new THREE.Scene();
@@ -485,6 +485,7 @@ function resolveOBB(){
   }
 }
 function physics(dt,ix,iy,sprint){
+  if(P.frozen){ix=0;iy=0;sprint=false;P.jumpBuf=0;}
   const fx=-Math.sin(cam.yaw),fz=-Math.cos(cam.yaw),rx=Math.cos(cam.yaw),rz=-Math.sin(cam.yaw);
   let mx=fx*iy+rx*ix,mz=fz*iy+rz*ix;const ml=Math.hypot(mx,mz);if(ml>1){mx/=ml;mz/=ml;}
   const sp=P.boost>0?Math.max(BOOST,PHYS.walk*1.6):(sprint?PHYS.walk*SPRINT_X:PHYS.walk);
@@ -492,16 +493,19 @@ function physics(dt,ix,iy,sprint){
   P.vel.x+=(mx*sp-P.vel.x)*k;P.vel.z+=(mz*sp-P.vel.z)*k;
   if(P.onGround)P.coyote=.1;else P.coyote-=dt;
   P.jumpBuf-=dt;
-  if((P.jumpBuf>0||jumpHeld)&&P.coyote>0&&P.vel.y<=1){P.vel.y=PHYS.jump;P.coyote=0;P.jumpBuf=0;SFX.jump();if(RT.jump&&RT.jump.length)rtFire('jump');}
+  if(P.onGround)P.airLeft=P.airJumps||0;
+  if(((P.jumpBuf>0||(jumpHeld&&!P.frozen))&&P.coyote>0&&P.vel.y<=1)||(P.jumpBuf>0&&P.coyote<=0&&P.airLeft>0&&!P.onGround)){
+    if(P.coyote<=0)P.airLeft--;P.vel.y=PHYS.jump;P.coyote=0;P.jumpBuf=0;SFX.jump();if(RT.jump&&RT.jump.length)rtFire('jump');}
   P.vel.y=Math.max(P.vel.y-PHYS.gravity*dt,-160);
   const was=P.onGround;P.onGround=false;P.ground=null;
   moveAxis(0,P.vel.x*dt,was);moveAxis(2,P.vel.z*dt,was);moveAxis(1,P.vel.y*dt,false);
   if(W.obbs.length)resolveOBB();
+  if(P.onGround){if(!was&&P.airT>.25&&RT.land&&RT.land.length)rtFire('land');P.airT=0;}else P.airT=(P.airT||0)+dt;
 }
 function respawn(){
   P.debris.forEach(d=>scene.remove(d.m));P.debris=[];
   if(P.model)scene.remove(P.model);
-  P.model=makeAvatar();scene.add(P.model);P.anim=null;P.baseWhich=null;
+  P.model=makeAvatar(P.shirtOverride||undefined);scene.add(P.model);P.anim=null;P.baseWhich=null;P.shieldMesh=null;P.bubble=null;
   if(RT.spawn&&RT.spawn.length)setTimeout(()=>rtFire('spawn'),0);
   P.pos.copy(W.checkpoint||W.spawn);P.vel.set(0,0,0);P.dead=false;P.boost=0;P.onGround=false;P.ground=null;P.health=P.maxHealth;
   P.model.position.copy(P.pos);P.model.rotation.y=P.yaw;
@@ -519,8 +523,15 @@ function die(kind){
   scene.remove(P.model);
 }
 
-function damagePlayer(n){if(P.dead||state.over||!(n>0))return;P.health=Math.max(0,P.health-n);const d=$('#dmg');d.classList.add('on');requestAnimationFrame(()=>requestAnimationFrame(()=>d.classList.remove('on')));
+function damagePlayer(n){if(P.dead||state.over||!(n>0))return;if(P.shieldUntil>t)return;P.health=Math.max(0,P.health-n);if(RT.hurt&&RT.hurt.length)setTimeout(()=>rtFire('hurt'),0);const d=$('#dmg');d.classList.add('on');requestAnimationFrame(()=>requestAnimationFrame(()=>d.classList.remove('on')));
   if(P.health<=0)die('kill');}
+function setShirt(c){if(!/^#[0-9a-f]{6}$/i.test(c||''))return;P.shirtOverride=c;if(!P.model||P.dead)return;
+  const old=P.model;const nm=makeAvatar(c);nm.position.copy(old.position);nm.rotation.copy(old.rotation);
+  if(P.held){P.held.parent&&P.held.parent.remove(P.held);nm.userData.rArm.add(P.held);}if(P.bubble&&P.bubble.parent===old){old.remove(P.bubble);nm.add(P.bubble);}
+  if(P.shieldMesh){old.remove(P.shieldMesh);nm.add(P.shieldMesh);}scene.remove(old);scene.add(nm);P.model=nm;MP.lastSent='';}
+let SAYSEQ=0;
+function playerSay(text,secs){text=String(text??'').slice(0,100);if(!P.model)return;if(P.bubble&&P.bubble.parent)P.bubble.parent.remove(P.bubble);P.bubble=null;P.sayText='';
+  if(!text.trim()){MP.lastSent='';return;}P.bubble=bubbleOver(P.model,text);P.bubbleUntil=t+Math.max(.5,Math.min(60,secs||3));P.sayText=(++SAYSEQ)+'|'+text;MP.lastSent='';}
 function healPlayer(n){if(P.dead)return;P.health=Math.min(P.maxHealth,P.health+Math.max(0,n));}
 
 /* ---------- online multiplayer ---------- */
@@ -849,6 +860,8 @@ function applyPresence(r,pr){
   if(tk!==r.toolKey){r.toolKey=tk;if(r.held){r.held.parent&&r.held.parent.remove(r.held);r.held=null;}if(tk)r.held=makeRemoteHeld(pr.tool),r.model.userData.rArm.add(r.held);}
   if(num(pr.sw,0)!==r.lastSw){r.lastSw=num(pr.sw,0);if(r.lastSw)r.swT0=t;}
   r.stats=pr.st&&typeof pr.st==='object'?pr.st:{};
+  r.inv=!!pr.inv;r.model.visible=!r.dead&&!r.inv;
+  const say=typeof pr.say==='string'?pr.say.slice(0,120):'';if(say!==(r.say||'')){r.say=say;if(say){if(r.bubble)r.model.remove(r.bubble);r.bubble=bubbleOver(r.model,say.split('|').slice(1).join('|'));r.bubbleUntil=t+5;}}
   const em=typeof pr.em==='string'?pr.em.slice(0,60):'';
   if(em!==(r.em||'')){r.em=em;if(em){const a=findAnim(em.split('|')[0]);r.anim=a?newAnimState(a,'auto',false):null;}else if(r.anim)r.anim.out=true;}
 }
@@ -883,7 +896,7 @@ function myStats(){
 function sendPresence(){
   if(!MP.gr)return;
   const pr={p:[r3(P.pos.x),r3(P.pos.y),r3(P.pos.z)],yaw:r3(P.yaw),mv:r3(Math.hypot(P.vel.x,P.vel.z)),air:!P.onGround,dead:P.dead,sh:shirt,
-    tool:P.equipped?{n:P.equipped.name.slice(0,40),c:P.equipped.color}:null,sw:MP.swWall,hp:Math.round(P.health),st:myStats(),em:P.anim&&!P.anim.out?P.anim.net:''};
+    ...(P.shirtOverride?{sh:P.shirtOverride}:{}),tool:P.equipped?{n:P.equipped.name.slice(0,40),c:P.equipped.color}:null,sw:MP.swWall,hp:Math.round(P.health),st:myStats(),em:P.anim&&!P.anim.out?P.anim.net:'',inv:!!P.hidden,say:P.sayText||''};
   if(MP.p2p)pr.nm=MP.me.name;
   const j=JSON.stringify(pr);if(j===MP.lastSent)return;MP.lastSent=j;MP.gr.presence(pr).catch(()=>{});
 }
@@ -892,7 +905,7 @@ function onChat(msg){
   const txt=typeof (msg.data&&msg.data.t)==='string'?msg.data.t.replace(/[\u0000-\u001f]/g,'').slice(0,140):'';if(!txt.trim())return;
   const who=msg.isMe?myName():nameOf(msg.by);
   addChatLine(who,txt,msg.isMe?shirt:(MP.remotes.get(msg.peer)||{}).sh);
-  if(msg.isMe&&msg.sameTab){if(P.model){if(P.bubble&&P.bubble.parent)P.bubble.parent.remove(P.bubble);P.bubble=bubbleOver(P.model,txt);const bb=P.bubble;setTimeout(()=>{if(bb.parent)bb.parent.remove(bb);},6000);}}
+  if(msg.isMe&&msg.sameTab){if(P.model){if(P.bubble&&P.bubble.parent)P.bubble.parent.remove(P.bubble);P.bubbleUntil=0;P.bubble=bubbleOver(P.model,txt);const bb=P.bubble;setTimeout(()=>{if(bb.parent)bb.parent.remove(bb);},6000);}}
   else{const r=MP.remotes.get(msg.peer);if(r){if(r.bubble)r.model.remove(r.bubble);r.bubble=bubbleOver(r.model,txt);r.bubbleUntil=t+6;}}
 }
 function addChatLine(who,txt,color){const log=$('#chatLog');const d=document.createElement('div');const b=document.createElement('b');b.textContent=who;b.style.color=color||'#9fe3ff';
@@ -1108,7 +1121,7 @@ function giveStarterTools(proj){proj.nodes.filter(n=>n.cls==='Tool'&&n.parent===
 const STOP={stop:true};
 const RT={gen:0,waiters:[],touch:[],click:[],key:[],msg:new Map(),died:[],vars:new Map(),stats:new Map(),warned:new Set(),t0:0,last:null};
 let t=0;
-function rtReset(){RT.gen++;MOUSE.down=0;Object.assign(RT,{mouse:[],spawn:[],jump:[],waiters:[],touch:[],click:[],key:[],msg:new Map(),died:[],vars:new Map(),stats:new Map(),warned:new Set(),t0:0,last:null});}
+function rtReset(){RT.gen++;MOUSE.down=0;Object.assign(RT,{land:[],hurt:[],mouse:[],spawn:[],jump:[],waiters:[],touch:[],click:[],key:[],msg:new Map(),died:[],vars:new Map(),stats:new Map(),warned:new Set(),t0:0,last:null});}
 function sleep(s,ctx){return new Promise(res=>RT.waiters.push({at:t+Math.max(0,+s||0),res,gen:ctx.gen}));}
 function rtTick(){if(!RT.waiters.length)return;const due=[];
   RT.waiters=RT.waiters.filter(w=>{if(w.gen!==RT.gen)return false;if(w.at<=t+1e-9){due.push(w);return false;}return true;});due.forEach(w=>w.res());}
@@ -1119,6 +1132,8 @@ function rtFire(kind,arg){
   else if(kind==='msg')(RT.msg.get(arg)||[]).forEach(h=>spawnRun(h.body,h));
   else if(kind==='key')RT.key.forEach(h=>{if(h.key===arg)spawnRun(h.body,h);});
   else if(kind==='spawn')(RT.spawn||[]).forEach(h=>spawnRun(h.body,h));
+  else if(kind==='land')(RT.land||[]).forEach(h=>spawnRun(h.body,h));
+  else if(kind==='hurt')(RT.hurt||[]).forEach(h=>spawnRun(h.body,h));
   else if(kind==='jump')(RT.jump||[]).forEach(h=>spawnRun(h.body,h));
 }
 const inp=(b,n)=>{const i=b&&b.inputs&&b.inputs[n];return i?(i.block||i.shadow):null;};
@@ -1180,6 +1195,13 @@ function ev(b,ctx){
       if(k[0]==='s'&&k.length===2){const sz=v.isGroup?boundsOf(ps).getSize(new V3()):ps[0].size;return r3(sz[k[1]]);}
       return ps[0].look?ps[0].look.transparency||0:0;}
     case 's_timer':return r3(state.time-RT.t0);
+    case 's_pl_name':return myName();
+    case 's_pl_maxhp':return r3(P.maxHealth);
+    case 's_pl_speed':return r3(PHYS.walk);
+    case 's_pl_moving':return !P.dead&&Math.hypot(P.vel.x,P.vel.z)>1;
+    case 's_pl_alive':return !P.dead;
+    case 's_pl_tool':return P.equipped?P.equipped.name:'';
+    case 's_pl_shield':return P.shieldUntil>t;
     case 's_anim_playing':return !!(P.anim&&!P.anim.out);
     case 's_stat':return RT.stats.get(String(fld(b,'STAT')))||0;
     case 's_grounded':return P.onGround;
@@ -1276,6 +1298,18 @@ async function stmt(b,ctx){
     case 'pl_teleport':{const tp=topOf(partv(b,ctx));if(tp&&!P.dead){P.pos.set(tp.x,tp.y+PH.y+.3,tp.z);P.vel.set(0,0,0);}break;}
     case 'pl_launch':P.vel.y=numv(inp(b,'P'),ctx);P.onGround=false;P.coyote=0;break;
     case 'pl_speed':PHYS.walk=Math.max(0,numv(inp(b,'V'),ctx));break;
+    case 'pl_sethp':{if(P.dead)break;const v=Math.max(0,Math.min(P.maxHealth,numv(inp(b,'N'),ctx)));if(v<P.health)damagePlayer(P.health-v);else P.health=v;break;}
+    case 'pl_maxhp':{P.maxHealth=Math.max(1,Math.min(100000,numv(inp(b,'N'),ctx)));P.health=Math.min(P.health,P.maxHealth);if(fld(b,'FILL')==='TRUE'&&!P.dead)P.health=P.maxHealth;break;}
+    case 'pl_tpxyz':if(!P.dead){P.pos.set(numv(inp(b,'X'),ctx),numv(inp(b,'Y'),ctx),numv(inp(b,'Z'),ctx));P.vel.set(0,0,0);}break;
+    case 'pl_respawn':if(!state.over){if(P.dead)P.deadT=0;else{if(P.equipped)unequipTool();respawn();}}break;
+    case 'pl_freeze':P.frozen=fld(b,'B')==='TRUE';if(P.frozen){P.vel.x=0;P.vel.z=0;}break;
+    case 'pl_visible':P.hidden=fld(b,'B')!=='TRUE';MP.lastSent='';break;
+    case 'pl_shirt':setShirt(fld(b,'COLOUR'));break;
+    case 'pl_say':playerSay(ev(inp(b,'TEXT'),ctx),numv(inp(b,'S'),ctx));break;
+    case 'pl_shield':P.shieldUntil=t+Math.max(0,Math.min(600,numv(inp(b,'S'),ctx)));break;
+    case 'pl_airjumps':P.airJumps=Math.max(0,Math.min(20,Math.round(numv(inp(b,'N'),ctx))));if(P.onGround)P.airLeft=P.airJumps;break;
+    case 'pl_face':{const tp=partsOf(partv(b,ctx))[0];if(tp&&!P.dead){P.yaw=Math.atan2(tp.pos.x-P.pos.x,tp.pos.z-P.pos.z);if(P.model)P.model.rotation.y=P.yaw;}break;}
+    case 'pl_camera':{const m=fld(b,'MODE');if(m==='first')cam.dist=.5;else if(m==='third')cam.dist=coarse?22:20;else cam.dist=Math.max(.5,Math.min(80,numv(inp(b,'N'),ctx)));break;}
     case 'anim_play_me':case 'anim_play_rig':{const nm=String(ev(inp(b,'NAME'),ctx)??'');const a=findAnim(nm);const mode=fld(b,'MODE')||'once';
       if(!a){warnOnce('anf:'+nm,'No animation named "'+nm+'" was found. Insert one with the Animation button, or use a built-in: '+EMOTE_KEYS.map(k=>BD()[k].name).join(', ')+'.');break;}
       if(b.type==='anim_play_me'){if(P.dead)break;const st=playAnim('me',a,mode==='wait'?'once':mode,false);if(mode==='wait'){ctx.ops=0;while(P.anim===st)await sleep(.05,ctx);}}
@@ -1329,6 +1363,8 @@ function startScriptsFor(proj,scripts,map,models,opts){
         case 'ev_died':RT.died.push(h);break;
         case 'ev_spawn':RT.spawn.push(h);spawnRun(body,base);break;
         case 'ev_jump':RT.jump.push(h);break;
+        case 'ev_land':RT.land.push(h);break;
+        case 'ev_hurt':RT.hurt.push(h);break;
         case 'ev_tool_act':case 'ev_tool_equip':case 'ev_tool_unequip':case 'ev_tool_hit':
           if(base.tool)base.tool.handlers[{ev_tool_act:'act',ev_tool_equip:'equip',ev_tool_unequip:'unequip',ev_tool_hit:'hit'}[top.type]].push(h);
           else logOut(base.script+': tool events need the script to be inside a Tool.','warn');break;
@@ -1985,7 +2021,11 @@ function update(dt){
     if(P.equipped){const e=P.equipped,sw=t-e.swingT0;let a=-1.57;
       if(sw<.32){a=sw<.12?-1.57-1.3*(sw/.12):-2.87+2.4*((sw-.12)/.2);}
       u.rArm.rotation.x=a;u.rArm.rotation.z=0;}
-    m.visible=cam.dist>1;
+    m.visible=cam.dist>1&&!P.hidden;
+    if(P.bubble&&P.bubbleUntil&&t>P.bubbleUntil){P.bubble.parent&&P.bubble.parent.remove(P.bubble);P.bubble=null;P.bubbleUntil=0;P.sayText='';MP.lastSent='';}
+    if(P.shieldUntil>t){if(!P.shieldMesh){const sm=new THREE.Mesh(new THREE.SphereGeometry(3.6,24,16),new THREE.MeshBasicMaterial({color:0x7fd4ff,transparent:true,opacity:.22,depthWrite:false,blending:THREE.AdditiveBlending}));sm.position.y=.6;m.add(sm);P.shieldMesh=sm;}
+      P.shieldMesh.material.opacity=.16+Math.sin(t*8)*.06+(P.shieldUntil-t<1.5?Math.sin(t*30)*.08:0);}
+    else if(P.shieldMesh){P.shieldMesh.parent&&P.shieldMesh.parent.remove(P.shieldMesh);P.shieldMesh.geometry.dispose();P.shieldMesh.material.dispose();P.shieldMesh=null;}
   }else if(P.dead){
     P.deadT-=dt;
     for(const d of P.debris){d.v.y-=PHYS.gravity*.35*dt;d.m.position.addScaledVector(d.v,dt);d.m.rotation.x+=d.s.x*dt;d.m.rotation.y+=d.s.y*dt;d.m.rotation.z+=d.s.z*dt;}
@@ -3204,6 +3244,9 @@ function luaForScript(node,withLib){
     case 's_key':L.notes.add('Key-press checks need a LocalScript in Roblox, so they are false here.');return 'false';
     case 's_touching':return `BY.touching(${Pt(b)})`;case 's_distance':return `BY.dist(${Pt(b)})`;
     case 's_player':return `BY.ppos(${luaStr(fld(b,'AXIS'))})`;case 's_prop':return `BY.prop(${Pt(b)}, ${luaStr(fld(b,'PROP'))})`;
+    case 's_pl_name':return '(player() and player().Name or "")';case 's_pl_maxhp':return '(hum() and hum().MaxHealth or 100)';case 's_pl_speed':return '(hum() and hum().WalkSpeed or 16)';
+    case 's_pl_moving':return '(hum() ~= nil and hum().MoveDirection.Magnitude > 0)';case 's_pl_alive':return '(hum() ~= nil and hum().Health > 0)';
+    case 's_pl_shield':return '(player() and player().Character and player().Character:FindFirstChildOfClass("ForceField") ~= nil)';case 's_pl_tool':return '(function() local c = player() and player().Character local t = c and c:FindFirstChildOfClass("Tool") return t and t.Name or "" end)()';
     case 's_timer':return '(os.clock() - BY.t0)';case 's_stat':return `BY.stat(${luaStr(fld(b,'STAT'))}).Value`;case 's_grounded':return 'BY.grounded()';
   }return 'nil';}
   const chainL=(b,ind)=>{let s='';while(b){s+=ls(b,ind);b=b.next&&b.next.block;}return s;};
@@ -3251,6 +3294,18 @@ function luaForScript(node,withLib){
     case 'pe_emit':return l(`BY.emit(${Pt(b)}, ${V(b,'N','30')})`);
     case 'pe_toggle':return l(`BY.particles(${Pt(b)}, ${fld(b,'B')==='TRUE'?'true':'false'})`);
     case 'pl_kill':return l('BY.kill()');case 'pl_teleport':return l(`BY.teleport(${Pt(b)})`);case 'pl_launch':return l(`BY.launch(${V(b,'P','80')})`);
+    case 'pl_sethp':return l(`BY.humanoid("Health", ${V(b,'N','100')})`);
+    case 'pl_maxhp':return l(`BY.humanoid("MaxHealth", ${V(b,'N','100')})`)+(fld(b,'FILL')==='TRUE'?l(`BY.humanoid("Health", ${V(b,'N','100')})`):'');
+    case 'pl_tpxyz':return l(`do local p = player() local c = p and p.Character if c then c:PivotTo(CFrame.new(${V(b,'X','0')}, ${V(b,'Y','0')}, ${V(b,'Z','0')})) end end`);
+    case 'pl_respawn':return l('do local p = player() if p then p:LoadCharacter() end end');
+    case 'pl_freeze':return l(fld(b,'B')==='TRUE'?'do local h = hum() if h then h.WalkSpeed = 0 h.JumpPower = 0 end end':'do local h = hum() if h then h.WalkSpeed = 16 h.JumpPower = 50 end end');
+    case 'pl_visible':return l(`do local p = player() local c = p and p.Character if c then for _, d in c:GetDescendants() do if d:IsA("BasePart") and d.Name ~= "HumanoidRootPart" then d.Transparency = ${fld(b,'B')==='TRUE'?0:1} end end end end`);
+    case 'pl_shirt':return l(`do local p = player() local c = p and p.Character local t = c and c:FindFirstChild("Torso") if t then t.Color = Color3.fromHex(${luaStr(fld(b,'COLOUR')||'#e53935')}) end end`);
+    case 'pl_say':return l(`do local p = player() local c = p and p.Character local h = c and c:FindFirstChild("Head") if h then game:GetService("Chat"):Chat(h, tostring(${V(b,'TEXT','""')})) end end`);
+    case 'pl_shield':return l(`do local p = player() local c = p and p.Character if c then local f = Instance.new("ForceField", c) game:GetService("Debris"):AddItem(f, ${V(b,'S','5')}) end end`);
+    case 'pl_airjumps':L.notes.add('Air jumps need a custom double-jump LocalScript in Roblox.');return l('-- set extra air jumps to '+V(b,'N','1'));
+    case 'pl_face':return l(`do local p = player() local c = p and p.Character local t = ${Pt(b)} if c and t then local r = c:GetPivot().Position c:PivotTo(CFrame.lookAt(r, Vector3.new(t.Position.X, r.Y, t.Position.Z))) end end`);
+    case 'pl_camera':L.notes.add('Camera settings belong in a LocalScript in Roblox; first person maps to StarterPlayer.CameraMode.');return l('-- set camera to '+fld(b,'MODE'));
     case 'pl_speed':return l(`BY.humanoid("WalkSpeed", ${V(b,'V','16')})`);case 'pl_jump':return l(`BY.humanoid("JumpPower", ${V(b,'V','50')})`);
     case 'pl_gravity':return l(`workspace.Gravity = ${V(b,'V','196.2')}`);case 'pl_checkpoint':return l(`BY.respawn(${Pt(b)})`);
     case 'g_msg':return l(`BY.message(${V(b,'TEXT','""')}, ${V(b,'S','2')})`);case 'g_print':return l(`print(${V(b,'TEXT','""')})`);
@@ -3273,6 +3328,8 @@ function luaForScript(node,withLib){
       case 'ev_gui_click':out+=`script.Parent.MouseButton1Click:Connect(function()\n${chainL(nb,'  ')}end)\n\n`;break;
       case 'ev_spawn':out+=`Players.PlayerAdded:Connect(function(p)\n  p.CharacterAdded:Connect(function(c)\n${chainL(nb,'    ')}  end)\nend)\n\n`;break;
       case 'ev_jump':out+=`Players.PlayerAdded:Connect(function(p)\n  p.CharacterAdded:Connect(function(c)\n    c:WaitForChild("Humanoid").StateChanged:Connect(function(_, s)\n      if s ~= Enum.HumanoidStateType.Jumping then return end\n${chainL(nb,'      ')}    end)\n  end)\nend)\n\n`;break;
+      case 'ev_land':out+=`Players.PlayerAdded:Connect(function(p)\n  p.CharacterAdded:Connect(function(c)\n    c:WaitForChild("Humanoid").StateChanged:Connect(function(_, s)\n      if s ~= Enum.HumanoidStateType.Landed then return end\n${chainL(nb,'      ')}    end)\n  end)\nend)\n\n`;break;
+      case 'ev_hurt':out+=`Players.PlayerAdded:Connect(function(p)\n  p.CharacterAdded:Connect(function(c)\n    local h = c:WaitForChild("Humanoid")\n    local last = h.Health\n    h.HealthChanged:Connect(function(v)\n      local hurt = v < last\n      last = v\n      if not hurt then return end\n${chainL(nb,'      ')}    end)\n  end)\nend)\n\n`;break;
       case 'ev_rig_died':out+=`do\n  local m = script:FindFirstAncestorOfClass("Model")\n  local h = m and m:FindFirstChildOfClass("Humanoid")\n  if h then h.Died:Connect(function()\n${B_}  end) end\nend\n\n`;break;
       case 'ev_touch_model':out+=`do\n  local busy = false\n  local model = script:FindFirstAncestorOfClass("Model")\n  for _, part in ipairs(model and model:GetDescendants() or {}) do\n    if part:IsA("BasePart") then\n      part.Touched:Connect(function(hit)\n        if busy or not Players:GetPlayerFromCharacter(hit.Parent) then return end\n        busy = true\n${chainL(nb,'        ')}        busy = false\n      end)\n    end\n  end\nend\n\n`;break;
       case 'ev_click_model':out+=`do\n  local model = script:FindFirstAncestorOfClass("Model")\n  local cd = model and (model:FindFirstChildOfClass("ClickDetector") or Instance.new("ClickDetector", model))\n  if cd then cd.MouseClick:Connect(function()\n${B_}  end) end\nend\n\n`;break;
@@ -3551,6 +3608,27 @@ function defineBlocks(){
     S_({type:'pl_speed',message0:'set walk speed to %1',args0:[N('V')]},'player_blocks'),
     S_({type:'pl_jump',message0:'set jump power to %1',args0:[N('V')]},'player_blocks'),
     S_({type:'pl_gravity',message0:'set gravity to %1',args0:[N('V')]},'player_blocks'),
+    S_({type:'pl_sethp',message0:'set health to %1',args0:[N('N')]},'player_blocks'),
+    S_({type:'pl_maxhp',message0:'set max health to %1 %2 refill',args0:[N('N'),{type:'field_checkbox',name:'FILL',checked:true}]},'player_blocks'),
+    S_({type:'pl_tpxyz',message0:'teleport player to x %1 y %2 z %3',args0:[N('X'),N('Y'),N('Z')]},'player_blocks'),
+    S_({type:'pl_respawn',message0:'respawn the player'},'player_blocks'),
+    S_({type:'pl_freeze',message0:'freeze the player %1',args0:[{type:'field_dropdown',name:'B',options:[['on','TRUE'],['off','FALSE']]}],tooltip:'A frozen player cannot walk or jump. Handy for cutscenes and countdowns.'},'player_blocks'),
+    S_({type:'pl_visible',message0:'make the player %1',args0:[{type:'field_dropdown',name:'B',options:[['invisible','FALSE'],['visible','TRUE']]}]},'player_blocks'),
+    S_({type:'pl_shirt',message0:'set shirt color to %1',args0:[{type:'field_colour',name:'COLOUR',colour:'#e53935'}]},'player_blocks'),
+    S_({type:'pl_say',message0:'player says %1 for %2 seconds',args0:[{type:'input_value',name:'TEXT'},N('S')],tooltip:'Shows a speech bubble over the player. Other players online see it too.'},'player_blocks'),
+    S_({type:'pl_shield',message0:'give the player a force field for %1 seconds',args0:[N('S')],tooltip:'The player cannot take damage while the bubble is up.'},'player_blocks'),
+    S_({type:'pl_airjumps',message0:'set extra air jumps to %1',args0:[N('N')],tooltip:'1 gives a double jump, 2 a triple jump, and so on.'},'player_blocks'),
+    S_({type:'pl_face',message0:'turn the player to face %1',args0:[PT()]},'player_blocks'),
+    S_({type:'pl_camera',message0:'set camera to %1 zoom %2',args0:[{type:'field_dropdown',name:'MODE',options:[['first person','first'],['third person','third'],['zoom distance','zoom']]},N('N')],tooltip:'The zoom number is only used for "zoom distance".'},'player_blocks'),
+    H_({type:'ev_land',message0:'when I land',tooltip:'Runs when the player lands after a jump or a fall.'}),
+    H_({type:'ev_hurt',message0:'when I take damage',tooltip:'Runs each time the player loses health.'}),
+    V_({type:'s_pl_name',message0:'player name'},'String','player_blocks'),
+    V_({type:'s_pl_maxhp',message0:'max health'},'Number','player_blocks'),
+    V_({type:'s_pl_speed',message0:'walk speed'},'Number','player_blocks'),
+    V_({type:'s_pl_moving',message0:'player is moving?'},'Boolean','player_blocks'),
+    V_({type:'s_pl_alive',message0:'player is alive?'},'Boolean','player_blocks'),
+    V_({type:'s_pl_shield',message0:'player has force field?'},'Boolean','player_blocks'),
+    V_({type:'s_pl_tool',message0:'held tool name'},'String','player_blocks'),
     S_({type:'pl_checkpoint',message0:'set respawn point to %1',args0:[PT()]},'player_blocks'),
     S_({type:'g_msg',message0:'show message %1 for %2 seconds',args0:[{type:'input_value',name:'TEXT'},N('S')]},'game_blocks'),
     S_({type:'g_print',message0:'print %1',args0:[{type:'input_value',name:'TEXT'}],tooltip:'Writes to the Output panel.'},'game_blocks'),
@@ -3583,7 +3661,11 @@ function defineBlocks(){
       K('p_move',xyz(0,1,0)),K('p_setpos',xyz(0,10,0)),K('p_rotate',{PART:me(),DEG:n_(15)}),K('p_color',{PART:me()}),K('p_transp',{PART:me(),V:n_(.5)}),K('p_material',{PART:me()}),
       K('p_collide',{PART:me()},{B:'FALSE'}),K('p_visible',{PART:me()},{B:'FALSE'}),K('p_anchor',{PART:me()},{B:'FALSE'}),K('p_deadly',{PART:me()}),K('p_clone',xyz(0,5,0)),K('p_destroy',{PART:me()})]},
     {kind:'category',name:'Player',categorystyle:'player',contents:[K('pl_kill'),K('pl_damage',{N:n_(20)}),K('pl_heal',{N:n_(20)}),K('pl_teleport',{PART:{shadow:{type:'p_this'},block:{type:'p_named',fields:{NAME:'Part'}}}}),K('pl_launch',{P:n_(90)}),
-      K('pl_speed',{V:n_(24)}),K('pl_jump',{V:n_(70)}),K('pl_gravity',{V:n_(100)}),K('pl_checkpoint',{PART:me()})]},
+      K('pl_speed',{V:n_(24)}),K('pl_jump',{V:n_(70)}),K('pl_gravity',{V:n_(100)}),K('pl_checkpoint',{PART:me()}),
+      K('ev_spawn'),K('ev_jump'),K('ev_land'),K('ev_hurt'),
+      K('pl_sethp',{N:n_(100)}),K('pl_maxhp',{N:n_(200)}),K('pl_tpxyz',{X:n_(0),Y:n_(20),Z:n_(0)}),K('pl_respawn'),K('pl_freeze',null,{B:'TRUE'}),K('pl_visible',null,{B:'FALSE'}),
+      K('pl_shirt'),K('pl_say',{TEXT:t_('Hello!'),S:n_(3)}),K('pl_shield',{S:n_(5)}),K('pl_airjumps',{N:n_(1)}),K('pl_face',{PART:{shadow:{type:'p_this'},block:{type:'p_named',fields:{NAME:'Part'}}}}),K('pl_camera',{N:n_(30)}),
+      K('s_pl_name'),K('s_health'),K('s_pl_maxhp'),K('s_pl_speed'),K('s_pl_moving'),K('s_pl_alive'),K('s_pl_shield'),K('s_pl_tool'),K('s_grounded'),K('s_player')]},
     {kind:'category',name:'Animation',categorystyle:'anim',contents:[K('ev_spawn'),K('ev_jump'),K('anim_play_me',{NAME:t_('Wave')},{MODE:'once'}),K('anim_play_rig',{NAME:t_('Dance'),PART:me()},{MODE:'loop'}),
       K('anim_stop_me'),K('anim_stop_rig',{PART:me()}),K('s_anim_playing')]},
     {kind:'category',name:'GUI',categorystyle:'gui',contents:[K('ev_gui_click'),K('gui_this'),K('gui_named'),
