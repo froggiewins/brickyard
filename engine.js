@@ -1943,8 +1943,8 @@ function initStudio3D(){
   if(THREE.TransformControls){
     tc=new THREE.TransformControls(ecam,ED.ecv);tc.setSize(coarse?1.3:1);
     tc.addEventListener('objectChange',onGizmoChange);
-    tc.addEventListener('mouseDown',()=>{ED.gizmoMoved=false;ED.pivotLast.copy(epivot.position);});
-    tc.addEventListener('mouseUp',()=>{if(ED.gizmoMoved){commit();renderProps();}ED.gizmoMoved=false;});
+    tc.addEventListener('mouseDown',()=>{ED.gizmoMoved=false;ED.pivotLast.copy(epivot.position);ED.grp=tc.object===epivot?groupStart():null;});
+    tc.addEventListener('mouseUp',()=>{const wasGrp=!!ED.grp;ED.grp=null;if(ED.gizmoMoved){commit();renderProps();}ED.gizmoMoved=false;if(wasGrp)refreshGizmo();});
     escene.add(tc);
   }else logOut('The move/scale/rotate handles could not load. You can still edit Position, Size and Orientation in Properties.','warn');
   const ro=new ResizeObserver(()=>resizeStudio());ro.observe($('#stView'));
@@ -2034,13 +2034,37 @@ function refreshGizmo(){
   const parts=partsUnder(ED.sel);if(!parts.length)return;
   const bb=new THREE.Box3();parts.forEach(n=>{const m=ED.meshes.get(n.id);if(m)bb.expandByObject(m);});
   bb.getCenter(epivot.position);epivot.rotation.set(0,0,0);epivot.scale.set(1,1,1);epivot.userData.id=null;
-  tc.setMode('translate');tc.setSpace('world');tc.attach(epivot);
+  tc.setMode(ED.tool==='scale'?'scale':ED.tool==='rotate'?'rotate':'translate');tc.setSpace('world');tc.attach(epivot);
 }
 function snapV(v,s){return Math.round(v/s)*s;}
+/* Rotating or scaling several parts at once turns/scales them around the centre of the selection. */
+function groupStart(){epivot.quaternion.identity();epivot.scale.set(1,1,1);
+  return {c:epivot.position.clone(),items:partsUnder(ED.sel).map(n=>{const r=n.rot||[0,0,0];
+    return {n,pos:new V3().fromArray(n.pos),q:new THREE.Quaternion().setFromEuler(new THREE.Euler(r[0]*D2R,r[1]*D2R,r[2]*D2R,'YXZ')),size:(n.size||[1,1,1]).slice(),scale:n.scale||1};})};}
+function applyGroupRotation(G,q){
+  for(const it of G.items){const n=it.n;const p=it.pos.clone().sub(G.c).applyQuaternion(q).add(G.c);n.pos=p.toArray().map(r3);
+    const nq=q.clone().multiply(it.q);const e=new THREE.Euler().setFromQuaternion(nq,'YXZ');
+    n.rot=n.cls==='Rig'?[0,r3(e.y/D2R),0]:[r3(e.x/D2R),r3(e.y/D2R),r3(e.z/D2R)];
+    const m=ED.meshes.get(n.id);if(m){m.position.fromArray(n.pos);if(n.cls==='Rig')m.rotation.set(0,n.rot[1]*D2R,0);else m.rotation.set(n.rot[0]*D2R,n.rot[1]*D2R,n.rot[2]*D2R,'YXZ');}}
+}
+function applyGroupScale(G,f){
+  for(const it of G.items){const n=it.n;n.pos=it.pos.clone().sub(G.c).multiplyScalar(f).add(G.c).toArray().map(r3);const m=ED.meshes.get(n.id);if(!m)continue;m.position.fromArray(n.pos);
+    if(n.cls==='Rig'){n.scale=r3(Math.max(.3,Math.min(8,it.scale*f)));m.scale.setScalar(n.scale);}
+    else if(n.behavior!=='coin'){n.size=it.size.map(v=>r3(Math.max(.2,v*f)));m.scale.fromArray(n.size);}}
+}
+function turnSelection(axis){
+  const parts=partsUnder(ED.sel);if(!parts.length){logOut('Select some parts or models first.','warn');return;}
+  const bb=new THREE.Box3();parts.forEach(n=>{const m=ED.meshes.get(n.id);if(m)bb.expandByObject(m);else bb.expandByPoint(new V3().fromArray(n.pos));});
+  const c=new V3();bb.getCenter(c);epivot.position.copy(c);const G=groupStart();
+  applyGroupRotation(G,new THREE.Quaternion().setFromAxisAngle(axis==='x'?new V3(1,0,0):new V3(0,1,0),Math.PI/2));
+  commit();rebuildWorld();refreshGizmo();renderProps();ED.helpers.forEach(h=>h.update());
+}
 function onGizmoChange(){
   ED.gizmoMoved=true;
   const o=tc.object;if(!o)return;
-  if(o===epivot){const d=epivot.position.clone().sub(ED.pivotLast);ED.pivotLast.copy(epivot.position);
+  if(o===epivot&&ED.grp&&tc.mode==='rotate'){applyGroupRotation(ED.grp,epivot.quaternion);}
+  else if(o===epivot&&ED.grp&&tc.mode==='scale'){const sc=epivot.scale;const f=[sc.x,sc.y,sc.z].reduce((a,v)=>Math.abs(v-1)>Math.abs(a-1)?v:a,1);applyGroupScale(ED.grp,Math.max(.05,Math.min(20,f)));}
+  else if(o===epivot){const d=epivot.position.clone().sub(ED.pivotLast);ED.pivotLast.copy(epivot.position);
     for(const n of partsUnder(ED.sel)){n.pos=n.pos.map((v,i)=>r3(v+d.getComponent(i)));const m=ED.meshes.get(n.id);if(m)m.position.fromArray(n.pos);}
   }else{const n=nodeOf(o.userData.id);if(!n)return;
     if(n.cls==='Rig'){const sc=Math.max(.3,Math.min(8,tc.mode==='scale'?Math.max(o.scale.x,o.scale.y,o.scale.z):o.scale.x));o.scale.setScalar(sc);n.scale=r3(sc);
@@ -2253,6 +2277,7 @@ function focusSel(){
 function doAct(a){
   switch(a){
     case 'undo':undo();break;case 'redo':redo();break;case 'copy':copySel();break;case 'paste':paste();break;
+    case 'turn':turnSelection('y');break;case 'tilt':turnSelection('x');break;
     case 'dup':duplicate();break;case 'del':del();break;case 'group':group();break;case 'ungroup':ungroup();break;
     case 'snap':ED.snap=!ED.snap;updateSnapUI();break;
     case 'space':ED.space=ED.space==='world'?'local':'world';updateSnapUI();refreshGizmo();break;
@@ -3110,6 +3135,7 @@ addEventListener('keydown',e=>{
   if(mod){const k=e.key.toLowerCase();
     if(k==='z'&&!e.shiftKey){e.preventDefault();undo();}else if(k==='y'||(k==='z'&&e.shiftKey)){e.preventDefault();redo();}
     else if(k==='d'){e.preventDefault();duplicate();}else if(k==='c'){copySel();}else if(k==='v'){paste();}
+    else if(k==='r'&&ED.tab==='viewport'){e.preventDefault();turnSelection('y');}else if(k==='t'&&ED.tab==='viewport'){e.preventDefault();turnSelection('x');}
     else if(k==='g'){e.preventDefault();group();}else if(k==='u'){e.preventDefault();ungroup();}
     return;}
   if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();del();return;}
