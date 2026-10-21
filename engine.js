@@ -532,6 +532,20 @@ function setShirt(c){if(!/^#[0-9a-f]{6}$/i.test(c||''))return;P.shirtOverride=c;
 let SAYSEQ=0;
 function playerSay(text,secs){text=String(text??'').slice(0,100);if(!P.model)return;if(P.bubble&&P.bubble.parent)P.bubble.parent.remove(P.bubble);P.bubble=null;P.sayText='';
   if(!text.trim()){MP.lastSent='';return;}P.bubble=bubbleOver(P.model,text);P.bubbleUntil=t+Math.max(.5,Math.min(60,secs||3));P.sayText=(++SAYSEQ)+'|'+text;MP.lastSent='';}
+function otherPlayers(){return [...MP.remotes.values()];}
+function resolveTargets(v){
+  if(v==null)return ['me'];
+  if(v.remote)return [v];
+  if(Array.isArray(v.plist))return v.plist;
+  if(!v.plr)return [];
+  const os=otherPlayers().filter(r=>!r.dead);
+  switch(v.plr){
+    case 'me':return ['me'];case 'all':return ['me',...otherPlayers()];case 'others':return otherPlayers();
+    case 'random':return os.length?[os[Math.floor(Math.random()*os.length)]]:[];
+    case 'nearest':{let best=null,bd=Infinity;for(const r of os){const d=r.pos.distanceToSquared(P.pos);if(d<bd){bd=d;best=r;}}return best?[best]:[];}
+  }return [];
+}
+function targetName(x){return x==='me'?myName():nameOf(x.by);}
 function healPlayer(n){if(P.dead)return;P.health=Math.min(P.maxHealth,P.health+Math.max(0,n));}
 
 /* ---------- online multiplayer ---------- */
@@ -811,7 +825,7 @@ async function mpJoin(def){
     const gr=await MP.room.join(rn);
     if(!running||game!==def){gr.leave().catch(()=>{});return;}
     MP.gr=gr;
-    MP.unsubs.push(gr.onPeers(onGamePeers,()=>{}),gr.on('chat',onChat,()=>{}),gr.on('hit',onHit,()=>{}),gr.on('ko',onKO,()=>{}),gr.on('shot',onShot,()=>{}),gr.on('fin',onFin,()=>{}));
+    MP.unsubs.push(gr.onPeers(onGamePeers,()=>{}),gr.on('chat',onChat,()=>{}),gr.on('hit',onHit,()=>{}),gr.on('ko',onKO,()=>{}),gr.on('shot',onShot,()=>{}),gr.on('fin',onFin,()=>{}),gr.on('run',onRun,()=>{}));
     MP.lastSent='';updateOnlineUI();
   }catch(e){updateOnlineUI();}
 }
@@ -911,6 +925,13 @@ function onChat(msg){
 function addChatLine(who,txt,color){const log=$('#chatLog');const d=document.createElement('div');const b=document.createElement('b');b.textContent=who;b.style.color=color||'#9fe3ff';
   d.appendChild(b);d.appendChild(document.createTextNode(' '+txt));log.appendChild(d);while(log.children.length>8)log.firstChild.remove();setTimeout(()=>d.classList.add('old'),12000);}
 function sysChat(txt){const log=$('#chatLog');if(!log)return;const d=document.createElement('div');d.className='sys';d.textContent=txt;log.appendChild(d);while(log.children.length>8)log.firstChild.remove();setTimeout(()=>d.classList.add('old'),10000);}
+const RUNLIM={t:0,n:0};
+function onRun(msg){const d=msg.data;
+  if(msg.isMe||!d||!Array.isArray(d.to)||!d.to.includes(MP.peerMe)||!running||state.over||typeof d.s!=='string'||typeof d.b!=='string')return;
+  if(d.h!==W.projHash)return;
+  const now=performance.now();if(now-RUNLIM.t>1000){RUNLIM.t=now;RUNLIM.n=0;}if(++RUNLIM.n>40)return;
+  const base=RT.bases.get(d.s),bm=RT.bmap.get(d.s);if(!base||!bm)return;const blk=bm.get(d.b);if(!blk||blk.type!=='pl_as')return;
+  const body=D(blk,'DO');if(body)spawnRun(body,Object.assign({},base,{from:msg.peer}));}
 function onHit(msg){
   if(msg.isMe||!msg.data||msg.data.to!==MP.peerMe||P.dead||state.over)return;
   const n=Math.max(0,Math.min(100,num(msg.data.n,0)));damagePlayer(n);
@@ -1121,7 +1142,7 @@ function giveStarterTools(proj){proj.nodes.filter(n=>n.cls==='Tool'&&n.parent===
 const STOP={stop:true};
 const RT={gen:0,waiters:[],touch:[],click:[],key:[],msg:new Map(),died:[],vars:new Map(),stats:new Map(),warned:new Set(),t0:0,last:null};
 let t=0;
-function rtReset(){RT.gen++;MOUSE.down=0;Object.assign(RT,{land:[],hurt:[],mouse:[],spawn:[],jump:[],waiters:[],touch:[],click:[],key:[],msg:new Map(),died:[],vars:new Map(),stats:new Map(),warned:new Set(),t0:0,last:null});}
+function rtReset(){RT.gen++;MOUSE.down=0;Object.assign(RT,{bases:new Map(),bmap:new Map(),land:[],hurt:[],mouse:[],spawn:[],jump:[],waiters:[],touch:[],click:[],key:[],msg:new Map(),died:[],vars:new Map(),stats:new Map(),warned:new Set(),t0:0,last:null});}
 function sleep(s,ctx){return new Promise(res=>RT.waiters.push({at:t+Math.max(0,+s||0),res,gen:ctx.gen}));}
 function rtTick(){if(!RT.waiters.length)return;const due=[];
   RT.waiters=RT.waiters.filter(w=>{if(w.gen!==RT.gen)return false;if(w.at<=t+1e-9){due.push(w);return false;}return true;});due.forEach(w=>w.res());}
@@ -1196,6 +1217,16 @@ function ev(b,ctx){
       return ps[0].look?ps[0].look.transparency||0:0;}
     case 's_timer':return r3(state.time-RT.t0);
     case 's_pl_name':return myName();
+    case 'pl_ref':return {plr:fld(b,'WHO')||'me'};
+    case 'pl_ref_touch':{const ps=partsOf(partv(b,ctx));const out=[];if(!ps.length)return {plist:out};
+      if(!P.dead&&ps.some(p=>partOverlap(p,-.12)))out.push('me');
+      for(const r of otherPlayers()){if(r.dead)continue;if(ps.some(p=>r.min.x<p.max.x&&r.max.x>p.min.x&&r.min.y<p.max.y&&r.max.y>p.min.y&&r.min.z<p.max.z&&r.max.z>p.min.z))out.push(r);}
+      return {plist:out};}
+    case 'pl_ref_named':{const nm=String(ev(inp(b,'NAME'),ctx)??'').trim().toLowerCase().replace(/^@/,'');const out=[];if(!nm)return {plist:out};
+      if(myName().toLowerCase()===nm)out.push('me');for(const r of otherPlayers())if(nameOf(r.by).toLowerCase()===nm)out.push(r);return {plist:out};}
+    case 's_pl_nameof':{const x=inp(b,'WHO');const tg=resolveTargets(x?ev(x,ctx):null);return tg.length?targetName(tg[0]):'';}
+    case 's_pl_hpof':{const x=inp(b,'WHO');const tg=resolveTargets(x?ev(x,ctx):null);if(!tg.length)return 0;return tg[0]==='me'?r3(P.health):r3(num(tg[0].hp,100));}
+    case 's_pl_countof':{const x=inp(b,'WHO');return resolveTargets(x?ev(x,ctx):null).length;}
     case 's_pl_maxhp':return r3(P.maxHealth);
     case 's_pl_speed':return r3(PHYS.walk);
     case 's_pl_moving':return !P.dead&&Math.hypot(P.vel.x,P.vel.z)>1;
@@ -1298,6 +1329,11 @@ async function stmt(b,ctx){
     case 'pl_teleport':{const tp=topOf(partv(b,ctx));if(tp&&!P.dead){P.pos.set(tp.x,tp.y+PH.y+.3,tp.z);P.vel.set(0,0,0);}break;}
     case 'pl_launch':P.vel.y=numv(inp(b,'P'),ctx);P.onGround=false;P.coyote=0;break;
     case 'pl_speed':PHYS.walk=Math.max(0,numv(inp(b,'V'),ctx));break;
+    case 'pl_as':{const x=inp(b,'WHO');const tg=resolveTargets(x?ev(x,ctx):null);const body=D(b,'DO');if(!body||!tg.length)break;
+      const others=tg.filter(r=>r!=='me'&&r.peer);
+      if(others.length){if(MP.gr&&b.id&&ctx.sid)mpEmit('run',{to:others.map(r=>r.peer).slice(0,50),s:ctx.sid,b:b.id,h:W.projHash});
+        else warnOnce('asoff:'+ctx.script,ctx.script+': "as player" only reaches other players in an online game. In a playtest it only runs for you.');}
+      if(tg.includes('me'))await run(body,ctx);break;}
     case 'pl_sethp':{if(P.dead)break;const v=Math.max(0,Math.min(P.maxHealth,numv(inp(b,'N'),ctx)));if(v<P.health)damagePlayer(P.health-v);else P.health=v;break;}
     case 'pl_maxhp':{P.maxHealth=Math.max(1,Math.min(100000,numv(inp(b,'N'),ctx)));P.health=Math.min(P.health,P.maxHealth);if(fld(b,'FILL')==='TRUE'&&!P.dead)P.health=P.maxHealth;break;}
     case 'pl_tpxyz':if(!P.dead){P.pos.set(numv(inp(b,'X'),ctx),numv(inp(b,'Y'),ctx),numv(inp(b,'Z'),ctx));P.vel.set(0,0,0);}break;
@@ -1332,8 +1368,15 @@ async function stmt(b,ctx){
     default:break;
   }
 }
+function indexScriptBlocks(s){const m=new Map();let n=0;
+  const walk=b=>{if(!b||typeof b!=='object')return;if(!b.id)b.id='~'+n;n++;m.set(b.id,b);
+    if(b.inputs)for(const k of Object.keys(b.inputs)){const i=b.inputs[k];if(i&&i.block)walk(i.block);if(i&&i.shadow)walk(i.shadow);}
+    if(b.next&&b.next.block)walk(b.next.block);};
+  ((s.blocks&&s.blocks.blocks&&s.blocks.blocks.blocks)||[]).forEach(walk);return m;}
 function startScripts(proj){
   rtReset();
+  proj.nodes.forEach(n=>{if(n.cls==='Script'&&n.blocks)indexScriptBlocks(n);});
+  W.projHash=fnv(JSON.stringify(proj.nodes.filter(n=>n.cls==='Script').map(n=>[n.id,n.blocks])));
   startScriptsFor(proj,proj.nodes.filter(n=>n.cls==='Script'&&['workspace','sss','gui','player'].includes(serviceOf(proj,n.id))&&!hasToolAncestor(proj,n.id)),W.byId,W.models);
 }
 function startScriptsFor(proj,scripts,map,models,opts){
@@ -1345,7 +1388,8 @@ function startScriptsFor(proj,scripts,map,models,opts){
     const part=par&&(par.cls==='Part'||par.cls==='Rig')?map.get(par.id)||null:null;
     let mn=par,model=null;while(mn){if(mn.cls==='Model'||mn.cls==='Rig'){model=models.get(mn.id)||null;break;}mn=nodes.find(n=>n.id===mn.parent);}
     let gn=par,gui=null;while(gn&&isGuiNode(gn)){if(gn.cls!=='ScreenGui'){gui=(W.gui&&W.gui.get(gn.id))||null;break;}gn=null;}
-    const base={part,model,vmap,script:s.name||'Script',tool:(opts&&opts.tool)||null,gui};
+    const base={part,model,vmap,script:s.name||'Script',tool:(opts&&opts.tool)||null,gui,sid:s.id};
+    RT.bmap.set(s.id,indexScriptBlocks(s));RT.bases.set(s.id,base);
     for(const top of s.blocks.blocks.blocks||[]){
       const body=top.next&&top.next.block;
       const h=Object.assign({body},base);
@@ -2655,6 +2699,8 @@ const PREFABS=[
   {sec:'Animations',name:'Dancing NPC',desc:'A rig that dances forever with the Dance animation.',ico:['Rig','#ff5fa2'],make:o=>{const r=rigNode({name:'Dancer',pos:[o.x,o.y+2.6,o.z],colors:{head:'#f5cd30',torso:'#ff5fa2',arms:'#f5cd30',legs:'#2b3a7a'}});
     return [r,scriptNode({parent:r.id,name:'DanceScript',blocks:scriptOf(chain(blk('ev_start'),blk('anim_play_rig',{NAME:bt('Dance'),PART:bme()},{MODE:'loop'})))})];}},
   {sec:'Animations',name:'Wave on spawn',desc:'A StarterPlayer script: your character waves every time you spawn.',ico:['Script','#9966ff'],make:()=>[scriptNode({parent:'player',name:'SpawnWave',blocks:scriptOf(chain(blk('ev_spawn'),blk('c_wait',{S:bn(.5)}),blk('anim_play_me',{NAME:bt('Wave')},{MODE:'once'})))})]},
+  {sec:'Gameplay',name:'Freeze button',desc:'Click it to freeze everyone else for 3 seconds in an online game.',ico:['Part','#7fd4ff'],make:o=>{const pt=partNode({name:'FreezeButton',pos:[o.x,o.y+.5,o.z],size:[4,1,4],color:'#7fd4ff',material:'Neon'});
+    return [pt,scriptNode({parent:pt.id,name:'FreezeScript',blocks:scriptOf(chain(blk('ev_click'),blk('pl_as',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'others'}}},DO:doIn(blk('pl_freeze',null,{B:'TRUE'}),blk('pl_say',{TEXT:bt('Brrr!'),S:bn(3)}),blk('c_wait',{S:bn(3)}),blk('pl_freeze',null,{B:'FALSE'}))})))})];}},
   {sec:'GUI',name:'Coin counter',desc:'A label in the top corner that shows your Coins stat.',ico:['TextLabel','#b2f0e8'],make:()=>{const sg=guiNode('ScreenGui',{name:'CoinGui'});
     const lb=guiNode('TextLabel',{parent:sg.id,name:'CoinLabel',text:'Coins: 0',gpos:[1,-20,0,76],anchor:[1,0],gsize:[0,200,0,48],bg:'#ffc72c',bgT:.05,tc:'#2a1a00',font:'Display',ts:24,radius:24});
     return [sg,lb,scriptNode({parent:lb.id,name:'CoinScript',blocks:scriptOf(chain(blk('ev_start'),blk('c_forever',{DO:doIn(blk('gui_settext',{GUI:{shadow:{type:'gui_this'}},
@@ -3244,7 +3290,8 @@ function luaForScript(node,withLib){
     case 's_key':L.notes.add('Key-press checks need a LocalScript in Roblox, so they are false here.');return 'false';
     case 's_touching':return `BY.touching(${Pt(b)})`;case 's_distance':return `BY.dist(${Pt(b)})`;
     case 's_player':return `BY.ppos(${luaStr(fld(b,'AXIS'))})`;case 's_prop':return `BY.prop(${Pt(b)}, ${luaStr(fld(b,'PROP'))})`;
-    case 's_pl_name':return '(player() and player().Name or "")';case 's_pl_maxhp':return '(hum() and hum().MaxHealth or 100)';case 's_pl_speed':return '(hum() and hum().WalkSpeed or 16)';
+    case 's_pl_name':return '(player() and player().Name or "")';case 'pl_ref':case 'pl_ref_touch':case 'pl_ref_named':return 'Players:GetPlayers()';
+    case 's_pl_nameof':return '(player() and player().Name or "")';case 's_pl_hpof':return 'BY.health()';case 's_pl_countof':return '#Players:GetPlayers()';case 's_pl_maxhp':return '(hum() and hum().MaxHealth or 100)';case 's_pl_speed':return '(hum() and hum().WalkSpeed or 16)';
     case 's_pl_moving':return '(hum() ~= nil and hum().MoveDirection.Magnitude > 0)';case 's_pl_alive':return '(hum() ~= nil and hum().Health > 0)';
     case 's_pl_shield':return '(player() and player().Character and player().Character:FindFirstChildOfClass("ForceField") ~= nil)';case 's_pl_tool':return '(function() local c = player() and player().Character local t = c and c:FindFirstChildOfClass("Tool") return t and t.Name or "" end)()';
     case 's_timer':return '(os.clock() - BY.t0)';case 's_stat':return `BY.stat(${luaStr(fld(b,'STAT'))}).Value`;case 's_grounded':return 'BY.grounded()';
@@ -3294,6 +3341,7 @@ function luaForScript(node,withLib){
     case 'pe_emit':return l(`BY.emit(${Pt(b)}, ${V(b,'N','30')})`);
     case 'pe_toggle':return l(`BY.particles(${Pt(b)}, ${fld(b,'B')==='TRUE'?'true':'false'})`);
     case 'pl_kill':return l('BY.kill()');case 'pl_teleport':return l(`BY.teleport(${Pt(b)})`);case 'pl_launch':return l(`BY.launch(${V(b,'P','80')})`);
+    case 'pl_as':L.notes.add('"as player" runs its blocks for the first player only in the Roblox export; loop over Players:GetPlayers() to target others.');return l('do -- as player '+fld(D(b,'WHO')||{},'WHO'))+body(b,'DO',i)+l('end');
     case 'pl_sethp':return l(`BY.humanoid("Health", ${V(b,'N','100')})`);
     case 'pl_maxhp':return l(`BY.humanoid("MaxHealth", ${V(b,'N','100')})`)+(fld(b,'FILL')==='TRUE'?l(`BY.humanoid("Health", ${V(b,'N','100')})`):'');
     case 'pl_tpxyz':return l(`do local p = player() local c = p and p.Character if c then c:PivotTo(CFrame.new(${V(b,'X','0')}, ${V(b,'Y','0')}, ${V(b,'Z','0')})) end end`);
@@ -3608,6 +3656,14 @@ function defineBlocks(){
     S_({type:'pl_speed',message0:'set walk speed to %1',args0:[N('V')]},'player_blocks'),
     S_({type:'pl_jump',message0:'set jump power to %1',args0:[N('V')]},'player_blocks'),
     S_({type:'pl_gravity',message0:'set gravity to %1',args0:[N('V')]},'player_blocks'),
+    {type:'pl_as',message0:'as player %1 do',args0:[{type:'input_value',name:'WHO',check:['Player','Part']}],message1:'%1',args1:[{type:'input_statement',name:'DO'}],previousStatement:null,nextStatement:null,style:'player_blocks',
+      tooltip:'Runs the blocks inside for other players too. Each chosen player runs them on their own character, so "damage the player", "freeze", "teleport" and the rest affect them. Works in online games.'},
+    V_({type:'pl_ref',message0:'%1',args0:[{type:'field_dropdown',name:'WHO',options:[['everyone','all'],['everyone else','others'],['me','me'],['a random other player','random'],['the nearest other player','nearest']]}]},'Player','player_blocks'),
+    V_({type:'pl_ref_touch',message0:'players touching %1',args0:[PT()]},'Player','player_blocks'),
+    V_({type:'pl_ref_named',message0:'player named %1',args0:[{type:'input_value',name:'NAME'}]},'Player','player_blocks'),
+    V_({type:'s_pl_nameof',message0:'name of %1',args0:[{type:'input_value',name:'WHO',check:['Player','Part']}]},'String','player_blocks'),
+    V_({type:'s_pl_hpof',message0:'health of %1',args0:[{type:'input_value',name:'WHO',check:['Player','Part']}]},'Number','player_blocks'),
+    V_({type:'s_pl_countof',message0:'number of %1',args0:[{type:'input_value',name:'WHO',check:['Player','Part']}]},'Number','player_blocks'),
     S_({type:'pl_sethp',message0:'set health to %1',args0:[N('N')]},'player_blocks'),
     S_({type:'pl_maxhp',message0:'set max health to %1 %2 refill',args0:[N('N'),{type:'field_checkbox',name:'FILL',checked:true}]},'player_blocks'),
     S_({type:'pl_tpxyz',message0:'teleport player to x %1 y %2 z %3',args0:[N('X'),N('Y'),N('Z')]},'player_blocks'),
@@ -3662,6 +3718,10 @@ function defineBlocks(){
       K('p_collide',{PART:me()},{B:'FALSE'}),K('p_visible',{PART:me()},{B:'FALSE'}),K('p_anchor',{PART:me()},{B:'FALSE'}),K('p_deadly',{PART:me()}),K('p_clone',xyz(0,5,0)),K('p_destroy',{PART:me()})]},
     {kind:'category',name:'Player',categorystyle:'player',contents:[K('pl_kill'),K('pl_damage',{N:n_(20)}),K('pl_heal',{N:n_(20)}),K('pl_teleport',{PART:{shadow:{type:'p_this'},block:{type:'p_named',fields:{NAME:'Part'}}}}),K('pl_launch',{P:n_(90)}),
       K('pl_speed',{V:n_(24)}),K('pl_jump',{V:n_(70)}),K('pl_gravity',{V:n_(100)}),K('pl_checkpoint',{PART:me()}),
+      K('pl_as',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'others'}}},DO:{block:{type:'pl_freeze',fields:{B:'TRUE'},next:{block:{type:'c_wait',inputs:{S:n_(3)},next:{block:{type:'pl_freeze',fields:{B:'FALSE'}}}}}}}}),
+      K('pl_as',{WHO:{block:{type:'tool_hitpart'}},DO:{block:{type:'pl_launch',inputs:{P:n_(90)}}}}),
+      K('pl_ref',null,{WHO:'others'}),K('pl_ref_touch',{PART:me()}),K('pl_ref_named',{NAME:t_('Player1')}),
+      K('s_pl_nameof',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'nearest'}}}}),K('s_pl_hpof',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'nearest'}}}}),K('s_pl_countof',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'others'}}}}),
       K('ev_spawn'),K('ev_jump'),K('ev_land'),K('ev_hurt'),
       K('pl_sethp',{N:n_(100)}),K('pl_maxhp',{N:n_(200)}),K('pl_tpxyz',{X:n_(0),Y:n_(20),Z:n_(0)}),K('pl_respawn'),K('pl_freeze',null,{B:'TRUE'}),K('pl_visible',null,{B:'FALSE'}),
       K('pl_shirt'),K('pl_say',{TEXT:t_('Hello!'),S:n_(3)}),K('pl_shield',{S:n_(5)}),K('pl_airjumps',{N:n_(1)}),K('pl_face',{PART:{shadow:{type:'p_this'},block:{type:'p_named',fields:{NAME:'Part'}}}}),K('pl_camera',{N:n_(30)}),
