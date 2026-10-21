@@ -533,6 +533,8 @@ let SAYSEQ=0;
 function playerSay(text,secs){text=String(text??'').slice(0,100);if(!P.model)return;if(P.bubble&&P.bubble.parent)P.bubble.parent.remove(P.bubble);P.bubble=null;P.sayText='';
   if(!text.trim()){MP.lastSent='';return;}P.bubble=bubbleOver(P.model,text);P.bubbleUntil=t+Math.max(.5,Math.min(60,secs||3));P.sayText=(++SAYSEQ)+'|'+text;MP.lastSent='';}
 function otherPlayers(){return [...MP.remotes.values()];}
+function touchingMe(r,m){m=m==null?.35:m;if(P.dead||!r||r.dead)return false;
+  return P.pos.x-PH.x-m<r.max.x&&P.pos.x+PH.x+m>r.min.x&&P.pos.y-PH.y-m<r.max.y&&P.pos.y+PH.y+m>r.min.y&&P.pos.z-PH.z-m<r.max.z&&P.pos.z+PH.z+m>r.min.z;}
 function resolveTargets(v){
   if(v==null)return ['me'];
   if(v.remote)return [v];
@@ -1142,7 +1144,7 @@ function giveStarterTools(proj){proj.nodes.filter(n=>n.cls==='Tool'&&n.parent===
 const STOP={stop:true};
 const RT={gen:0,waiters:[],touch:[],click:[],key:[],msg:new Map(),died:[],vars:new Map(),stats:new Map(),warned:new Set(),t0:0,last:null};
 let t=0;
-function rtReset(){RT.gen++;MOUSE.down=0;Object.assign(RT,{bases:new Map(),bmap:new Map(),land:[],hurt:[],mouse:[],spawn:[],jump:[],waiters:[],touch:[],click:[],key:[],msg:new Map(),died:[],vars:new Map(),stats:new Map(),warned:new Set(),t0:0,last:null});}
+function rtReset(){RT.gen++;MOUSE.down=0;Object.assign(RT,{ptouch:[],bases:new Map(),bmap:new Map(),land:[],hurt:[],mouse:[],spawn:[],jump:[],waiters:[],touch:[],click:[],key:[],msg:new Map(),died:[],vars:new Map(),stats:new Map(),warned:new Set(),t0:0,last:null});}
 function sleep(s,ctx){return new Promise(res=>RT.waiters.push({at:t+Math.max(0,+s||0),res,gen:ctx.gen}));}
 function rtTick(){if(!RT.waiters.length)return;const due=[];
   RT.waiters=RT.waiters.filter(w=>{if(w.gen!==RT.gen)return false;if(w.at<=t+1e-9){due.push(w);return false;}return true;});due.forEach(w=>w.res());}
@@ -1218,6 +1220,9 @@ function ev(b,ctx){
     case 's_timer':return r3(state.time-RT.t0);
     case 's_pl_name':return myName();
     case 'pl_ref':return {plr:fld(b,'WHO')||'me'};
+    case 'pl_ref_touchme':return {plist:otherPlayers().filter(r=>touchingMe(r))};
+    case 'pl_touched':if(!ctx.touched)warnOnce('tp:'+ctx.script,ctx.script+': "touched player" only has a value inside "when I touch another player".');return ctx.touched||null;
+    case 's_touch_player':{const x=inp(b,'WHO');const tg=resolveTargets(x?ev(x,ctx):{plr:'others'});return tg.some(r=>r!=='me'&&touchingMe(r));}
     case 'pl_ref_touch':{const ps=partsOf(partv(b,ctx));const out=[];if(!ps.length)return {plist:out};
       if(!P.dead&&ps.some(p=>partOverlap(p,-.12)))out.push('me');
       for(const r of otherPlayers()){if(r.dead)continue;if(ps.some(p=>r.min.x<p.max.x&&r.max.x>p.min.x&&r.min.y<p.max.y&&r.max.y>p.min.y&&r.min.z<p.max.z&&r.max.z>p.min.z))out.push(r);}
@@ -1409,6 +1414,7 @@ function startScriptsFor(proj,scripts,map,models,opts){
         case 'ev_jump':RT.jump.push(h);break;
         case 'ev_land':RT.land.push(h);break;
         case 'ev_hurt':RT.hurt.push(h);break;
+        case 'ev_touch_player':RT.ptouch.push(Object.assign(h,{was:new Set()}));break;
         case 'ev_tool_act':case 'ev_tool_equip':case 'ev_tool_unequip':case 'ev_tool_hit':
           if(base.tool)base.tool.handlers[{ev_tool_act:'act',ev_tool_equip:'equip',ev_tool_unequip:'unequip',ev_tool_hit:'hit'}[top.type]].push(h);
           else logOut(base.script+': tool events need the script to be inside a Tool.','warn');break;
@@ -1419,6 +1425,8 @@ function startScriptsFor(proj,scripts,map,models,opts){
   }
 }
 function scriptFrame(){
+  if(RT.ptouch&&RT.ptouch.length){const now=new Set(otherPlayers().filter(r=>touchingMe(r)));
+    for(const h of RT.ptouch){for(const r of now)if(!h.was.has(r))spawnRun(h.body,Object.assign({},h,{touched:r}));h.was=now;}}
   for(const h of RT.touch){
     let on;
     if(h.parts){on=!P.dead&&h.parts.some(p=>!p.destroyed&&p.active&&partOverlap(p,-.12));}
@@ -3290,7 +3298,7 @@ function luaForScript(node,withLib){
     case 's_key':L.notes.add('Key-press checks need a LocalScript in Roblox, so they are false here.');return 'false';
     case 's_touching':return `BY.touching(${Pt(b)})`;case 's_distance':return `BY.dist(${Pt(b)})`;
     case 's_player':return `BY.ppos(${luaStr(fld(b,'AXIS'))})`;case 's_prop':return `BY.prop(${Pt(b)}, ${luaStr(fld(b,'PROP'))})`;
-    case 's_pl_name':return '(player() and player().Name or "")';case 'pl_ref':case 'pl_ref_touch':case 'pl_ref_named':return 'Players:GetPlayers()';
+    case 's_pl_name':return '(player() and player().Name or "")';case 's_touch_player':L.notes.add('Player-to-player touch checks need a Touched handler on the character in Roblox.');return 'false';case 'pl_ref':case 'pl_ref_touchme':case 'pl_touched':case 'pl_ref_touch':case 'pl_ref_named':return 'Players:GetPlayers()';
     case 's_pl_nameof':return '(player() and player().Name or "")';case 's_pl_hpof':return 'BY.health()';case 's_pl_countof':return '#Players:GetPlayers()';case 's_pl_maxhp':return '(hum() and hum().MaxHealth or 100)';case 's_pl_speed':return '(hum() and hum().WalkSpeed or 16)';
     case 's_pl_moving':return '(hum() ~= nil and hum().MoveDirection.Magnitude > 0)';case 's_pl_alive':return '(hum() ~= nil and hum().Health > 0)';
     case 's_pl_shield':return '(player() and player().Character and player().Character:FindFirstChildOfClass("ForceField") ~= nil)';case 's_pl_tool':return '(function() local c = player() and player().Character local t = c and c:FindFirstChildOfClass("Tool") return t and t.Name or "" end)()';
@@ -3378,6 +3386,7 @@ function luaForScript(node,withLib){
       case 'ev_jump':out+=`Players.PlayerAdded:Connect(function(p)\n  p.CharacterAdded:Connect(function(c)\n    c:WaitForChild("Humanoid").StateChanged:Connect(function(_, s)\n      if s ~= Enum.HumanoidStateType.Jumping then return end\n${chainL(nb,'      ')}    end)\n  end)\nend)\n\n`;break;
       case 'ev_land':out+=`Players.PlayerAdded:Connect(function(p)\n  p.CharacterAdded:Connect(function(c)\n    c:WaitForChild("Humanoid").StateChanged:Connect(function(_, s)\n      if s ~= Enum.HumanoidStateType.Landed then return end\n${chainL(nb,'      ')}    end)\n  end)\nend)\n\n`;break;
       case 'ev_hurt':out+=`Players.PlayerAdded:Connect(function(p)\n  p.CharacterAdded:Connect(function(c)\n    local h = c:WaitForChild("Humanoid")\n    local last = h.Health\n    h.HealthChanged:Connect(function(v)\n      local hurt = v < last\n      last = v\n      if not hurt then return end\n${chainL(nb,'      ')}    end)\n  end)\nend)\n\n`;break;
+      case 'ev_touch_player':L.notes.add('"when I touch another player" needs a Touched handler on the character in Roblox.');out+=`--[[ when I touch another player\n${chainL(nb,'  ')}]]\n\n`;break;
       case 'ev_rig_died':out+=`do\n  local m = script:FindFirstAncestorOfClass("Model")\n  local h = m and m:FindFirstChildOfClass("Humanoid")\n  if h then h.Died:Connect(function()\n${B_}  end) end\nend\n\n`;break;
       case 'ev_touch_model':out+=`do\n  local busy = false\n  local model = script:FindFirstAncestorOfClass("Model")\n  for _, part in ipairs(model and model:GetDescendants() or {}) do\n    if part:IsA("BasePart") then\n      part.Touched:Connect(function(hit)\n        if busy or not Players:GetPlayerFromCharacter(hit.Parent) then return end\n        busy = true\n${chainL(nb,'        ')}        busy = false\n      end)\n    end\n  end\nend\n\n`;break;
       case 'ev_click_model':out+=`do\n  local model = script:FindFirstAncestorOfClass("Model")\n  local cd = model and (model:FindFirstChildOfClass("ClickDetector") or Instance.new("ClickDetector", model))\n  if cd then cd.MouseClick:Connect(function()\n${B_}  end) end\nend\n\n`;break;
@@ -3659,6 +3668,10 @@ function defineBlocks(){
     {type:'pl_as',message0:'as player %1 do',args0:[{type:'input_value',name:'WHO',check:['Player','Part']}],message1:'%1',args1:[{type:'input_statement',name:'DO'}],previousStatement:null,nextStatement:null,style:'player_blocks',
       tooltip:'Runs the blocks inside for other players too. Each chosen player runs them on their own character, so "damage the player", "freeze", "teleport" and the rest affect them. Works in online games.'},
     V_({type:'pl_ref',message0:'%1',args0:[{type:'field_dropdown',name:'WHO',options:[['everyone','all'],['everyone else','others'],['me','me'],['a random other player','random'],['the nearest other player','nearest']]}]},'Player','player_blocks'),
+    V_({type:'s_touch_player',message0:'touching player %1 ?',args0:[{type:'input_value',name:'WHO',check:['Player','Part']}],tooltip:'True while your character is bumping into one of these players. Leave it as "everyone else" to check for any player.'},'Boolean','player_blocks'),
+    V_({type:'pl_ref_touchme',message0:'players touching me'},'Player','player_blocks'),
+    V_({type:'pl_touched',message0:'touched player'},'Player','player_blocks'),
+    H_({type:'ev_touch_player',message0:'when I touch another player',tooltip:'Runs once each time your character bumps into another player. Use "touched player" inside to know who. Great for tag games.'}),
     V_({type:'pl_ref_touch',message0:'players touching %1',args0:[PT()]},'Player','player_blocks'),
     V_({type:'pl_ref_named',message0:'player named %1',args0:[{type:'input_value',name:'NAME'}]},'Player','player_blocks'),
     V_({type:'s_pl_nameof',message0:'name of %1',args0:[{type:'input_value',name:'WHO',check:['Player','Part']}]},'String','player_blocks'),
@@ -3720,7 +3733,9 @@ function defineBlocks(){
       K('pl_speed',{V:n_(24)}),K('pl_jump',{V:n_(70)}),K('pl_gravity',{V:n_(100)}),K('pl_checkpoint',{PART:me()}),
       K('pl_as',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'others'}}},DO:{block:{type:'pl_freeze',fields:{B:'TRUE'},next:{block:{type:'c_wait',inputs:{S:n_(3)},next:{block:{type:'pl_freeze',fields:{B:'FALSE'}}}}}}}}),
       K('pl_as',{WHO:{block:{type:'tool_hitpart'}},DO:{block:{type:'pl_launch',inputs:{P:n_(90)}}}}),
-      K('pl_ref',null,{WHO:'others'}),K('pl_ref_touch',{PART:me()}),K('pl_ref_named',{NAME:t_('Player1')}),
+      K('s_touch_player',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'others'}}}}),K('ev_touch_player'),
+      K('pl_as',{WHO:{block:{type:'pl_touched'}},DO:{block:{type:'pl_say',inputs:{TEXT:t_("You're it!"),S:n_(2)}}}}),
+      K('pl_touched'),K('pl_ref_touchme'),K('pl_ref',null,{WHO:'others'}),K('pl_ref_touch',{PART:me()}),K('pl_ref_named',{NAME:t_('Player1')}),
       K('s_pl_nameof',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'nearest'}}}}),K('s_pl_hpof',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'nearest'}}}}),K('s_pl_countof',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'others'}}}}),
       K('ev_spawn'),K('ev_jump'),K('ev_land'),K('ev_hurt'),
       K('pl_sethp',{N:n_(100)}),K('pl_maxhp',{N:n_(200)}),K('pl_tpxyz',{X:n_(0),Y:n_(20),Z:n_(0)}),K('pl_respawn'),K('pl_freeze',null,{B:'TRUE'}),K('pl_visible',null,{B:'FALSE'}),
