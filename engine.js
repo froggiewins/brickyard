@@ -1,4 +1,7 @@
 (function(){
+const BOOT_HTML=(()=>{try{return '<!doctype html>\n'+document.documentElement.outerHTML;}catch(e){return '';}})();
+const IS_SITE=!!(document.currentScript&&document.currentScript.src);
+const TESTCLIENT=window.name==='by-testclient';
 const $=s=>document.querySelector(s);
 if(!window.THREE){ $('#importErr').hidden=false; $('#importErr').textContent='The 3D library could not load. Check your connection and reload the page.'; return; }
 const V3=THREE.Vector3, D2R=Math.PI/180;
@@ -881,6 +884,9 @@ async function resolveNames(ids){ids=ids.filter(x=>x&&!String(x).startsWith('nic
 function mpEmit(topic,data){if(!MP.gr)return;MP.gr.emit(topic,data).catch(()=>{});}
 async function mpJoin(def){
   mpLeaveRoom();MP.firstPeers=true;
+  if(def.link){const gr=def.link;MP.gr=gr;
+    MP.unsubs.push(gr.onPeers(onGamePeers,()=>{}),gr.on('chat',onChat,()=>{}),gr.on('hit',onHit,()=>{}),gr.on('ko',onKO,()=>{}),gr.on('shot',onShot,()=>{}),gr.on('fin',onFin,()=>{}),gr.on('run',onRun,()=>{}),gr.on('gvar',onGvar,()=>{}));
+    MP.lastSent='';updateOnlineUI();return;}
   if(!MP.room||def.fromEditor||!def.room){updateOnlineUI();return;}
   MP.room.presence({game:def.room}).catch(()=>{});
   const rn=('g-'+def.room).toLowerCase().replace(/[^a-z0-9_.-]/g,'-').slice(0,48);
@@ -976,7 +982,7 @@ function sendPresence(){
   if(!MP.gr)return;
   const pr={p:[r3(P.pos.x),r3(P.pos.y),r3(P.pos.z)],yaw:r3(P.yaw),mv:r3(Math.hypot(P.vel.x,P.vel.z)),air:!P.onGround,dead:P.dead,sh:shirt,
     ...(P.shirtOverride?{sh:P.shirtOverride}:{}),tool:P.equipped?{n:P.equipped.name.slice(0,40),c:P.equipped.color}:null,sw:MP.swWall,hp:Math.round(P.health),st:myStats(),em:P.anim&&!P.anim.out?P.anim.net:'',inv:!!P.hidden,say:P.sayText||'',rg:P.rag?P.rag.q.toArray().map(v=>Math.round(v*100)/100):null};
-  if(MP.p2p)pr.nm=MP.me.name;
+  if(MP.p2p||(MP.gr&&MP.gr.link))pr.nm=MP.gr&&MP.gr.link&&!ACC.doc&&!TESTCLIENT?'Player 1':myName();
   const j=JSON.stringify(pr);if(j===MP.lastSent)return;MP.lastSent=j;MP.gr.presence(pr).catch(()=>{});
 }
 function bubbleOver(model,text,store){const b=textSprite(text,{bubble:true});b.position.set(0,4.4+b.scale.y/2,0);model.add(b);return b;}
@@ -1341,7 +1347,7 @@ async function run(b,ctx){
 const D=(b,n)=>{const x=b.inputs&&b.inputs[n];return x&&x.block;};
 /* ---------- player save data (auto-saved progress) ---------- */
 const SAVE={key:null,backend:'local',d:{},loaded:false,gen:0,last:'',lastT:0,busy:false,hadSave:false};
-function saveKeyFor(def){const p=def.project;if(!p)return null;const raw=def.fromEditor?'test-'+p.id:String(p.saveId||p.id);return raw.replace(/[^A-Za-z0-9_-]/g,'_').slice(0,100)||null;}
+function saveKeyFor(def){const p=def.project;if(!p)return null;const raw=def.fromEditor?'test-'+p.id+(def.testP2?'-p2':''):String(p.saveId||p.id);return raw.replace(/[^A-Za-z0-9_-]/g,'_').slice(0,100)||null;}
 function saveSnapshot(){const S=game&&game.project?game.project.settings:{};const o={v:1,data:SAVE.d,t:Date.now()};
   if(S.saveStats!==false){o.stats={};for(const [k,v] of RT.stats)if(typeof v==='number'&&isFinite(v))o.stats[String(k).slice(0,40)]=v;}
   if(S.saveCheckpoint!==false&&W.checkpoint&&state.stage>0)o.cp={p:W.checkpoint.toArray().map(r3),s:state.stage};
@@ -2075,6 +2081,8 @@ function startGame(def){
   cv.focus({preventScroll:true});
 }
 function stopGame(){
+  if(TEST2&&!TESTCLIENT)closeTest2();
+  if(TESTCLIENT&&running)setTimeout(()=>window.parent.postMessage({by2:1,k:'closed'},'*'),0);
   if(game&&game.project&&SAVE.loaded)saveFlush(false,true);SAVE.gen++;SAVE.loaded=false;
   mpLeave();
   if(P.equipped)unequipTool();P.backpack=[];renderHotbar();
@@ -2679,6 +2687,58 @@ $('#stName').addEventListener('change',e=>{ED.proj.name=e.target.value.trim()||'
 $('#stName').addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')e.target.blur();});
 $('#stBack').addEventListener('click',closeStudio);
 $('#stPlay').addEventListener('click',playtest);
+$('#stPlay2').addEventListener('click',playtest2);
+/* ---- fake second player for testing: a second copy of Brickyard in a small window, linked to this one ---- */
+let TEST2=null;
+function makeLinkRoom(post,selfId,otherId){
+  let mine={},other=null;const peerFns=[],topicFns={};
+  const peerObj=(id,pr,me)=>({peer:id,by:me?null:(nickById(pr)||'nick:Player'),presence:pr||{},isMe:!!me,sameTab:!!me,kind:'viewer',guest:false,updatedAt:Date.now()});
+  const list=()=>[peerObj(selfId,mine,true)].concat(other?[peerObj(otherId,other,false)]:[]);
+  const fire=(j,l)=>{const peers=list();peerFns.forEach(f=>{try{f({peers,joined:j||[],left:l||[],updated:[]});}catch(e){}});};
+  return {link:true,name:'test-link',
+    recv(m){if(!m)return;if(m.k==='pres'){const isNew=!other;other=m.pr&&typeof m.pr==='object'?m.pr:{};if(isNew){try{post({k:'pres',pr:JSON.parse(JSON.stringify(mine))});}catch(e){}}fire(isNew?[peerObj(otherId,other,false)]:[]);}
+      else if(m.k==='ev'&&typeof m.topic==='string')(topicFns[m.topic]||[]).forEach(f=>{try{f({topic:m.topic,data:m.data,peer:otherId,by:nickById(other),isMe:false,sameTab:false,kind:'viewer',guest:false});}catch(e){}});
+      else if(m.k==='bye'&&other){const p=peerObj(otherId,other,false);other=null;fire([],[p]);}},
+    emit:async(topic,data)=>{try{post({k:'ev',topic,data:JSON.parse(JSON.stringify(data??null))});}catch(e){}(topicFns[topic]||[]).forEach(f=>{try{f({topic,data,peer:selfId,by:null,isMe:true,sameTab:true,kind:'viewer',guest:false});}catch(e){}});},
+    on:(topic,fn)=>{(topicFns[topic]=topicFns[topic]||[]).push(fn);return()=>{topicFns[topic]=(topicFns[topic]||[]).filter(x=>x!==fn);};},
+    presence:async patch=>{const n=Object.assign({},mine,patch);for(const k in patch)if(patch[k]===null)delete n[k];mine=n;try{post({k:'pres',pr:JSON.parse(JSON.stringify(mine))});}catch(e){}},
+    peers:list,onPeers:fn=>{peerFns.push(fn);setTimeout(()=>fn({peers:list(),joined:list(),left:[],updated:[]}),0);return()=>{const i=peerFns.indexOf(fn);if(i>=0)peerFns.splice(i,1);};},
+    connected:()=>true,onConnection:fn=>{setTimeout(()=>fn(true),0);return()=>{};},
+    leave:async()=>{try{post({k:'bye'});}catch(e){}}};
+}
+function closeTest2(){if(!TEST2)return;const T=TEST2;TEST2=null;try{T.iframe.contentWindow.postMessage({by2:1,k:'stop'},'*');}catch(e){}T.room.recv({k:'bye'});T.wrap.remove();}
+function playtest2(){
+  if(ED.ws&&ED.tab!=='viewport')saveWs();saveNow(true);
+  closeTest2();
+  const proj=JSON.parse(JSON.stringify(ED.proj));
+  const wrap=document.createElement('div');wrap.id='p2wrap';
+  wrap.innerHTML='<div class="p2bar">Player 2 (test)<span>Click inside to control Player 2 · click the main game to switch back</span><button class="mini" type="button" aria-label="Close Player 2">✕</button></div>';
+  const fr=document.createElement('iframe');fr.name='by-testclient';fr.title='Player 2 test window';fr.setAttribute('allow','autoplay');wrap.appendChild(fr);
+  const T={wrap,iframe:fr,proj};
+  T.room=makeLinkRoom(m=>{if(fr.contentWindow)fr.contentWindow.postMessage(Object.assign({by2:1},m),'*');},'host','tester');
+  TEST2=T;
+  wrap.querySelector('button').onclick=()=>{closeTest2();logOut('Closed Player 2.','sys');cv.focus({preventScroll:true});};
+  wrap.addEventListener('pointerdown',()=>{T.userFocus=true;});fr.addEventListener('focus',()=>wrap.classList.add('focus'));
+  addEventListener('blur',()=>{setTimeout(()=>{if(document.activeElement===fr)wrap.classList.add('focus');},0);});
+  cv.addEventListener('pointerdown',()=>wrap.classList.remove('focus'));
+  if(IS_SITE)fr.src=location.href.split('#')[0];else fr.srcdoc=BOOT_HTML;
+  $('#game').appendChild(wrap);
+  const def=projectDef(proj,true);def.link=T.room;def.objective='Testing '+proj.name+' with 2 players';
+  startGame(def);
+  logOut('Started a test with 2 players. Player 2 opens in the small window: click inside it to control them.','sys');
+}
+addEventListener('message',e=>{const m=e.data;if(!m||m.by2!==1)return;
+  if(TESTCLIENT){if(e.source!==window.parent)return;
+    if(m.k==='start'){(m.meshes||[]).map(meshFromJSON).filter(Boolean).forEach(a=>cacheAsset(a));const def=projectDef(m.proj,true);def.link=CHILD_LINK;def.testP2=true;def.objective='Player 2 (test)';startGame(def);P.pos.x+=4;if(P.model)P.model.position.copy(P.pos);}
+    else if(m.k==='stop'){if(running)stopGame();}
+    else CHILD_LINK.recv(m);return;}
+  if(!TEST2||e.source!==TEST2.iframe.contentWindow)return;
+  if(m.k==='closed'){closeTest2();logOut('Player 2 stopped, so the test window closed.','sys');return;}
+  if(m.k==='ready'){ensureMeshes(TEST2.proj).then(()=>{if(!TEST2)return;const ms=usedMeshIds(TEST2.proj).map(meshToJSON).filter(Boolean);
+    TEST2.iframe.contentWindow.postMessage({by2:1,k:'start',proj:TEST2.proj,meshes:ms},'*');
+    [300,900].forEach(ms_=>setTimeout(()=>{if(TEST2&&document.activeElement===TEST2.iframe&&!TEST2.userFocus){cv.focus({preventScroll:true});TEST2.wrap.classList.remove('focus');}},ms_));});}
+  else TEST2.room.recv(m);});
+const CHILD_LINK=TESTCLIENT?makeLinkRoom(m=>{window.parent.postMessage(Object.assign({by2:1},m),'*');},'tester','host'):null;
 function playtest(){
   if(ED.ws&&ED.tab!=='viewport')saveWs();
   saveNow(true);
@@ -4270,7 +4330,8 @@ function renderSwatches(){const w=$('#swatches');w.innerHTML='';SHIRTS.forEach(c
   b.setAttribute('aria-label','Shirt '+c);b.setAttribute('aria-pressed',c===shirt);b.onclick=()=>{shirt=c;store.set('shirt',c);renderSwatches();};w.appendChild(b);});}
 renderToolbox();renderSwatches();renderCards();
 loop();
-initMP();
-bootShared();
+if(TESTCLIENT){muted=true;MP.me={name:'Player 2',id:null};document.documentElement.classList.add('testclient');$('#menu').hidden=true;
+  window.parent.postMessage({by2:1,k:'ready'},'*');}
+else{initMP();bootShared();}
 window.__by={makeRag,ragStep,SB,SAVE,findAnim,playAnim,BD,openAnim,AE,ACC,renderGuiEditor,showAccountModal,MP,arenaDef,packProject,unpackProject,standaloneHtml,get SHARED(){return SHARED},IDB,MESHCACHE,uploadMesh,finalizeMesh,get ecam(){return ecam},get tc(){return tc},cam,ED,W,RT,P,state:()=>state,startGame,openStudio,newProjectObj,saveProject,insert,select,doAct,openScript,playtest,stopGame,exportRbxlx,luaForScript,parseRbxlx,listProjects,GAMES,projectDef,running:()=>running};
 })();
