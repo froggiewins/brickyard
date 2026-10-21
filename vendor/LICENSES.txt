@@ -1,0 +1,4 @@
+three.js r128 - MIT License - https://github.com/mrdoob/three.js
+Blockly 10.4.3 - Apache License 2.0 - https://github.com/google/blockly
+Trystero 0.25.4 - MIT License - https://github.com/dmotz/trystero
+supabase-js 2.117.1 - MIT License - https://github.com/supabase/supabase-js
