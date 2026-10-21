@@ -369,7 +369,62 @@ function damageRig(r,n){
   rigHpSprite(r);if(r.health<=0)rigDie(r);
 }
 function healRig(r,n){if(!r||!r.rig||r.dead)return;r.health=Math.min(r.maxHealth,r.health+n);rigHpSprite(r);}
+/* ---------- ragdolls ---------- */
+const RAG_CORNERS=[];for(const x of [-1,1])for(const y of [-2.5,2.75])for(const z of [-.55,.55])RAG_CORNERS.push(new V3(x,y,z));
+function makeRag(model,u,pos,vel,yaw,scale,until){
+  const R={model,u,pos:pos.clone(),vel:vel.clone(),q:new THREE.Quaternion().setFromEuler(new THREE.Euler(0,yaw||0,0)),s:scale||1,until:until||0,rest:0,
+    av:new V3((Math.random()-.5)*1.5,(Math.random()-.5)*1.2,(Math.random()-.5)*1.5),limbs:{}};
+  const hv=new V3(vel.x,0,vel.z);if(hv.lengthSq()>4){const ax=new V3(0,1,0).cross(hv).normalize();R.av.addScaledVector(ax,Math.min(6,hv.length()*.15));}
+  else R.av.addScaledVector(new V3(Math.cos(yaw||0),0,-Math.sin(yaw||0)),(Math.random()<.5?-1:1)*2.6);
+  for(const k of ['lArm','rArm','lLeg','rLeg','head'])R.limbs[k]={x:u[k]?u[k].rotation.x:0,z:u[k]?u[k].rotation.z:0,vx:(Math.random()-.5)*6,vz:(Math.random()-.5)*6};
+  if(u.body){u.body.rotation.set(0,0,0);u.body.position.set(0,0,0);}
+  return R;}
+function ragStep(R,dt){
+  const n=Math.max(1,Math.ceil(dt/.012)),h=dt/n,c=new V3(),r=new V3(),vp=new V3(),up=new V3(0,1,0);
+  if(R.rest>.4&&R.vel.lengthSq()<3){R.av.set(0,0,0);R.vel.set(0,0,0);}
+  else for(let i=0;i<n;i++){
+    R.vel.y-=PHYS.gravity*.75*h;R.pos.addScaledVector(R.vel,h);
+    const w=R.av.length();if(w>1e-5){const dq=new THREE.Quaternion().setFromAxisAngle(R.av.clone().divideScalar(w),w*h);R.q.premultiply(dq).normalize();}
+    let deepest=0,hits=0;const contact=new V3();
+    for(const k of RAG_CORNERS){c.copy(k).multiplyScalar(R.s).applyQuaternion(R.q).add(R.pos);const g=groundAt(c.x,c.z,c.y+2.5);if(!isFinite(g))continue;const d=c.y-g;
+      if(d<0){hits++;contact.add(c);if(d<deepest)deepest=d;}}
+    if(hits){contact.divideScalar(hits);R.pos.y-=deepest;r.subVectors(contact,R.pos);vp.copy(R.av).cross(r).add(R.vel);
+      if(vp.y<0){const j=-vp.y;R.vel.y+=j*(R.vel.y<-25?.55:.75);R.av.addScaledVector(r.clone().cross(up),j*.035/R.s);
+        if(j>12)for(const L of Object.values(R.limbs)){L.vx+=(Math.random()-.5)*j*.4;L.vz+=(Math.random()-.5)*j*.4;}}
+      const tq=R.pos.clone().sub(contact);tq.y=Math.max(tq.y,.2);R.av.addScaledVector(tq.clone().cross(new V3(0,-1,0)),PHYS.gravity*h*.045/R.s);
+      const f=Math.pow(.02,h);R.vel.x*=f;R.vel.z*=f;R.av.multiplyScalar(Math.pow(.45,h));if(hits>=4&&R.vel.lengthSq()<4)R.av.multiplyScalar(.85);}
+    R.av.multiplyScalar(Math.pow(.7,h));
+  }
+  const g=up.clone().negate().applyQuaternion(R.q.clone().invert());
+  const lim={lArm:[2.6,1.6],rArm:[2.6,1.6],lLeg:[1.4,.6],rLeg:[1.4,.6],head:[.5,.4]};
+  for(const [k,L] of Object.entries(R.limbs)){const o=R.u[k];if(!o)continue;const [mx,mz]=lim[k];
+    let tx=Math.atan2(-g.z,-g.y),tz=Math.atan2(g.x,-g.y);if(k==='head'){tx*=.35;tz*=.35;}
+    tx=Math.max(-mx,Math.min(mx,tx));tz=Math.max(-mz,Math.min(mz,tz));
+    L.vx+=((tx-L.x)*40-L.vx*5)*dt;L.vz+=((tz-L.z)*40-L.vz*5)*dt;L.x+=L.vx*dt;L.z+=L.vz*dt;
+    L.x=Math.max(-mx-.3,Math.min(mx+.3,L.x));L.z=Math.max(-mz-.3,Math.min(mz+.3,L.z));o.rotation.set(L.x,0,L.z);}
+  R.model.position.copy(R.pos);R.model.quaternion.copy(R.q);
+  const still=R.vel.lengthSq()<3&&R.av.lengthSq()<1.6;R.rest=still?R.rest+dt:0;
+}
+function ragYaw(R){const f=new V3(0,0,1).applyQuaternion(R.q);f.y=0;if(f.lengthSq()<1e-4){const u2=new V3(0,1,0).applyQuaternion(R.q);return Math.atan2(-u2.x,-u2.z);}return Math.atan2(f.x,f.z);}
+function ragEndPlayer(){const R=P.rag;if(!R)return;P.rag=null;
+  const g=groundAt(R.pos.x,R.pos.z,R.pos.y+3);P.pos.set(R.pos.x,(isFinite(g)?Math.max(g,R.pos.y-3):R.pos.y)+PH.y+.05,R.pos.z);P.vel.set(0,0,0);
+  P.yaw=ragYaw(R);if(P.model){P.model.quaternion.identity();P.model.rotation.set(0,P.yaw,0);}MP.lastSent='';}
+function ragdollPlayer(secs,vel){if(P.dead||state.over||!P.model)return;if(P.equipped)unequipTool();
+  const until=t+Math.max(.3,Math.min(60,secs||2));if(P.rag){P.rag.until=Math.max(P.rag.until,until);if(vel)P.rag.vel.add(vel);return;}
+  P.rag=makeRag(P.model,P.model.userData,P.pos,vel?P.vel.clone().add(vel):P.vel,P.yaw,1,until);P.anim=null;MP.lastSent='';}
+function ragdollRig(r,secs,vel){if(!r||!r.rig||r.dead||r.destroyed)return;const until=t+Math.max(.3,Math.min(60,secs||2));
+  if(r.rag){r.rag.until=Math.max(r.rag.until,until);if(vel)r.rag.vel.add(vel);return;}
+  r.walk&&r.walk.done();r.walk=null;r.animPlay=null;r.rag=makeRag(r.mesh,r.mesh.userData.rig,r.pos,vel||new V3(),r.yaw,r.node.scale||1,until);r.active=false;}
+function ragEndRig(r){const R=r.rag;r.rag=null;const s=r.node.scale||1;const g=groundAt(R.pos.x,R.pos.z,R.pos.y+3*s);
+  r.yaw=ragYaw(R);r.mesh.quaternion.identity();r.mesh.rotation.set(0,r.yaw,0);r.active=true;setPartPos(r,new V3(R.pos.x,(isFinite(g)?g:R.pos.y)+2.5*s,R.pos.z));}
+function deathStyle(){return game&&game.project&&game.project.settings.deathStyle==='ragdoll'?'ragdoll':'break';}
 function rigDie(r){
+  if(deathStyle()==='ragdoll'){r.dead=true;r.walk&&r.walk.done();r.walk=null;SFX.die();r.active=false;r.animPlay=null;
+    if(!r.rag)r.rag=makeRag(r.mesh,r.mesh.userData.rig,r.pos,new V3((Math.random()-.5)*10,8,(Math.random()-.5)*10),r.yaw,r.node.scale||1,0);else r.rag.until=0;
+    if(r.hpSprite)r.hpSprite.visible=false;(r.diedHandlers||[]).forEach(h=>spawnRun(h.body,h));
+    if(r.respawn>0)r.respawnAt=t+Math.max(r.respawn,1);else r.ragDestroyAt=t+4;return;}
+  _rigDieBreak(r);}
+function _rigDieBreak(r){
   r.dead=true;r.walk&&r.walk.done();r.walk=null;SFX.explode();
   r.mesh.updateMatrixWorld(true);
   r.mesh.traverse(o=>{if(!o.isMesh)return;const m=o.clone();m.material=o.userData.orig||o.material;o.getWorldPosition(m.position);o.getWorldQuaternion(m.quaternion);o.getWorldScale(m.scale);scene.add(m);
@@ -381,7 +436,10 @@ function rigDie(r){
 function updateRigs(dt){
   for(const r of W.rigs){if(r.destroyed)continue;let moving=false;
     if(r.flashT>0){r.flashT-=dt;if(r.flashT<=0)r.mesh.traverse(o=>{if(o.isMesh&&o.userData.orig){o.material=o.userData.orig;o.userData.orig=null;}});}
-    if(r.dead){if(r.respawnAt&&t>=r.respawnAt){r.dead=false;r.respawnAt=0;r.health=r.maxHealth;r.mesh.visible=true;r.active=true;setPartPos(r,r.home.clone());rigHpSprite(r);}continue;}
+    if(r.rag&&!r.dead){ragStep(r.rag,dt);if(t>=r.rag.until&&(r.rag.rest>.25||t>r.rag.until+2))ragEndRig(r);continue;}
+    if(r.dead){if(r.rag)ragStep(r.rag,dt);if(r.ragDestroyAt&&t>=r.ragDestroyAt){r.ragDestroyAt=0;destroyPart(r);continue;}
+      if(r.respawnAt&&t>=r.respawnAt){if(r.rag){r.rag=null;r.mesh.quaternion.identity();r.mesh.rotation.set(0,r.yaw,0);const u=r.mesh.userData.rig;['lArm','rArm','lLeg','rLeg','head'].forEach(k=>u[k].rotation.set(0,0,0));}
+        r.dead=false;r.respawnAt=0;r.health=r.maxHealth;r.mesh.visible=true;r.active=true;setPartPos(r,r.home.clone());rigHpSprite(r);}continue;}
     if(r.walk){const w=r.walk,tg=w.target();
       if(!tg||t>w.until){r.walk=null;w.done();}
       else{const d=new V3(tg.x-r.pos.x,0,tg.z-r.pos.z),dist=d.length();
@@ -503,7 +561,7 @@ function physics(dt,ix,iy,sprint){
   if(P.onGround){if(!was&&P.airT>.25&&RT.land&&RT.land.length)rtFire('land');P.airT=0;}else P.airT=(P.airT||0)+dt;
 }
 function respawn(){
-  P.debris.forEach(d=>scene.remove(d.m));P.debris=[];
+  P.debris.forEach(d=>scene.remove(d.m));P.debris=[];P.rag=null;
   if(P.model)scene.remove(P.model);
   P.model=makeAvatar(P.shirtOverride||undefined);scene.add(P.model);P.anim=null;P.baseWhich=null;P.shieldMesh=null;P.bubble=null;
   if(RT.spawn&&RT.spawn.length)setTimeout(()=>rtFire('spawn'),0);
@@ -517,6 +575,7 @@ function die(kind){
   rtFire('died');
   if(kind==='water'){P.deadT=.7;SFX.splash();toast('Splash!');scene.remove(P.model);return;}
   P.deadT=1.5;SFX.die();state.deaths++;
+  if(deathStyle()==='ragdoll'&&P.model){P.deadT=2.6;if(!P.rag)P.rag=makeRag(P.model,P.model.userData,P.pos,P.vel.clone().add(new V3((Math.random()-.5)*6,6,(Math.random()-.5)*6)),P.yaw,1,0);P.anim=null;MP.lastSent='';return;}
   P.model.updateMatrixWorld(true);
   const meshes=[];P.model.traverse(o=>{if(o.isMesh)meshes.push(o)});
   meshes.forEach(m=>{scene.attach(m);P.debris.push({m,v:new V3((Math.random()-.5)*26,12+Math.random()*16,(Math.random()-.5)*26),s:new V3(Math.random()*9,Math.random()*9,Math.random()*9)})});
@@ -870,13 +929,13 @@ function setRemoteTag(r){if(r.tag){r.model.remove(r.tag);r.tag.material.map.disp
 function applyPresence(r,pr){
   const p=pr.p;r.tgt.set(num(p[0],0),num(p[1],5),num(p[2],0));if(r.first){r.pos.copy(r.tgt);r.first=false;}
   r.tyaw=num(pr.yaw,0);r.mv=num(pr.mv,0);r.air=!!pr.air;r.hp=num(pr.hp,100);
-  const dead=!!pr.dead;if(dead!==r.dead){r.dead=dead;r.model.visible=!dead;}
+  const dead=!!pr.dead;r.rgq=Array.isArray(pr.rg)&&pr.rg.length===4?new THREE.Quaternion(num(pr.rg[0],0),num(pr.rg[1],0),num(pr.rg[2],0),num(pr.rg[3],1)).normalize():null;if(dead!==r.dead){r.dead=dead;}
   if(typeof pr.sh==='string'&&/^#[0-9a-f]{6}$/i.test(pr.sh)&&pr.sh!==r.sh){r.sh=pr.sh;const vis=r.model.visible;scene.remove(r.model);r.model=makeAvatar(r.sh);r.mesh=r.model;r.model.visible=vis;scene.add(r.model);setRemoteTag(r);r.toolKey='';r.held=null;}
   const tk=pr.tool&&typeof pr.tool.n==='string'?pr.tool.n.slice(0,40)+'|'+(pr.tool.c||''):'';
   if(tk!==r.toolKey){r.toolKey=tk;if(r.held){r.held.parent&&r.held.parent.remove(r.held);r.held=null;}if(tk)r.held=makeRemoteHeld(pr.tool),r.model.userData.rArm.add(r.held);}
   if(num(pr.sw,0)!==r.lastSw){r.lastSw=num(pr.sw,0);if(r.lastSw)r.swT0=t;}
   r.stats=pr.st&&typeof pr.st==='object'?pr.st:{};
-  r.inv=!!pr.inv;r.model.visible=!r.dead&&!r.inv;
+  r.inv=!!pr.inv;r.model.visible=(!r.dead||!!r.rgq)&&!r.inv;
   const say=typeof pr.say==='string'?pr.say.slice(0,120):'';if(say!==(r.say||'')){r.say=say;if(say){if(r.bubble)r.model.remove(r.bubble);r.bubble=bubbleOver(r.model,say.split('|').slice(1).join('|'));r.bubbleUntil=t+5;}}
   const em=typeof pr.em==='string'?pr.em.slice(0,60):'';
   if(em!==(r.em||'')){r.em=em;if(em){const a=findAnim(em.split('|')[0]);r.anim=a?newAnimState(a,'auto',false):null;}else if(r.anim)r.anim.out=true;}
@@ -890,7 +949,9 @@ function makeRemoteHeld(tool){
 function updateRemotes(dt){
   for(const r of MP.remotes.values()){
     const k=Math.min(1,dt*12);r.pos.lerp(r.tgt,k);let d=r.tyaw-r.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));r.yaw+=d*k;
-    r.model.position.copy(r.pos);r.model.rotation.y=r.yaw;
+    r.model.position.copy(r.pos);
+    if(r.rgq){r.model.quaternion.slerp(r.rgq,Math.min(1,dt*14));const u0=r.model.userData;u0.lArm.rotation.set(-.4,0,-1.2);u0.rArm.rotation.set(-.4,0,1.2);u0.lLeg.rotation.set(.2,0,-.25);u0.rLeg.rotation.set(-.2,0,.25);r.min.set(r.pos.x-.9,r.pos.y-2.5,r.pos.z-.9);r.max.set(r.pos.x+.9,r.pos.y+2.5,r.pos.z+.9);continue;}
+    r.model.rotation.set(0,r.yaw,0);
     r.min.set(r.pos.x-.9,r.pos.y-2.5,r.pos.z-.9);r.max.set(r.pos.x+.9,r.pos.y+2.5,r.pos.z+.9);
     const u=r.model.userData;
     if(!r.air){r.walk+=r.mv*dt*.55;const sw=Math.sin(r.walk)*Math.min(1,r.mv/16)*.95;u.lLeg.rotation.x=sw;u.rLeg.rotation.x=-sw;u.lArm.rotation.x+=(-sw-u.lArm.rotation.x)*.4;u.rArm.rotation.x+=(sw-u.rArm.rotation.x)*.4;}
@@ -912,7 +973,7 @@ function myStats(){
 function sendPresence(){
   if(!MP.gr)return;
   const pr={p:[r3(P.pos.x),r3(P.pos.y),r3(P.pos.z)],yaw:r3(P.yaw),mv:r3(Math.hypot(P.vel.x,P.vel.z)),air:!P.onGround,dead:P.dead,sh:shirt,
-    ...(P.shirtOverride?{sh:P.shirtOverride}:{}),tool:P.equipped?{n:P.equipped.name.slice(0,40),c:P.equipped.color}:null,sw:MP.swWall,hp:Math.round(P.health),st:myStats(),em:P.anim&&!P.anim.out?P.anim.net:'',inv:!!P.hidden,say:P.sayText||''};
+    ...(P.shirtOverride?{sh:P.shirtOverride}:{}),tool:P.equipped?{n:P.equipped.name.slice(0,40),c:P.equipped.color}:null,sw:MP.swWall,hp:Math.round(P.health),st:myStats(),em:P.anim&&!P.anim.out?P.anim.net:'',inv:!!P.hidden,say:P.sayText||'',rg:P.rag?P.rag.q.toArray().map(v=>Math.round(v*100)/100):null};
   if(MP.p2p)pr.nm=MP.me.name;
   const j=JSON.stringify(pr);if(j===MP.lastSent)return;MP.lastSent=j;MP.gr.presence(pr).catch(()=>{});
 }
@@ -1237,6 +1298,7 @@ function ev(b,ctx){
     case 's_pl_hpof':{const x=inp(b,'WHO');const tg=resolveTargets(x?ev(x,ctx):null);if(!tg.length)return 0;return tg[0]==='me'?r3(P.health):r3(num(tg[0].hp,100));}
     case 's_pl_countof':{const x=inp(b,'WHO');return resolveTargets(x?ev(x,ctx):null).length;}
     case 's_pl_maxhp':return r3(P.maxHealth);
+    case 's_pl_ragdoll':return !!P.rag&&!P.dead;
     case 's_pl_speed':return r3(PHYS.walk);
     case 's_pl_moving':return !P.dead&&Math.hypot(P.vel.x,P.vel.z)>1;
     case 's_pl_alive':return !P.dead;
@@ -1275,8 +1337,8 @@ async function saveWrite(key,backend,o){
   if(backend==='claude'){await MP.db.doc('data/users/'+MP.me.id+'/saves/'+key).set({d:j,t:Date.now()});return;}
   if(!store.set('save:'+key,o))throw new Error('local storage full');}
 function saveBegin(def){
-  SAVE.gen++;SAVE.key=saveKeyFor(def);SAVE.d={};SAVE.loaded=false;SAVE.last='';SAVE.lastT=performance.now();SAVE.hadSave=false;
-  if(!SAVE.key)return;
+  SAVE.gen++;SAVE.off=false;SAVE.key=saveKeyFor(def);SAVE.d={};SAVE.loaded=false;SAVE.last='';SAVE.lastT=performance.now();SAVE.hadSave=false;
+  if(!SAVE.key||def.project.settings.saveEnabled===false){SAVE.key=null;SAVE.loaded=true;(RT.dataLoaded||[]).forEach(h=>spawnRun(h.body,h));return;}
   SAVE.backend=def.fromEditor?'local':(SB.client&&SB.uid)?'sb':(MP.db&&MP.me.id&&!MP.p2p)?'claude':'local';
   const g=SAVE.gen,key=SAVE.key;
   saveRead(key,SAVE.backend).catch(()=>null).then(o=>{if(g!==SAVE.gen||!running)return;saveApply(o);});}
@@ -1291,13 +1353,13 @@ function saveApply(o){
   if(any&&!game.fromEditor)toast('Welcome back! Your progress was loaded.','#7fd4ff',2.6);
   (RT.dataLoaded||[]).forEach(h=>spawnRun(h.body,h));}
 async function saveFlush(force,final){
-  if(!SAVE.key||!SAVE.loaded||(SAVE.busy&&!final)||!game||!game.project)return false;
+  if(!SAVE.key||!SAVE.loaded||SAVE.off||(SAVE.busy&&!final)||!game||!game.project)return false;
   const o=saveSnapshot();const body=saveBody(o);if(!force&&body===SAVE.last)return true;
   SAVE.busy=true;const key=SAVE.key,backend=SAVE.backend;
   try{await saveWrite(key,backend,o);SAVE.last=body;SAVE.lastT=performance.now();return true;}
   catch(e){if(!saveFlush.warned){saveFlush.warned=true;logOut('Saving progress failed: '+(e&&e.message||e),'warn');}return false;}
   finally{SAVE.busy=false;}}
-function saveTick(){if(SAVE.loaded&&performance.now()-SAVE.lastT>8000){SAVE.lastT=performance.now();saveFlush(false);}}
+function saveTick(){if(SAVE.loaded&&!SAVE.off&&performance.now()-SAVE.lastT>8000){SAVE.lastT=performance.now();saveFlush(false);}}
 addEventListener('pagehide',()=>{if(running)saveFlush(false,true);});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&running)saveFlush(false,true);});
 function saveVal(v){return typeof v==='number'?(isFinite(v)?v:0):typeof v==='boolean'?v:String(v??'').slice(0,1000);}
@@ -1392,6 +1454,12 @@ async function stmt(b,ctx){
       if(others.length){if(MP.gr&&b.id&&ctx.sid)mpEmit('run',{to:others.map(r=>r.peer).slice(0,50),s:ctx.sid,b:b.id,h:W.projHash});
         else warnOnce('asoff:'+ctx.script,ctx.script+': "as player" only reaches other players in an online game. In a playtest it only runs for you.');}
       if(tg.includes('me'))await run(body,ctx);break;}
+    case 'pl_ragdoll':ragdollPlayer(numv(inp(b,'S'),ctx));break;
+    case 'pl_fling':{const pw=Math.max(0,Math.min(400,numv(inp(b,'P'),ctx)));const fw=new V3(Math.sin(P.yaw),0,Math.cos(P.yaw));ragdollPlayer(2.5,fw.multiplyScalar(-pw*.6).add(new V3(0,pw*.8,0)));break;}
+    case 'pl_getup':if(P.rag)P.rag.until=0,P.rag.rest=1;break;
+    case 'rig_ragdoll':partsOf(partv(b,ctx)).filter(p=>p.rig).forEach(r=>ragdollRig(r,numv(inp(b,'S'),ctx)));break;
+    case 'rig_fling':{const pw=Math.max(0,Math.min(400,numv(inp(b,'P'),ctx)));partsOf(partv(b,ctx)).filter(p=>p.rig).forEach(r=>{const d=new V3(r.pos.x-P.pos.x,0,r.pos.z-P.pos.z);if(d.lengthSq()<.01)d.set(0,0,1);d.normalize().multiplyScalar(pw*.6);d.y=pw*.8;ragdollRig(r,2.5,d);});break;}
+    case 'data_enable':SAVE.off=fld(b,'B')!=='TRUE';break;
     case 'pl_sethp':{if(P.dead)break;const v=Math.max(0,Math.min(P.maxHealth,numv(inp(b,'N'),ctx)));if(v<P.health)damagePlayer(P.health-v);else P.health=v;break;}
     case 'pl_maxhp':{P.maxHealth=Math.max(1,Math.min(100000,numv(inp(b,'N'),ctx)));P.health=Math.min(P.health,P.maxHealth);if(fld(b,'FILL')==='TRUE'&&!P.dead)P.health=P.maxHealth;break;}
     case 'pl_tpxyz':if(!P.dead){P.pos.set(numv(inp(b,'X'),ctx),numv(inp(b,'Y'),ctx),numv(inp(b,'Z'),ctx));P.vel.set(0,0,0);}break;
@@ -1804,7 +1872,7 @@ const drop=$('#drop');
 drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)readFileThen(f,playImported);});
 
 /* ---------- projects ---------- */
-function defaultSettings(){return {gravity:196.2,walkSpeed:16,jumpPower:50,sky:'#9fd8ff',fog:900,brightness:1,timer:true,saveStats:true,saveCheckpoint:true};}
+function defaultSettings(){return {gravity:196.2,walkSpeed:16,jumpPower:50,sky:'#9fd8ff',fog:900,brightness:1,timer:true,saveStats:true,saveCheckpoint:true,saveEnabled:true,deathStyle:'ragdoll'};}
 function partNode(o){return Object.assign({id:uid(),cls:'Part',name:'Part',parent:'workspace',shape:'block',pos:[0,.5,0],size:[4,1,2],rot:[0,0,0],color:'#a3a2a5',material:'Plastic',
   transparency:0,anchored:true,canCollide:true,locked:false,behavior:'none',value:0},o);}
 function scriptNode(o){return Object.assign({id:uid(),cls:'Script',name:'Script',parent:'sss',enabled:true,blocks:null},o);}
@@ -2098,7 +2166,13 @@ function update(dt){
   if(B.clearArm>0){B.clearArm-=dt;if(B.clearArm<=0)$('#bclear').textContent='Clear';}
   P.padCool-=dt;if(P.boost>0)P.boost-=dt;
 
-  if(!P.dead&&!state.over){
+  if(!P.dead&&!state.over&&P.rag){
+    ragStep(P.rag,dt);P.pos.copy(P.rag.pos);
+    for(const p of W.special){if(p.active&&p.kind==='kill'&&partOverlap(p,-.12)){die('kill');break;}}
+    if(!P.dead&&P.pos.y<W.killY)die('kill');
+    if(!P.dead&&t>=P.rag.until&&(P.rag.rest>.25||t>P.rag.until+2))ragEndPlayer();
+    if(P.model)P.model.visible=cam.dist>1&&!P.hidden;
+  }else if(!P.dead&&!state.over){
     if(P.ground&&(P.ground.move||W.dyn.has(P.ground)))P.pos.add(P.ground.delta);
     let ix=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+joy.x;
     let iy=(keys.has('KeyW')||keys.has('ArrowUp')?1:0)-(keys.has('KeyS')||keys.has('ArrowDown')?1:0)+joy.y;
@@ -2134,7 +2208,7 @@ function update(dt){
       P.shieldMesh.material.opacity=.16+Math.sin(t*8)*.06+(P.shieldUntil-t<1.5?Math.sin(t*30)*.08:0);}
     else if(P.shieldMesh){P.shieldMesh.parent&&P.shieldMesh.parent.remove(P.shieldMesh);P.shieldMesh.geometry.dispose();P.shieldMesh.material.dispose();P.shieldMesh=null;}
   }else if(P.dead){
-    P.deadT-=dt;
+    P.deadT-=dt;if(P.rag){ragStep(P.rag,dt);P.pos.copy(P.rag.pos);}
     for(const d of P.debris){d.v.y-=PHYS.gravity*.35*dt;d.m.position.addScaledVector(d.v,dt);d.m.rotation.x+=d.s.x*dt;d.m.rotation.y+=d.s.y*dt;d.m.rotation.z+=d.s.z*dt;}
     if(P.deadT<=0&&!state.over)respawn();
   }
@@ -2610,8 +2684,9 @@ function renderProps(){
   if(id==='workspace')h=pgrp('Workspace',prow('Gravity',pnum('s.gravity',S.gravity,1,1),'p_s.gravity')+prow('Show timer',pchk('s.timer',S.timer),'p_s.timer'))+`<p class="pnote">Roblox default gravity is 196.2 studs/s². Lower it for floaty, moon-like jumps.</p>`;
   else if(id==='lighting')h=pgrp('Lighting',prow('Sky color',pcolor('s.sky',S.sky),'p_s.sky')+prow('Fog distance',pnum('s.fog',S.fog,50,100),'p_s.fog')+prow('Brightness',`<input type="range" min=".3" max="1.8" step=".05" data-k="s.brightness" id="p_s.brightness" value="${S.brightness}">`,'p_s.brightness'));
   else if(id==='player')h=pgrp('StarterPlayer',prow('WalkSpeed',pnum('s.walkSpeed',S.walkSpeed,1,0),'p_s.walkSpeed')+prow('JumpPower',pnum('s.jumpPower',S.jumpPower,1,0),'p_s.jumpPower'))+`<p class="pnote">Defaults match Roblox: WalkSpeed 16, JumpPower 50.</p>`+
-    pgrp('Saving progress',prow('Save stats',pchk('s.saveStats',S.saveStats!==false),'p_s.saveStats')+prow('Save checkpoint',pchk('s.saveCheckpoint',S.saveCheckpoint!==false),'p_s.saveCheckpoint')+
-      `<p class="pnote">Each player's progress saves by itself every few seconds and when they leave: their stats, their last checkpoint, and anything scripts store with the Saving blocks. It is kept in their Brickyard account (or in their browser if they are not signed in) and loads next time they play. Playtests use a separate test save.</p><div class="pr"><span class="l"></span><div class="btnrow"><button class="mini" type="button" data-pa="clearTestSave">Clear my test save</button></div></div>`)+
+    pgrp('Saving progress',prow('Save progress',pchk('s.saveEnabled',S.saveEnabled!==false),'p_s.saveEnabled')+prow('Save stats',pchk('s.saveStats',S.saveStats!==false),'p_s.saveStats')+prow('Save checkpoint',pchk('s.saveCheckpoint',S.saveCheckpoint!==false),'p_s.saveCheckpoint')+
+      `<p class="pnote">${S.saveEnabled===false?'<b>Saving is off:</b> nothing is saved or loaded, so every visit starts fresh. The Saving blocks still work during a game. ':''}Each player's progress saves by itself every few seconds and when they leave: their stats, their last checkpoint, and anything scripts store with the Saving blocks. It is kept in their Brickyard account (or in their browser if they are not signed in) and loads next time they play. Playtests use a separate test save.</p><div class="pr"><span class="l"></span><div class="btnrow"><button class="mini" type="button" data-pa="clearTestSave">Clear my test save</button></div></div>`)+
+    pgrp('Death',prow('Death style',psel('s.deathStyle',S.deathStyle==='ragdoll'?'ragdoll':'break',[['break','Break apart (classic)'],['ragdoll','Ragdoll']]),'p_s.deathStyle')+`<p class="pnote">Ragdoll makes players and rigs go limp and tumble when they are knocked out. The Player and Rigs blocks can also ragdoll or fling them at any time.</p>`)+
     pgrp('Scripts & animations',`<p class="pnote">Scripts here run for the player: use "when I spawn", "when I jump" and the Player blocks. Animations here can be turned into emotes with their Emote setting. Name one <b>Idle</b>, <b>Walk</b> or <b>Jump</b> to replace the player's default movement animation.</p><div class="pr"><span class="l"></span><div class="btnrow"><button class="mini pri" type="button" data-pa="playerScript">Add script</button><button class="mini" type="button" data-pa="playerAnim">Add animation</button></div></div>`);
   else if(id==='rs')h=pgrp('ReplicatedStorage',`<p class="pnote">Store templates here: parts, models, rigs and folders that stay out of the world until a script copies them in with the Storage blocks. Scripts inside a template start running in each copy.</p><div class="pr"><span class="l"></span><div class="btnrow"><button class="mini pri" type="button" data-pa="insRS">Add a part here</button></div></div>`);
   else if(id==='gui')h=pgrp('StarterGui',`<p class="pnote">On-screen interface: ScreenGuis hold Frames, TextLabels and TextButtons that show over the game for every player. Edit them on the GUI tab and script them with the GUI blocks.</p><div class="pr"><span class="l"></span><div class="btnrow"><button class="mini pri" type="button" data-pa="insGui">Add a text label</button><button class="mini" type="button" data-pa="insGuiB">Add a button</button></div></div>`);
@@ -3371,6 +3446,7 @@ function luaForScript(node,withLib){
     case 's_key':L.notes.add('Key-press checks need a LocalScript in Roblox, so they are false here.');return 'false';
     case 's_touching':return `BY.touching(${Pt(b)})`;case 's_distance':return `BY.dist(${Pt(b)})`;
     case 's_player':return `BY.ppos(${luaStr(fld(b,'AXIS'))})`;case 's_prop':return `BY.prop(${Pt(b)}, ${luaStr(fld(b,'PROP'))})`;
+    case 's_pl_ragdoll':return 'false';
     case 's_pl_name':return '(player() and player().Name or "")';case 's_touch_player':L.notes.add('Player-to-player touch checks need a Touched handler on the character in Roblox.');return 'false';case 'pl_ref':case 'pl_ref_touchme':case 'pl_touched':case 'pl_ref_touch':case 'pl_ref_named':return 'Players:GetPlayers()';
     case 's_pl_nameof':return '(player() and player().Name or "")';case 's_pl_hpof':return 'BY.health()';case 's_pl_countof':return '#Players:GetPlayers()';case 's_pl_maxhp':return '(hum() and hum().MaxHealth or 100)';case 's_pl_speed':return '(hum() and hum().WalkSpeed or 16)';
     case 's_pl_moving':return '(hum() ~= nil and hum().MoveDirection.Magnitude > 0)';case 's_pl_alive':return '(hum() ~= nil and hum().Health > 0)';
@@ -3428,6 +3504,8 @@ function luaForScript(node,withLib){
     case 'data_set':L.notes.add('Saved data needs DataStoreService in Roblox; the export keeps it in BY.saved for the session only.');return l(`BY.saved[tostring(${V(b,'KEY','""')})] = ${V(b,'V','0')}`);
     case 'data_change':return l(`BY.saved[tostring(${V(b,'KEY','""')})] = (BY.saved[tostring(${V(b,'KEY','""')})] or 0) + ${V(b,'N','1')}`);
     case 'data_del':return l(`BY.saved[tostring(${V(b,'KEY','""')})] = nil`);case 'data_clear':return l('BY.saved = {}');case 'data_now':return l('-- save progress now (DataStoreService)');
+    case 'pl_ragdoll':case 'pl_fling':case 'pl_getup':L.notes.add('Ragdolls need a ragdoll script in Roblox (Humanoid physics state plus BallSocketConstraints).');return l('-- '+b.type.replace('pl_','')+' the player');
+    case 'rig_ragdoll':case 'rig_fling':return l('-- '+b.type.replace('rig_','')+' the rig');case 'data_enable':return l('-- turn auto-save '+(fld(b,'B')==='TRUE'?'on':'off'));
     case 'pl_sethp':return l(`BY.humanoid("Health", ${V(b,'N','100')})`);
     case 'pl_maxhp':return l(`BY.humanoid("MaxHealth", ${V(b,'N','100')})`)+(fld(b,'FILL')==='TRUE'?l(`BY.humanoid("Health", ${V(b,'N','100')})`):'');
     case 'pl_tpxyz':return l(`do local p = player() local c = p and p.Character if c then c:PivotTo(CFrame.new(${V(b,'X','0')}, ${V(b,'Y','0')}, ${V(b,'Z','0')})) end end`);
@@ -3756,6 +3834,13 @@ function defineBlocks(){
     V_({type:'s_pl_nameof',message0:'name of %1',args0:[{type:'input_value',name:'WHO',check:['Player','Part']}]},'String','player_blocks'),
     V_({type:'s_pl_hpof',message0:'health of %1',args0:[{type:'input_value',name:'WHO',check:['Player','Part']}]},'Number','player_blocks'),
     V_({type:'s_pl_countof',message0:'number of %1',args0:[{type:'input_value',name:'WHO',check:['Player','Part']}]},'Number','player_blocks'),
+    S_({type:'pl_ragdoll',message0:'ragdoll the player for %1 seconds',args0:[N('S')],tooltip:'The player goes limp and tumbles with physics, then gets back up.'},'player_blocks'),
+    S_({type:'pl_fling',message0:'fling the player with power %1',args0:[N('P')],tooltip:'Throws the player backwards and up as a ragdoll.'},'player_blocks'),
+    S_({type:'pl_getup',message0:'make the player get up'},'player_blocks'),
+    V_({type:'s_pl_ragdoll',message0:'player is ragdolled?'},'Boolean','player_blocks'),
+    S_({type:'rig_ragdoll',message0:'ragdoll rig %1 for %2 seconds',args0:[PT(),N('S')]},'rig_blocks'),
+    S_({type:'rig_fling',message0:'fling rig %1 away from the player with power %2',args0:[PT(),N('P')]},'rig_blocks'),
+    S_({type:'data_enable',message0:'turn auto-save %1',args0:[{type:'field_dropdown',name:'B',options:[['off','FALSE'],['on','TRUE']]}],tooltip:'Stops (or restarts) saving this player\'s progress for the rest of this game.'},'data_blocks'),
     S_({type:'pl_sethp',message0:'set health to %1',args0:[N('N')]},'player_blocks'),
     S_({type:'pl_maxhp',message0:'set max health to %1 %2 refill',args0:[N('N'),{type:'field_checkbox',name:'FILL',checked:true}]},'player_blocks'),
     S_({type:'pl_tpxyz',message0:'teleport player to x %1 y %2 z %3',args0:[N('X'),N('Y'),N('Z')]},'player_blocks'),
@@ -3826,12 +3911,13 @@ function defineBlocks(){
       K('pl_as',{WHO:{block:{type:'pl_touched'}},DO:{block:{type:'pl_say',inputs:{TEXT:t_("You're it!"),S:n_(2)}}}}),
       K('pl_touched'),K('pl_ref_touchme'),K('pl_ref',null,{WHO:'others'}),K('pl_ref_touch',{PART:me()}),K('pl_ref_named',{NAME:t_('Player1')}),
       K('s_pl_nameof',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'nearest'}}}}),K('s_pl_hpof',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'nearest'}}}}),K('s_pl_countof',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'others'}}}}),
+      K('pl_ragdoll',{S:n_(3)}),K('pl_fling',{P:n_(80)}),K('pl_getup'),K('s_pl_ragdoll'),
       K('ev_spawn'),K('ev_jump'),K('ev_land'),K('ev_hurt'),
       K('pl_sethp',{N:n_(100)}),K('pl_maxhp',{N:n_(200)}),K('pl_tpxyz',{X:n_(0),Y:n_(20),Z:n_(0)}),K('pl_respawn'),K('pl_freeze',null,{B:'TRUE'}),K('pl_visible',null,{B:'FALSE'}),
       K('pl_shirt'),K('pl_say',{TEXT:t_('Hello!'),S:n_(3)}),K('pl_shield',{S:n_(5)}),K('pl_airjumps',{N:n_(1)}),K('pl_face',{PART:{shadow:{type:'p_this'},block:{type:'p_named',fields:{NAME:'Part'}}}}),K('pl_camera',{N:n_(30)}),
       K('s_pl_name'),K('s_health'),K('s_pl_maxhp'),K('s_pl_speed'),K('s_pl_moving'),K('s_pl_alive'),K('s_pl_shield'),K('s_pl_tool'),K('s_grounded'),K('s_player')]},
     {kind:'category',name:'Saving',categorystyle:'data',contents:[K('ev_data_loaded'),K('data_set',{KEY:t_('level'),V:n_(1)}),K('data_change',{KEY:t_('gems'),N:n_(1)}),K('data_get',{KEY:t_('level')}),K('data_has',{KEY:t_('level')}),
-      K('data_returning'),K('data_loaded'),K('data_now'),K('data_del',{KEY:t_('level')}),K('data_clear'),
+      K('data_returning'),K('data_loaded'),K('data_now'),K('data_enable',null,{B:'FALSE'}),K('data_del',{KEY:t_('level')}),K('data_clear'),
       K('ev_data_loaded',null,null,{next:{block:{type:'controls_if',inputs:{IF0:{block:{type:'data_returning'}},DO0:{block:{type:'g_msg',inputs:{TEXT:t_('Welcome back!'),S:n_(3)}}}}}}})]},
     {kind:'category',name:'Animation',categorystyle:'anim',contents:[K('ev_spawn'),K('ev_jump'),K('anim_play_me',{NAME:t_('Wave')},{MODE:'once'}),K('anim_play_rig',{NAME:t_('Dance'),PART:me()},{MODE:'loop'}),
       K('anim_stop_me'),K('anim_stop_rig',{PART:me()}),K('s_anim_playing')]},
@@ -3841,7 +3927,7 @@ function defineBlocks(){
     {kind:'category',name:'Tools',categorystyle:'tools',contents:[K('ev_tool_act'),K('ev_tool_equip'),K('ev_tool_unequip'),K('ev_tool_hit'),K('tool_hitpart'),
       K('s_isrig',{PART:{shadow:{type:'p_this'},block:{type:'tool_hitpart'}}}),K('s_isplayer',{PART:{shadow:{type:'p_this'},block:{type:'tool_hitpart'}}}),K('pl_damage_other',{PART:{shadow:{type:'p_this'},block:{type:'tool_hitpart'}},N:n_(20)}),K('tool_swing'),K('tool_shoot',{S:n_(120)}),K('tool_give'),K('tool_take'),K('tool_unequip'),K('s_has_tool')]},
     {kind:'category',name:'Rigs',categorystyle:'rigs',contents:[K('ev_rig_died'),K('rig_damage',{PART:me(),N:n_(25)}),K('rig_heal',{PART:me(),N:n_(25)}),K('s_rig_health',{PART:me()}),K('rig_walk',{PART:me(),X:n_(0),Z:n_(10)}),K('rig_walkp',{PART:me()}),K('rig_anim',{PART:me()}),
-      K('rig_say',{PART:me(),TEXT:t_('Hello!'),S:n_(3)}),K('rig_face',{PART:me()})]},
+      K('rig_say',{PART:me(),TEXT:t_('Hello!'),S:n_(3)}),K('rig_ragdoll',{PART:me(),S:n_(3)}),K('rig_fling',{PART:me(),P:n_(80)}),K('rig_face',{PART:me()})]},
     {kind:'category',name:'Effects',categorystyle:'fx',contents:[K('pe_emit',{N:n_(30),PART:me()}),K('pe_toggle',{PART:me()})]},
     {kind:'category',name:'Storage',categorystyle:'storage',contents:[{kind:'label',text:'ReplicatedStorage'},K('rs_copy',{X:n_(0),Y:n_(20),Z:n_(0)}),K('rs_onto',{PART:me()}),K('rs_last')]},
     {kind:'category',name:'Game',categorystyle:'game',contents:[K('g_msg',{TEXT:t_('Hello!'),S:n_(2)}),K('g_print',{TEXT:t_('Hello from my script')}),K('g_stat_change',{N:n_(1)}),K('g_stat_set',{N:n_(0)}),
@@ -4118,5 +4204,5 @@ renderToolbox();renderSwatches();renderCards();
 loop();
 initMP();
 bootShared();
-window.__by={SB,SAVE,findAnim,playAnim,BD,openAnim,AE,ACC,renderGuiEditor,showAccountModal,MP,arenaDef,packProject,unpackProject,standaloneHtml,get SHARED(){return SHARED},IDB,MESHCACHE,uploadMesh,finalizeMesh,get ecam(){return ecam},get tc(){return tc},cam,ED,W,RT,P,state:()=>state,startGame,openStudio,newProjectObj,saveProject,insert,select,doAct,openScript,playtest,stopGame,exportRbxlx,luaForScript,parseRbxlx,listProjects,GAMES,projectDef,running:()=>running};
+window.__by={makeRag,ragStep,SB,SAVE,findAnim,playAnim,BD,openAnim,AE,ACC,renderGuiEditor,showAccountModal,MP,arenaDef,packProject,unpackProject,standaloneHtml,get SHARED(){return SHARED},IDB,MESHCACHE,uploadMesh,finalizeMesh,get ecam(){return ecam},get tc(){return tc},cam,ED,W,RT,P,state:()=>state,startGame,openStudio,newProjectObj,saveProject,insert,select,doAct,openScript,playtest,stopGame,exportRbxlx,luaForScript,parseRbxlx,listProjects,GAMES,projectDef,running:()=>running};
 })();
