@@ -77,3 +77,6 @@ as $$
 $$;
 revoke all on function public.delete_my_account() from public, anon;
 grant execute on function public.delete_my_account() to authenticated;
+
+-- Make the API see the new tables straight away.
+notify pgrst, 'reload schema';
