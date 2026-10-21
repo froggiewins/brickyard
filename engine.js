@@ -2738,7 +2738,7 @@ function renderAnimEditor(){
   const n=curAnimNode();if(!n||!ensureAnimView())return;
   n.keys=animData(n).keys;n.length=animData(n).length;
   if(AE.selKey&&!n.keys.includes(AE.selKey))AE.selKey=n.keys.find(k=>Math.abs(k.t-AE.time)<.001)||null;
-  AE.time=Math.min(AE.time,n.length);updateAnimBar(n);renderAnimTimeline(n);renderAnimSide(n);
+  AE.time=Math.min(AE.time,n.length);updateAnimBar(n);renderAnimTimeline(n);renderAnimSide(n);updateClipUI();
   if(!AE.raf){AE.last=0;AE.raf=requestAnimationFrame(animLoop);}
 }
 function updateAnimBar(n){const a=animData(n);$('#anPlay').textContent=AE.playing?'❚❚ Pause':'▶ Play';$('#anLoop').checked=a.loop;
@@ -2783,6 +2783,20 @@ $('#anAdd').addEventListener('click',()=>{const n=curAnimNode();if(!n)return;AE.
   AE.selKey=k;AE.time=k.t;updateAnimBar(n);renderAnimTimeline(n);renderAnimSide(n);});
 $('#anDel').addEventListener('click',()=>{const n=curAnimNode();if(!n||!AE.selKey)return;if(n.keys.length<=1){logOut('An animation needs at least one keyframe.','warn');return;}
   n.keys=n.keys.filter(k=>k!==AE.selKey);AE.selKey=null;commit();renderAnimTimeline(n);renderAnimSide(n);renderProps();});
+function mirrorPose(p){const o={};const m=v=>[v[0],-v[1],-v[2]];
+  if(p.Body)o.Body=m(p.Body);if(p.Head)o.Head=m(p.Head);if(p.Root)o.Root=[-p.Root[0],p.Root[1],p.Root[2]];
+  if(p.LeftArm)o.RightArm=m(p.LeftArm);if(p.RightArm)o.LeftArm=m(p.RightArm);if(p.LeftLeg)o.RightLeg=m(p.LeftLeg);if(p.RightLeg)o.LeftLeg=m(p.RightLeg);return o;}
+function animCopy(){const n=curAnimNode();if(!n)return;const a=animData(n);
+  const pose=AE.selKey?AE.selKey.pose:(()=>{const sp=sampleAnim(a,AE.time),o={};JNAMES.forEach(j=>{if(sp[j].some(c=>Math.abs(c)>.01))o[j]=sp[j].map(r3);});return o;})();
+  AE.clip={pose:JSON.parse(JSON.stringify(pose)),ease:AE.selKey?AE.selKey.ease:'smooth'};try{store.set('animClip',AE.clip);}catch(e){}
+  updateClipUI();logOut(AE.selKey?'Copied the keyframe at '+AE.selKey.t.toFixed(2)+' s.':'Copied the pose at '+AE.time.toFixed(2)+' s.','sys');}
+function animPaste(mirror){const n=curAnimNode();if(!n)return;if(!AE.clip){try{AE.clip=store.get('animClip',null);}catch(e){}}
+  if(!AE.clip||!AE.clip.pose){logOut('Copy a keyframe first (select a ◆, then Copy or Ctrl+C).','warn');return;}
+  AE.playing=false;const pose=cleanPose(mirror?mirrorPose(AE.clip.pose):JSON.parse(JSON.stringify(AE.clip.pose)));
+  let k=AE.selKey;if(!k){const t0=r3(Math.round(AE.time/.05)*.05);k=n.keys.find(x=>Math.abs(x.t-t0)<.001);if(!k){k={t:t0,ease:AE.clip.ease||'smooth',pose:{}};n.keys.push(k);n.keys.sort((x,y)=>x.t-y.t);}}
+  k.pose=pose;AE.selKey=k;AE.time=k.t;commit();updateAnimBar(n);renderAnimTimeline(n);renderAnimSide(n);renderProps();}
+function updateClipUI(){let has=!!AE.clip;if(!has){try{has=!!store.get('animClip',null);}catch(e){}}$('#anPaste').disabled=!has;$('#anPasteM').disabled=!has;}
+$('#anCopy').addEventListener('click',animCopy);$('#anPaste').addEventListener('click',()=>animPaste(false));$('#anPasteM').addEventListener('click',()=>animPaste(true));
 function trackTime(e,a){const r=$('#anKeys').getBoundingClientRect();return Math.max(0,Math.min(a.length,(e.clientX-r.left)/r.width*a.length));}
 $('#anTrack').addEventListener('pointerdown',e=>{const n=curAnimNode();if(!n)return;const a=animData(n);AE.playing=false;updateAnimBar(n);
   const kb=e.target.closest('.an-key');$('#anTrack').setPointerCapture(e.pointerId);
@@ -3394,6 +3408,7 @@ addEventListener('keydown',e=>{
     if(mod0&&k0==='z'&&!e.shiftKey){e.preventDefault();undo();}else if(mod0&&(k0==='y'||(k0==='z'&&e.shiftKey))){e.preventDefault();redo();}
     else if(e.key===' '){e.preventDefault();$('#anPlay').click();}else if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();$('#anDel').click();}
     else if(e.key==='k'||e.key==='K'){e.preventDefault();$('#anAdd').click();}
+    else if(mod0&&k0==='c'){e.preventDefault();animCopy();}else if(mod0&&k0==='v'){e.preventDefault();animPaste(e.shiftKey);}
     return;}
   if(inBlocks||(ED.tab!=='viewport'&&ED.tab!=='gui'))return;
   const mod=e.ctrlKey||e.metaKey;
