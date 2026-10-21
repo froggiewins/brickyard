@@ -932,12 +932,14 @@ function renderEmotes(){const m=$('#emoteMenu');m.innerHTML='';
   const add=(a,label)=>{const b=document.createElement('button');b.type='button';b.textContent=label||a.name;b.onclick=()=>{playEmote(a);};m.appendChild(b);};
   if(W.emotes&&W.emotes.length){const p=document.createElement('p');p.textContent='This game';m.appendChild(p);W.emotes.forEach(a=>add(a));}
   const p=document.createElement('p');p.textContent='Emotes';m.appendChild(p);EMOTE_KEYS.forEach(k=>add(BD()[k]));}
+function findEmote(name){const k=String(name||'').trim().toLowerCase();const own=(W.emotes||[]).find(a=>a.name.toLowerCase()===k);if(own)return own;
+  const bk=k.replace(/[\s_-]/g,'');return EMOTE_KEYS.includes(bk)?BD()[bk]:null;}
 function playEmote(a){if(!running||P.dead)return;playAnim('me',a,'auto',true);$('#emoteMenu').hidden=true;$('#emoteBtn').setAttribute('aria-expanded','false');cv.focus({preventScroll:true});}
 $('#emoteBtn').addEventListener('click',()=>{const m=$('#emoteMenu');m.hidden=!m.hidden;$('#emoteBtn').setAttribute('aria-expanded',String(!m.hidden));if(!m.hidden)renderEmotes();else cv.focus({preventScroll:true});});
 function closeChat(){MP.chatOpen=false;$('#chatForm').hidden=true;$('#chatBtn').hidden=false;if(running)cv.focus({preventScroll:true});}
 $('#chatBtn').addEventListener('click',openChat);
 $('#chatForm').addEventListener('submit',e=>{e.preventDefault();const v=$('#chatIn').value.replace(/[\u0000-\u001f]/g,'').trim().slice(0,140);
-  const em=v.match(/^\/e(?:mote)?\s+(.+)$/i);if(em){const a=findAnim(em[1]);if(a)playEmote(a);else sysChat('No emote called "'+em[1].slice(0,30)+'". Try /e wave, /e dance or /e cheer.');closeChat();return;}
+  const em=v.match(/^\/e(?:mote)?\s+(.+)$/i);if(em){const a=findEmote(em[1]);if(a)playEmote(a);else sysChat('No emote called "'+em[1].slice(0,30)+'". Try /e wave, /e dance or /e cheer.');closeChat();return;}
   if(v&&Date.now()-MP.lastChat>700){MP.lastChat=Date.now();mpEmit('chat',{t:v});}closeChat();});
 $('#chatIn').addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Escape'){e.preventDefault();closeChat();}});
 $('#chatIn').addEventListener('blur',()=>{if(MP.chatOpen)setTimeout(closeChat,100);});
@@ -1097,7 +1099,7 @@ $('#useBtn').addEventListener('pointerdown',e=>{e.preventDefault();activateTool(
 function registerAnims(proj){
   W.anims=new Map();W.emotes=[];const base={};
   for(const n of proj.nodes){if(n.cls!=='Animation')continue;const a=animData(n);const k=a.name.toLowerCase();if(!W.anims.has(k))W.anims.set(k,a);
-    if(serviceOf(proj,n.id)==='player'){if(k==='idle'||k==='walk'||k==='jump')base[k]=a;else W.emotes.push(a);}}
+    if(serviceOf(proj,n.id)==='player'){if(k==='idle'||k==='walk'||k==='jump')base[k]=a;else if(n.emote)W.emotes.push(a);}}
   W.baseAnims=Object.keys(base).length?base:null;
 }
 function giveStarterTools(proj){proj.nodes.filter(n=>n.cls==='Tool'&&n.parent==='pack').forEach(n=>giveTool(n,true));}
@@ -2449,7 +2451,7 @@ function renderProps(){
   if(id==='workspace')h=pgrp('Workspace',prow('Gravity',pnum('s.gravity',S.gravity,1,1),'p_s.gravity')+prow('Show timer',pchk('s.timer',S.timer),'p_s.timer'))+`<p class="pnote">Roblox default gravity is 196.2 studs/s². Lower it for floaty, moon-like jumps.</p>`;
   else if(id==='lighting')h=pgrp('Lighting',prow('Sky color',pcolor('s.sky',S.sky),'p_s.sky')+prow('Fog distance',pnum('s.fog',S.fog,50,100),'p_s.fog')+prow('Brightness',`<input type="range" min=".3" max="1.8" step=".05" data-k="s.brightness" id="p_s.brightness" value="${S.brightness}">`,'p_s.brightness'));
   else if(id==='player')h=pgrp('StarterPlayer',prow('WalkSpeed',pnum('s.walkSpeed',S.walkSpeed,1,0),'p_s.walkSpeed')+prow('JumpPower',pnum('s.jumpPower',S.jumpPower,1,0),'p_s.jumpPower'))+`<p class="pnote">Defaults match Roblox: WalkSpeed 16, JumpPower 50.</p>`+
-    pgrp('Scripts & animations',`<p class="pnote">Scripts here run for the player: use "when I spawn", "when I jump" and the Player blocks. Animations here become emotes in the Emotes menu. Name one <b>Idle</b>, <b>Walk</b> or <b>Jump</b> to replace the player's default movement animation.</p><div class="pr"><span class="l"></span><div class="btnrow"><button class="mini pri" type="button" data-pa="playerScript">Add script</button><button class="mini" type="button" data-pa="playerAnim">Add animation</button></div></div>`);
+    pgrp('Scripts & animations',`<p class="pnote">Scripts here run for the player: use "when I spawn", "when I jump" and the Player blocks. Animations here can be turned into emotes with their Emote setting. Name one <b>Idle</b>, <b>Walk</b> or <b>Jump</b> to replace the player's default movement animation.</p><div class="pr"><span class="l"></span><div class="btnrow"><button class="mini pri" type="button" data-pa="playerScript">Add script</button><button class="mini" type="button" data-pa="playerAnim">Add animation</button></div></div>`);
   else if(id==='rs')h=pgrp('ReplicatedStorage',`<p class="pnote">Store templates here: parts, models, rigs and folders that stay out of the world until a script copies them in with the Storage blocks. Scripts inside a template start running in each copy.</p><div class="pr"><span class="l"></span><div class="btnrow"><button class="mini pri" type="button" data-pa="insRS">Add a part here</button></div></div>`);
   else if(id==='gui')h=pgrp('StarterGui',`<p class="pnote">On-screen interface: ScreenGuis hold Frames, TextLabels and TextButtons that show over the game for every player. Edit them on the GUI tab and script them with the GUI blocks.</p><div class="pr"><span class="l"></span><div class="btnrow"><button class="mini pri" type="button" data-pa="insGui">Add a text label</button><button class="mini" type="button" data-pa="insGuiB">Add a button</button></div></div>`);
   else if(id==='pack')h=pgrp('StarterPack',`<p class="pnote">Tools here go into every player's hotbar when the game starts. Build a tool in Workspace so you can see it, then drag it here.</p><div class="pr"><span class="l"></span><div class="btnrow"><button class="mini pri" type="button" data-pa="insTool">Add a tool here</button></div></div>`);
@@ -2464,9 +2466,9 @@ function renderProps(){
     const pv4=(k,arr,lbl)=>`<div class="v3" style="grid-template-columns:repeat(2,minmax(0,1fr));row-gap:4px">${[0,1,2,3].map(i=>`<input type="number" step="${i%2?1:.01}" data-k="${k}" data-i="${i}" value="${r3(num(arr[i],0))}" aria-label="${lbl} ${['X scale','X offset','Y scale','Y offset'][i]}" title="${['X scale','X offset (px)','Y scale','Y offset (px)'][i]}">`).join('')}</div>`;
     if(n.cls==='Animation'){const a=animData(n);
       h+=pgrp('Animation',prow('Length (s)',pnum('length',a.length,.1,.1),'p_length')+prow('Loop',pchk('loop',a.loop),'p_loop')+prow('Speed',pnum('speed',a.speed,.1,.05),'p_speed')+
-        prow('Stop when moving',pchk('stopOnMove',a.stopOnMove),'p_stopOnMove')+`<div class="pr"><span class="l">Keyframes</span><span class="ro">${a.keys.length}</span></div>`+
+        prow('Stop when moving',pchk('stopOnMove',a.stopOnMove),'p_stopOnMove')+(serviceOf(ED.proj,n.id)==='player'&&!['idle','walk','jump'].includes(a.name.toLowerCase())?prow('Emote',pchk('emote',!!n.emote),'p_emote'):'')+`<div class="pr"><span class="l">Keyframes</span><span class="ro">${a.keys.length}</span></div>`+
         `<div class="pr"><span class="l"></span><div class="btnrow"><button class="mini pri" type="button" data-pa="editAnim">Edit animation</button></div></div>`)+
-        `<p class="pnote">Play it with "play animation ${esc(a.name)}" in the Animation blocks.${serviceOf(ED.proj,n.id)==='player'?' It is also in the in-game Emotes menu.':' Put it in StarterPlayer to make it an emote.'}</p>`;}
+        `<p class="pnote">Play it with "play animation ${esc(a.name)}" in the Animation blocks.${serviceOf(ED.proj,n.id)==='player'?(['idle','walk','jump'].includes(a.name.toLowerCase())?' Because it is named '+esc(a.name)+', it replaces the player\'s default '+esc(a.name.toLowerCase())+' animation.':n.emote?' Emote is on, so players can use it from the Emotes menu or /e '+esc(a.name.toLowerCase())+'.':' Turn on Emote to add it to the in-game Emotes menu.'):' To make it an emote, put it in StarterPlayer and turn on Emote.'}</p>`;}
     else if(n.cls==='ScreenGui'){h+=pgrp('ScreenGui',prow('Enabled',pchk('visible',n.visible!==false),'p_visible'))+scriptsBox()+`<p class="pnote">A ScreenGui fills the screen. Put Frames, TextLabels and TextButtons inside it.</p>`;}
     else if(isGuiNode(n)){
       h+=pgrp('Layout',prow('Position',pv4('gpos',n.gpos||[0,0,0,0],'Position'))+prow('Size',pv4('gsize',n.gsize||[0,100,0,40],'Size'))+
@@ -2545,7 +2547,7 @@ function applyProp(el,commitIt){
     }
   }
   if(k==='name'){renderExplorer();renderTabs();}
-  if(first.cls==='Animation'){if(ED.tab===first.id)renderAnimEditor();}
+  if(first.cls==='Animation'){if(ED.tab===first.id)renderAnimEditor();if(el.type==='checkbox')setTimeout(renderProps,0);}
   else if(isGuiNode(first)){renderGuiEditor();}
   else if(k!=='name'&&first.cls!=='Script'&&first.cls!=='Folder'&&first.cls!=='Model'&&first.cls!=='Tool'){rebuildWorld();if(ED.sel.length===1)refreshGizmo();}
   if(commitIt){commit();if(['behavior','anchored','shape','enabled','preset'].includes(k)){renderProps();renderExplorer();}}
@@ -2594,8 +2596,8 @@ const PREFABS=[
       partNode({parent:bl.id,name:'Hub',pos:[o.x,o.y+14,o.z+2],size:[1.6,1.6,1.6],color:'#455a64'}),
       partNode({parent:bl.id,name:'BladeA',pos:[o.x,o.y+14,o.z+2],size:[14,1.4,.4],color:'#f5f5f5'}),partNode({parent:bl.id,name:'BladeB',pos:[o.x,o.y+14,o.z+2],size:[1.4,14,.4],color:'#f5f5f5'}),
       scriptNode({parent:bl.id,name:'SpinScript',blocks:SCR.spinModel()})];}},
-  ...['wave','dance','cheer','bow','jumpingjacks','spin','flex','sit','point'].map(k=>({sec:'Animations',name:BUILTIN_ANIMS[k].name+' emote',desc:'A keyframe animation in StarterPlayer, so players can use it from the Emotes menu. Open it to edit the poses.',ico:['Animation','#ff5fa2'],
-    make:()=>[{id:uid(),cls:'Animation',name:BUILTIN_ANIMS[k].name,parent:'player',length:BUILTIN_ANIMS[k].length,loop:BUILTIN_ANIMS[k].loop,speed:1,stopOnMove:true,keys:JSON.parse(JSON.stringify(BUILTIN_ANIMS[k].keys))}]})),
+  ...['wave','dance','cheer','bow','jumpingjacks','spin','flex','sit','point'].map(k=>({sec:'Animations',name:BUILTIN_ANIMS[k].name+' emote',desc:'A keyframe animation in StarterPlayer with Emote turned on, so players can use it from the Emotes menu. Open it to edit the poses.',ico:['Animation','#ff5fa2'],
+    make:()=>[{id:uid(),cls:'Animation',name:BUILTIN_ANIMS[k].name,parent:'player',length:BUILTIN_ANIMS[k].length,loop:BUILTIN_ANIMS[k].loop,speed:1,stopOnMove:true,emote:true,keys:JSON.parse(JSON.stringify(BUILTIN_ANIMS[k].keys))}]})),
   {sec:'Animations',name:'Custom walk',desc:'Replaces the player\'s walk with a big arm-swing walk you can edit.',ico:['Animation','#ff5fa2'],make:()=>[{id:uid(),cls:'Animation',name:'Walk',parent:'player',length:.8,loop:true,speed:1,keys:JSON.parse(JSON.stringify(BUILTIN_ANIMS.walk.keys))}]},
   {sec:'Animations',name:'Custom idle',desc:'Replaces the player\'s standing pose with a gentle breathing idle.',ico:['Animation','#ff5fa2'],make:()=>[{id:uid(),cls:'Animation',name:'Idle',parent:'player',length:3,loop:true,speed:1,keys:JSON.parse(JSON.stringify(BUILTIN_ANIMS.idle.keys))}]},
   {sec:'Animations',name:'Dancing NPC',desc:'A rig that dances forever with the Dance animation.',ico:['Rig','#ff5fa2'],make:o=>{const r=rigNode({name:'Dancer',pos:[o.x,o.y+2.6,o.z],colors:{head:'#f5cd30',torso:'#ff5fa2',arms:'#f5cd30',legs:'#2b3a7a'}});
