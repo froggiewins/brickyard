@@ -1067,7 +1067,16 @@ function worldWrite(fn){Promise.resolve().then(fn).catch(e=>{SFX.nope();
 /* ---------- GUI (StarterGui, ScreenGui, Frame, TextLabel, TextButton) ---------- */
 const GUI_CLS=new Set(['ScreenGui','Frame','TextLabel','TextButton']);
 const isGuiNode=n=>!!(n&&GUI_CLS.has(n.cls));
-const GUI_FONTS={Display:"'Lilita One','Arial Black',sans-serif",Body:"'Figtree',system-ui,sans-serif",Mono:"ui-monospace,Menlo,Consolas,monospace"};
+/* GUI fonts: each is a Google font that matches a Roblox Enum.Font, so exports keep the look. [key, label, css family, weight, Roblox Enum.Font token] */
+const GUI_FONT_LIST=[['Body','Figtree (clean)',"'Figtree',system-ui,sans-serif",700,19],['Display','Lilita One (chunky)',"'Lilita One','Arial Black',sans-serif",400,26],
+  ['Cartoon','Luckiest Guy (cartoon)',"'Luckiest Guy','Lilita One',sans-serif",400,32],['Comic','Bangers (comic)',"'Bangers',Impact,sans-serif",400,22],
+  ['Pixel','Press Start 2P (pixel)',"'Press Start 2P',monospace",400,13],['SciFi','Michroma (sci-fi)',"'Michroma',sans-serif",400,34],
+  ['Spooky','Creepster (spooky)',"'Creepster',fantasy",400,23],['Marker','Permanent Marker (marker)',"'Permanent Marker',cursive",400,38],
+  ['Hand','Indie Flower (handwritten)',"'Indie Flower',cursive",400,28],['Typewriter','Special Elite (typewriter)',"'Special Elite',monospace",400,43],
+  ['Tall','Oswald (tall)',"'Oswald',sans-serif",700,36],['Round','Nunito (rounded)',"'Nunito',sans-serif",800,35],['Serif','Merriweather (serif)',"'Merriweather',Georgia,serif",700,33],
+  ['Thin','Amatic SC (thin)',"'Amatic SC',cursive",700,21],['Bold','Denk One (bold)',"'Denk One',sans-serif",400,24],['Medieval','Grenze Gotisch (medieval)',"'Grenze Gotisch',serif",700,27],
+  ['Mono','Roboto Mono (code)',"'Roboto Mono',ui-monospace,Menlo,Consolas,monospace",500,41]];
+const GUI_FONTS={},GUI_FONT_W={},GUI_FONT_TOK={};GUI_FONT_LIST.forEach(([k,,f,w,tok])=>{GUI_FONTS[k]=f;GUI_FONT_W[k]=w;GUI_FONT_TOK[k]=tok;});
 function guiNode(cls,o){const base={id:uid(),cls,name:cls,parent:'gui',visible:true};
   if(cls==='ScreenGui')return Object.assign(base,{name:'ScreenGui'},o);
   const d={gpos:[0,24,0,120],gsize:[0,220,0,56],anchor:[0,0],bg:'#16213a',bgT:.15,radius:10,stroke:'#ffffff',strokeW:0,text:'',tc:'#ffffff',ts:20,font:'Body',align:'center'};
@@ -1084,7 +1093,9 @@ function styleGuiEl(el,n){
   el.style.background=hexA(n.bg,n.bgT);el.style.borderRadius=Math.max(0,num(n.radius,0))+'px';
   el.style.boxShadow=num(n.strokeW,0)>0?`inset 0 0 0 ${Math.min(20,num(n.strokeW,0))}px ${hexA(n.stroke,0)}`:'none';
   el.style.color=hexA(n.tc,0);el.style.fontSize=Math.max(6,Math.min(120,num(n.ts,20)))+'px';el.style.fontFamily=GUI_FONTS[n.font]||GUI_FONTS.Body;
-  el.style.fontWeight=n.font==='Display'?'400':'700';el.style.justifyContent=n.align==='left'?'flex-start':n.align==='right'?'flex-end':'center';el.style.textAlign=n.align||'center';
+  el.style.fontWeight=String(GUI_FONT_W[n.font]||700);
+  const sw=Math.max(0,Math.min(12,num(n.strokeT,0)));el.style.webkitTextStroke=sw>0?`${sw*2}px ${hexA(n.strokeTc||'#000000',0)}`:'';el.style.paintOrder=sw>0?'stroke fill':'';
+  el.style.textShadow=n.tshadow?`0 ${Math.max(2,Math.round(num(n.ts,20)/10))}px 0 rgba(0,0,0,.45)`:'';el.style.justifyContent=n.align==='left'?'flex-start':n.align==='right'?'flex-end':'center';el.style.textAlign=n.align||'center';
 }
 function buildGuiDom(proj,container,opts){
   opts=opts||{};container.innerHTML='';const map=new Map();
@@ -1433,6 +1444,9 @@ async function stmt(b,ctx){
     case 'rig_face':partsOf(partv(b,ctx)).forEach(p=>{if(p.rig&&!P.dead){p.yaw=Math.atan2(P.pos.x-p.pos.x,P.pos.z-p.pos.z);p.mesh.rotation.y=p.yaw;}});break;
     case 'gui_settext':{const g=guiv(b,ctx);const v=ev(inp(b,'TEXT'),ctx);if(g&&g.el._tx)g.el._tx.textContent=(typeof v==='number'?String(r3(v)):String(v??'')).slice(0,400);break;}
     case 'gui_visible':{const g=guiv(b,ctx);if(g)g.el.hidden=fld(b,'B')!=='TRUE';break;}
+    case 'gui_font':{const g=guiv(b,ctx);const f=fld(b,'FONT');if(g&&GUI_FONTS[f]){g.node=Object.assign({},g.node,{font:f});g.el.style.fontFamily=GUI_FONTS[f];g.el.style.fontWeight=String(GUI_FONT_W[f]);}break;}
+    case 'gui_outline':{const g=guiv(b,ctx);if(g){const w=Math.max(0,Math.min(12,numv(inp(b,'W'),ctx)));const c=fld(b,'COLOUR')||'#000000';g.el.style.webkitTextStroke=w>0?`${w*2}px ${c}`:'';g.el.style.paintOrder=w>0?'stroke fill':'';}break;}
+    case 'gui_textsize':{const g=guiv(b,ctx);if(g)g.el.style.fontSize=Math.max(6,Math.min(160,numv(inp(b,'N'),ctx)))+'px';break;}
     case 'gui_color':{const g=guiv(b,ctx);const c=fld(b,'COLOUR')||'#ffffff';if(g){if(fld(b,'WHAT')==='text')g.el.style.color=c;else g.el.style.background=hexA(c,g.node.bgT);}break;}
     case 'tool_swing':{const e=ctx.tool||P.equipped;if(e)swingTool(e);break;}
     case 'tool_shoot':{const e=ctx.tool||P.equipped;if(e&&P.equipped===e)shootFrom(e,fld(b,'COLOUR'),numv(inp(b,'S'),ctx));break;}
@@ -2720,7 +2734,8 @@ function renderProps(){
         prow('Transparency',`<input type="range" min="0" max="1" step=".05" data-k="bgT" id="p_bgT" value="${num(n.bgT,0)}">`,'p_bgT')+prow('Corner radius',pnum('radius',n.radius||0,1,0),'p_radius')+
         prow('Border color',pcolor('stroke',n.stroke||'#ffffff'),'p_stroke')+prow('Border width',pnum('strokeW',n.strokeW||0,1,0),'p_strokeW'));
       if(n.cls!=='Frame')h+=pgrp('Text',prow('Text',ptext('text',n.text||''),'p_text')+prow('Text color',pcolor('tc',n.tc||'#ffffff'),'p_tc')+prow('Text size',pnum('ts',n.ts||20,1,6),'p_ts')+
-        prow('Font',psel('font',n.font||'Body',[['Body','Figtree'],['Display','Lilita One'],['Mono','Monospace']]),'p_font')+prow('Align',psel('align',n.align||'center',[['left','Left'],['center','Center'],['right','Right']]),'p_align'));
+        prow('Font',psel('font',n.font||'Body',GUI_FONT_LIST.map(f=>[f[0],f[1]])),'p_font')+
+        prow('Outline color',pcolor('strokeTc',n.strokeTc||'#000000'),'p_strokeTc')+prow('Outline width',pnum('strokeT',n.strokeT||0,.5,0),'p_strokeT')+prow('Drop shadow',pchk('tshadow',!!n.tshadow),'p_tshadow')+prow('Align',psel('align',n.align||'center',[['left','Left'],['center','Center'],['right','Right']]),'p_align'));
       h+=scriptsBox();
     }else if(n.cls==='Tool'){const ps=toolParts(ED.proj,n.id);const hh=toolHandle(ED.proj,n);
       h+=pgrp('Tool',prow('ToolTip',ptext('tooltip',n.tooltip||''),'p_tooltip')+prow('Handle',psel('handle',hh?hh.id:'',ps.length?ps.map(q=>[q.id,q.name]):[['','(add a part)']]),'p_handle')+
@@ -3522,6 +3537,9 @@ function luaForScript(node,withLib){
     case 'rig_face':return l(`BY.face(${Pt(b)})`);
     case 'gui_settext':return l(`BY.setText(${V(b,'GUI','script.Parent')}, ${V(b,'TEXT','""')})`);
     case 'gui_visible':return l(`BY.setGui(${V(b,'GUI','script.Parent')}, "Visible", ${fld(b,'B')==='TRUE'?'true':'false'})`);
+    case 'gui_font':return l(`BY.setGui(${V(b,'GUI','script.Parent')}, "Font", Enum.Font:FromValue(${GUI_FONT_TOK[fld(b,'FONT')]||19}))`);
+    case 'gui_outline':return l(`BY.setGui(${V(b,'GUI','script.Parent')}, "TextStrokeColor3", Color3.fromHex(${luaStr(fld(b,'COLOUR')||'#000000')}))`)+l(`BY.setGui(${V(b,'GUI','script.Parent')}, "TextStrokeTransparency", (${V(b,'W','1')}) > 0 and 0 or 1)`);
+    case 'gui_textsize':return l(`BY.setGui(${V(b,'GUI','script.Parent')}, "TextSize", ${V(b,'N','20')})`);
     case 'gui_color':return l(`BY.setGui(${V(b,'GUI','script.Parent')}, "${fld(b,'WHAT')==='text'?'TextColor3':'BackgroundColor3'}", Color3.fromHex(${luaStr(fld(b,'COLOUR')||'#ffffff')}))`);
     case 'anim_play_me':case 'anim_play_rig':L.notes.add('Brickyard keyframe animations need to be re-made in the Roblox Animation Editor, so play blocks become comments.');return l(`-- play animation ${V(b,'NAME','""')}${b.type==='anim_play_rig'?' on rig':' on the player'} (${fld(b,'MODE')})`);
     case 'anim_stop_me':case 'anim_stop_rig':return l('-- stop animation');
@@ -3658,14 +3676,15 @@ function exportRbxlx(proj){
   const packx=(by.get('pack')||[]).map(item).join('');
   const c3=hex=>{const c=new THREE.Color(/^#[0-9a-f]{6}$/i.test(hex||'')?hex:'#000000');return `<R>${r3(c.r)}</R><G>${r3(c.g)}</G><B>${r3(c.b)}</B>`;};
   const ud=(a)=>`<XS>${num(a[0],0)}</XS><XO>${Math.round(num(a[1],0))}</XO><YS>${num(a[2],0)}</YS><YO>${Math.round(num(a[3],0))}</YO>`;
-  const FONT={Display:'Enum.Font.FredokaOne',Body:'Enum.Font.GothamBold',Mono:'Enum.Font.Code'};const FONTTOK={Display:20,Body:25,Mono:16};
+  const FONTTOK=GUI_FONT_TOK;
   const guiItem=n=>{const kids=(by.get(n.id)||[]).map(k=>k.cls==='Script'?(k.enabled===false?'':`<Item class="LocalScript" referent="${R()}"><Properties><string name="Name">${x(k.name)}</string><ProtectedString name="Source"><![CDATA[${luaForScript(k,true).replace(/\]\]>/g,']] >')}]]></ProtectedString></Properties></Item>`):isGuiNode(k)?guiItem(k):'').join('');
     if(n.cls==='ScreenGui')return `<Item class="ScreenGui" referent="${R()}"><Properties><string name="Name">${x(n.name)}</string><bool name="Enabled">${n.visible!==false}</bool><bool name="ResetOnSpawn">false</bool></Properties>${kids}</Item>`;
-    const txt=n.cls!=='Frame'?`<string name="Text">${x(n.text||'')}</string><Color3 name="TextColor3">${c3(n.tc)}</Color3><float name="TextSize">${Math.round(num(n.ts,20))}</float><token name="Font">${FONTTOK[n.font]||25}</token><token name="TextXAlignment">${n.align==='left'?0:n.align==='right'?1:2}</token><bool name="TextWrapped">true</bool>`:'';
+    const txt=n.cls!=='Frame'?`<string name="Text">${x(n.text||'')}</string><Color3 name="TextColor3">${c3(n.tc)}</Color3><float name="TextSize">${Math.round(num(n.ts,20))}</float><token name="Font">${FONTTOK[n.font]||19}</token>${num(n.strokeT,0)>0?`<Color3 name="TextStrokeColor3">${c3(n.strokeTc||'#000000')}</Color3><float name="TextStrokeTransparency">0</float>`:''}<token name="TextXAlignment">${n.align==='left'?0:n.align==='right'?1:2}</token><bool name="TextWrapped">true</bool>`:'';
+    const tstroke=n.cls!=='Frame'&&num(n.strokeT,0)>1?`<Item class="UIStroke" referent="${R()}"><Properties><Color3 name="Color">${c3(n.strokeTc||'#000000')}</Color3><float name="Thickness">${num(n.strokeT,1)}</float><token name="ApplyStrokeMode">0</token></Properties></Item>`:'';
     const corner=num(n.radius,0)>0?`<Item class="UICorner" referent="${R()}"><Properties><UDim name="CornerRadius"><S>0</S><O>${Math.round(num(n.radius,0))}</O></UDim></Properties></Item>`:'';
     const stroke=num(n.strokeW,0)>0?`<Item class="UIStroke" referent="${R()}"><Properties><Color3 name="Color">${c3(n.stroke)}</Color3><float name="Thickness">${num(n.strokeW,1)}</float><token name="ApplyStrokeMode">1</token></Properties></Item>`:'';
     return `<Item class="${n.cls}" referent="${R()}"><Properties><string name="Name">${x(n.name)}</string><bool name="Visible">${n.visible!==false}</bool><UDim2 name="Position">${ud(n.gpos||[0,0,0,0])}</UDim2><UDim2 name="Size">${ud(n.gsize||[0,100,0,40])}</UDim2>`+
-      `<Vector2 name="AnchorPoint"><X>${num((n.anchor||[0,0])[0],0)}</X><Y>${num((n.anchor||[0,0])[1],0)}</Y></Vector2><Color3 name="BackgroundColor3">${c3(n.bg)}</Color3><float name="BackgroundTransparency">${num(n.bgT,0)}</float><int name="BorderSizePixel">0</int>${txt}</Properties>${corner}${stroke}${kids}</Item>`;};
+      `<Vector2 name="AnchorPoint"><X>${num((n.anchor||[0,0])[0],0)}</X><Y>${num((n.anchor||[0,0])[1],0)}</Y></Vector2><Color3 name="BackgroundColor3">${c3(n.bg)}</Color3><float name="BackgroundTransparency">${num(n.bgT,0)}</float><int name="BorderSizePixel">0</int>${txt}</Properties>${corner}${stroke}${tstroke}${kids}</Item>`;};
   const guix=(by.get('gui')||[]).filter(isGuiNode).map(guiItem).join('');
   const sky=new THREE.Color(S.sky);const skyC=(0xff000000|(Math.round(sky.r*255)<<16)|(Math.round(sky.g*255)<<8)|Math.round(sky.b*255))>>>0;
   return `<roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" version="4">\n<Item class="Workspace" referent="${R()}"><Properties><string name="Name">Workspace</string><float name="Gravity">${S.gravity}</float></Properties>${ws}</Item>\n`+
@@ -3828,6 +3847,9 @@ function defineBlocks(){
     V_({type:'gui_named',message0:'gui named %1',args0:[{type:'field_input',name:'NAME',text:'Label'}]},'Gui','gui_blocks'),
     S_({type:'gui_settext',message0:'set text of %1 to %2',args0:[{type:'input_value',name:'GUI',check:'Gui'},{type:'input_value',name:'TEXT'}]},'gui_blocks'),
     S_({type:'gui_visible',message0:'set %1 visible %2',args0:[{type:'input_value',name:'GUI',check:'Gui'},{type:'field_dropdown',name:'B',options:[['true','TRUE'],['false','FALSE']]}]},'gui_blocks'),
+    S_({type:'gui_font',message0:'set font of %1 to %2',args0:[{type:'input_value',name:'GUI',check:'Gui'},{type:'field_dropdown',name:'FONT',options:GUI_FONT_LIST.map(f=>[f[1],f[0]])}]},'gui_blocks'),
+    S_({type:'gui_outline',message0:'set text outline of %1 to %2 width %3',args0:[{type:'input_value',name:'GUI',check:'Gui'},{type:'field_colour',name:'COLOUR',colour:'#000000'},N('W')]},'gui_blocks'),
+    S_({type:'gui_textsize',message0:'set text size of %1 to %2',args0:[{type:'input_value',name:'GUI',check:'Gui'},N('N')]},'gui_blocks'),
     S_({type:'gui_color',message0:'set %1 %2 color to %3',args0:[{type:'input_value',name:'GUI',check:'Gui'},{type:'field_dropdown',name:'WHAT',options:[['background','bg'],['text','text']]},{type:'field_colour',name:'COLOUR',colour:'#3ddc84'}]},'gui_blocks'),
     V_({type:'s_gui_text',message0:'text of %1',args0:[{type:'input_value',name:'GUI',check:'Gui'}]},'String','gui_blocks'),
     V_({type:'tool_hitpart',message0:'hit part',tooltip:'The part or rig this tool just hit.'},'Part','tool_blocks'),
@@ -3958,6 +3980,7 @@ function defineBlocks(){
       K('anim_stop_me'),K('anim_stop_rig',{PART:me()}),K('s_anim_playing')]},
     {kind:'category',name:'GUI',categorystyle:'gui',contents:[K('ev_gui_click'),K('gui_this'),K('gui_named'),
       K('gui_settext',{GUI:{shadow:{type:'gui_this'},block:{type:'gui_named',fields:{NAME:'Label'}}},TEXT:t_('Hello!')}),
+      K('gui_font',{GUI:{shadow:{type:'gui_this'}}},{FONT:'Cartoon'}),K('gui_outline',{GUI:{shadow:{type:'gui_this'}},W:n_(2)}),K('gui_textsize',{GUI:{shadow:{type:'gui_this'}},N:n_(32)}),
       K('gui_visible',{GUI:{shadow:{type:'gui_this'}}},{B:'FALSE'}),K('gui_color',{GUI:{shadow:{type:'gui_this'}}}),K('s_gui_text',{GUI:{shadow:{type:'gui_this'}}})]},
     {kind:'category',name:'Tools',categorystyle:'tools',contents:[K('ev_tool_act'),K('ev_tool_equip'),K('ev_tool_unequip'),K('ev_tool_hit'),K('tool_hitpart'),
       K('s_isrig',{PART:{shadow:{type:'p_this'},block:{type:'tool_hitpart'}}}),K('s_isplayer',{PART:{shadow:{type:'p_this'},block:{type:'tool_hitpart'}}}),K('pl_damage_other',{PART:{shadow:{type:'p_this'},block:{type:'tool_hitpart'}},N:n_(20)}),K('tool_swing'),K('tool_shoot',{S:n_(120)}),K('tool_give'),K('tool_take'),K('tool_unequip'),K('s_has_tool')]},
