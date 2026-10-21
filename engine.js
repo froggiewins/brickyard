@@ -886,7 +886,7 @@ async function mpJoin(def){
     const gr=await MP.room.join(rn);
     if(!running||game!==def){gr.leave().catch(()=>{});return;}
     MP.gr=gr;
-    MP.unsubs.push(gr.onPeers(onGamePeers,()=>{}),gr.on('chat',onChat,()=>{}),gr.on('hit',onHit,()=>{}),gr.on('ko',onKO,()=>{}),gr.on('shot',onShot,()=>{}),gr.on('fin',onFin,()=>{}),gr.on('run',onRun,()=>{}));
+    MP.unsubs.push(gr.onPeers(onGamePeers,()=>{}),gr.on('chat',onChat,()=>{}),gr.on('hit',onHit,()=>{}),gr.on('ko',onKO,()=>{}),gr.on('shot',onShot,()=>{}),gr.on('fin',onFin,()=>{}),gr.on('run',onRun,()=>{}),gr.on('gvar',onGvar,()=>{}));
     MP.lastSent='';updateOnlineUI();
   }catch(e){updateOnlineUI();}
 }
@@ -995,6 +995,9 @@ function onRun(msg){const d=msg.data;
   const now=performance.now();if(now-RUNLIM.t>1000){RUNLIM.t=now;RUNLIM.n=0;}if(++RUNLIM.n>40)return;
   const base=RT.bases.get(d.s),bm=RT.bmap.get(d.s);if(!base||!bm)return;const blk=bm.get(d.b);if(!blk||blk.type!=='pl_as')return;
   const body=D(blk,'DO');if(body)spawnRun(body,Object.assign({},base,{from:msg.peer}));}
+function onGvar(msg){const d=msg.data;if(msg.isMe||!d||typeof d.n!=='string'||!running||d.h!==W.projHash)return;
+  if('d' in d){const n=num(d.d,0);RT.vars.set(d.n,(Number(RT.vars.get(d.n))||0)+n);}
+  else if(['number','string','boolean'].includes(typeof d.v))RT.vars.set(d.n,typeof d.v==='string'?d.v.slice(0,1000):d.v);}
 function onHit(msg){
   if(msg.isMe||!msg.data||msg.data.to!==MP.peerMe||P.dead||state.over)return;
   const n=Math.max(0,Math.min(100,num(msg.data.n,0)));damagePlayer(n);
@@ -1378,6 +1381,9 @@ async function stmt(b,ctx){
     case 'c_broadcast':rtFire('msg',String(fld(b,'MSG')));break;
     case 'c_stop':throw STOP;
     case 'variables_set':RT.vars.set(varName(b,ctx),ev(inp(b,'VALUE'),ctx));break;
+    case 'var_share_set':case 'var_share_change':{const k=varName(b,ctx);let v;
+      if(b.type==='var_share_set'){v=ev(inp(b,'VALUE'),ctx);v=typeof v==='number'||typeof v==='boolean'?v:String(v??'').slice(0,1000);RT.vars.set(k,v);mpEmit('gvar',{n:k.slice(0,60),v,h:W.projHash});}
+      else{const d=numv(inp(b,'N'),ctx);RT.vars.set(k,(Number(RT.vars.get(k))||0)+d);mpEmit('gvar',{n:k.slice(0,60),d,h:W.projHash});}break;}
     case 'math_change':{const k=varName(b,ctx);RT.vars.set(k,(Number(RT.vars.get(k))||0)+numv(inp(b,'DELTA'),ctx));break;}
     case 'p_move':{const ps=partsOf(partv(b,ctx));moveParts(ps,new V3(numv(inp(b,'X'),ctx),numv(inp(b,'Y'),ctx),numv(inp(b,'Z'),ctx)));break;}
     case 'p_setpos':{const v=partv(b,ctx);const c=centerOf(v);if(c)moveParts(partsOf(v),new V3(numv(inp(b,'X'),ctx),numv(inp(b,'Y'),ctx),numv(inp(b,'Z'),ctx)).sub(c));break;}
@@ -3166,8 +3172,26 @@ function loadScriptToWs(n){
   Blockly.Events.disable();
   try{ED.ws.clear();Blockly.serialization.workspaces.load(n.blocks||SCR.startDefault(),ED.ws);}
   catch(e){logOut('Could not load blocks for '+n.name+': '+e.message,'err');}
+  try{projVarNames().forEach(nm=>{if(!ED.ws.getVariable(nm,''))ED.ws.createVariable(nm,'');});}catch(e){}
   Blockly.Events.enable();ED.loadingWs=false;
   ED.ws.scroll(0,0);
+}
+/* Variables are global: every script in a game shares them by name, so the editor shows every variable in every script. */
+function projVarNames(){const set=new Set((ED.proj&&ED.proj.vars)||[]);if(ED.proj)for(const n of ED.proj.nodes)if(n.cls==='Script'&&n.blocks&&Array.isArray(n.blocks.variables))n.blocks.variables.forEach(v=>{if(v&&v.name&&!v.type)set.add(v.name);});return [...set].sort((a,b)=>a.localeCompare(b));}
+function varUsed(blocks,id){let used=false;const walk=b=>{if(!b||used)return;const f=b.fields&&b.fields.VAR;if(f&&(f.id===id||f===id))used=true;
+  if(b.inputs)for(const k in b.inputs){walk(b.inputs[k].block);walk(b.inputs[k].shadow);}if(b.next)walk(b.next.block);};
+  ((blocks&&blocks.blocks&&blocks.blocks.blocks)||[]).forEach(walk);return used;}
+function onVarEvent(e){
+  if(!ED.proj)return;const P_=ED.proj;P_.vars=Array.isArray(P_.vars)?P_.vars:[];const cur=ED.tab;
+  if(e.type===Blockly.Events.VAR_CREATE&&!e.varType){if(!P_.vars.includes(e.varName))P_.vars.push(e.varName);}
+  else if(e.type===Blockly.Events.VAR_RENAME){const o=e.oldName,nn=e.newName;P_.vars=P_.vars.map(v=>v===o?nn:v);if(!P_.vars.includes(nn))P_.vars.push(nn);
+    let k=0;for(const n of P_.nodes){if(n.cls!=='Script'||n.id===cur||!n.blocks||!Array.isArray(n.blocks.variables))continue;const vs=n.blocks.variables;
+      if(vs.some(v=>v.name===nn))continue;vs.forEach(v=>{if(v.name===o){v.name=nn;k++;}});}
+    if(k)logOut('Renamed the variable "'+o+'" to "'+nn+'" in every script.','sys');}
+  else if(e.type===Blockly.Events.VAR_DELETE){const nm=e.varName;const still=[];
+    for(const n of P_.nodes){if(n.cls!=='Script'||n.id===cur||!n.blocks||!Array.isArray(n.blocks.variables))continue;const vs=n.blocks.variables;
+      const v=vs.find(x=>x.name===nm);if(!v)continue;if(varUsed(n.blocks,v.id))still.push(n.name);else n.blocks.variables=vs.filter(x=>x!==v);}
+    if(still.length)logOut('"'+nm+'" is still used in '+still.join(', ')+', so it stays in those scripts.','warn');else P_.vars=P_.vars.filter(v=>v!==nm);}
 }
 function saveWs(){if(!ED.ws||ED.tab==='viewport'||ED.tab==='gui')return;const n=nodeOf(ED.tab);if(!n||n.cls!=='Script')return;n.blocks=Blockly.serialization.workspaces.save(ED.ws);}
 let wsSaveT=0;
@@ -3192,6 +3216,14 @@ function ensureBlockly(){
   ED.ws=Blockly.inject('blockly',{toolbox:TOOLBOX,renderer:'zelos',theme:BLOCK_THEME,sounds:false,media:'',trashcan:false,
     zoom:{controls:false,wheel:true,startScale:coarse?.7:.8,maxScale:2,minScale:.35},move:{scrollbars:true,drag:true,wheel:false},
     grid:{spacing:28,length:3,colour:'#243250',snap:false}});
+  ED.ws.registerToolboxCategoryCallback('BY_VARS',w=>{const X=Blockly.utils.xml;const out=[];
+    const note=X.createElement('label');note.setAttribute('text','Variables are shared by every script in this game');out.push(note);
+    out.push(...Blockly.Variables.flyoutCategory(w));const vs=w.getVariablesOfType('');
+    if(vs.length){const v=vs[0];const l2=X.createElement('label');l2.setAttribute('text','Online: change it for every player at once');out.push(l2);
+      for(const [type,inp,num] of [['var_share_set','VALUE','0'],['var_share_change','N','1']]){const bx=X.createElement('block');bx.setAttribute('type',type);bx.appendChild(Blockly.Variables.generateVariableFieldDom(v));
+        bx.appendChild(X.textToDom(`<value name="${inp}"><shadow type="math_number"><field name="NUM">${num}</field></shadow></value>`));out.push(bx);}}
+    return out;});
+  ED.ws.addChangeListener(e=>{if(!ED.loadingWs&&(e.type===Blockly.Events.VAR_CREATE||e.type===Blockly.Events.VAR_RENAME||e.type===Blockly.Events.VAR_DELETE))onVarEvent(e);});
   ED.ws.addChangeListener(e=>{if(e.isUiEvent||ED.loadingWs||ED.tab==='viewport')return;clearTimeout(wsSaveT);wsSaveT=setTimeout(()=>{saveWs();scheduleSave();},250);});
   return true;
 }
@@ -3468,7 +3500,8 @@ function luaForScript(node,withLib){
       if(es.hasElse)s+=l('else')+body(b,'ELSE',i);return s+l('end');}
     case 'c_wait_until':return l(`repeat task.wait() until ${V(b,'COND','true')}`);
     case 'c_broadcast':return l(`BY.fire(${luaStr(fld(b,'MSG'))})`);case 'c_stop':return l('do return end');
-    case 'variables_set':return l(`BY.vars[${vn(b)}] = ${V(b,'VALUE','0')}`);
+    case 'variables_set':case 'var_share_set':return l(`BY.vars[${vn(b)}] = ${V(b,'VALUE','0')}`);
+    case 'var_share_change':return l(`BY.vars[${vn(b)}] = (BY.vars[${vn(b)}] or 0) + ${V(b,'N','1')}`);
     case 'math_change':return l(`BY.vars[${vn(b)}] = (BY.vars[${vn(b)}] or 0) + ${V(b,'DELTA','1')}`);
     case 'p_move':return l(`BY.move(${Pt(b)}, ${xyz(b)})`);case 'p_setpos':return l(`BY.setpos(${Pt(b)}, ${xyz(b)})`);
     case 'p_glide':return l(`BY.glide(${Pt(b)}, ${xyz(b)}, ${V(b,'S','1')}, true)`);case 'p_glideto':return l(`BY.glide(${Pt(b)}, ${xyz(b)}, ${V(b,'S','1')}, false)`);
@@ -3834,6 +3867,8 @@ function defineBlocks(){
     V_({type:'s_pl_nameof',message0:'name of %1',args0:[{type:'input_value',name:'WHO',check:['Player','Part']}]},'String','player_blocks'),
     V_({type:'s_pl_hpof',message0:'health of %1',args0:[{type:'input_value',name:'WHO',check:['Player','Part']}]},'Number','player_blocks'),
     V_({type:'s_pl_countof',message0:'number of %1',args0:[{type:'input_value',name:'WHO',check:['Player','Part']}]},'Number','player_blocks'),
+    S_({type:'var_share_set',message0:'set %1 for everyone to %2',args0:[{type:'field_variable',name:'VAR',variable:'item'},{type:'input_value',name:'VALUE'}],tooltip:'Sets this variable for you and every other player in an online game.'},'variable_blocks'),
+    S_({type:'var_share_change',message0:'change %1 for everyone by %2',args0:[{type:'field_variable',name:'VAR',variable:'item'},N('N')],tooltip:'Changes this variable for you and every other player in an online game.'},'variable_blocks'),
     S_({type:'pl_ragdoll',message0:'ragdoll the player for %1 seconds',args0:[N('S')],tooltip:'The player goes limp and tumbles with physics, then gets back up.'},'player_blocks'),
     S_({type:'pl_fling',message0:'fling the player with power %1',args0:[N('P')],tooltip:'Throws the player backwards and up as a ragdoll.'},'player_blocks'),
     S_({type:'pl_getup',message0:'make the player get up'},'player_blocks'),
@@ -3935,7 +3970,7 @@ function defineBlocks(){
     {kind:'category',name:'Sensing',categorystyle:'sensing',contents:[K('s_health'),K('s_players'),K('s_touching',{PART:me()}),K('s_key'),K('s_mouse_down'),K('s_mouse_part'),K('s_mouse_xy'),K('s_grounded'),K('s_distance',{PART:me()}),K('s_player'),K('s_prop',{PART:me()}),K('s_timer'),K('s_stat')]},
     {kind:'category',name:'Operators',categorystyle:'ops',contents:[K('math_number'),K('math_arithmetic',{A:n_(1),B:n_(1)}),K('math_random_int',{FROM:n_(1),TO:n_(10)}),
       K('logic_compare',{A:n_(0),B:n_(0)}),K('logic_operation'),K('logic_negate'),K('logic_boolean'),K('text'),K('text_join',{ADD0:t_('Score: ')})]},
-    {kind:'category',name:'Variables',categorystyle:'variables',custom:'VARIABLE'}
+    {kind:'category',name:'Variables',categorystyle:'variables',custom:'BY_VARS'}
   ]};
 }
 
