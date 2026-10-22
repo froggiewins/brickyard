@@ -99,6 +99,9 @@ const faceMat=(()=>{const c=document.createElement('canvas');c.width=c.height=12
 const gridMat=(()=>{const t=TEX.studs.clone();t.needsUpdate=true;t.repeat.set(64,64);const m=new THREE.MeshStandardMaterial({map:t,roughness:.9,color:0x8494a2});m.userData.shared=true;return m;})();
 
 /* ---------- text sprites (name tags, speech bubbles) ---------- */
+function setPartLabel(p,text){if(!W.labels)W.labels=[];let L=W.labels.find(x=>x.p===p);
+  if(L){scene.remove(L.s);L.s.material.map.dispose();L.s.material.dispose();W.labels.splice(W.labels.indexOf(L),1);}
+  text=String(text??'').slice(0,120);if(!text.trim())return;const sp=textSprite(text);sp.scale.multiplyScalar(.8);scene.add(sp);W.labels.push({p,s:sp});}
 function textSprite(text,o){o=o||{};const fs=40,pad=o.bubble?22:6;const c=document.createElement('canvas');const g=c.getContext('2d');
   g.font=`800 ${fs}px Figtree, system-ui, sans-serif`;const lines=String(text).slice(0,120).match(/.{1,26}(\s|$)/g)||[String(text)];
   const w=Math.min(1024,Math.ceil(Math.max(...lines.map(l=>g.measureText(l.trim()).width))+pad*2)),h=Math.ceil(lines.length*fs*1.2+pad*2+(o.bubble?14:0));
@@ -294,6 +297,7 @@ const _box=new THREE.Box3();
 function disposeScene(){scene.traverse(o=>{if(o.geometry&&!o.geometry.userData.shared)o.geometry.dispose();
   if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(!m.userData.shared){if(m.map&&!(m.map.userData||{}).shared)m.map.dispose();m.dispose();}})}});}
 function newScene(o){o=o||{};
+  W.labels=[];
   W.anims=new Map();W.baseAnims=null;W.emotes=[];P.anim=null;Object.assign(P,{frozen:false,hidden:false,shieldUntil:0,airJumps:0,airLeft:0,shirtOverride:null,airT:0,sayText:''});$('#emoteMenu').hidden=true;
   const gl=$('#guiLayer');if(gl)gl.innerHTML='';W.gui=new Map();W.guiByName=new Map();
   if(scene)disposeScene();
@@ -620,9 +624,33 @@ const MP={room:null,user:null,db:null,me:{name:'',id:null},peerMe:null,gr:null,r
 const ROOM_TOPICS=['chat','hit','ko','shot','fin'];
 const SITE_URL='https://froggiewins.github.io/brickyard/';
 const P2P_APP='brickyard-froggiewins-v1';
+/* Online play on the website. Public P2P relays are often down or blocked, so when the Supabase backend is available
+   game messages go through Supabase Realtime broadcast channels instead (no peer-to-peer connection needed). */
+let NETLIB=null;
+function netLib(){if(NETLIB)return NETLIB;if(SB.client&&typeof SB.client.channel==='function')NETLIB=makeSBNet(SB.client);else if(window.Trystero)NETLIB=window.Trystero;return NETLIB;}
+function makeSBNet(client){
+  const selfId='s'+Math.random().toString(36).slice(2,12);
+  return {selfId,kind:'supabase',joinRoom(cfg,name){
+    const ch=client.channel(('by-'+(cfg&&cfg.appId||'')+'-'+name).slice(0,120),{config:{broadcast:{self:false,ack:false}}});
+    const actions={},peers=new Map();let ready=false,closed=false;const queue=[];
+    const room={onPeerJoin:null,onPeerLeave:null,
+      makeAction(an){const a={onMessage:null,send(data,opts){post({t:'a',a:an,d:data,to:opts&&opts.target||null});}};actions[an]=a;return a;},
+      leave(){if(closed)return;post({t:'bye'});closed=true;clearInterval(hb);setTimeout(()=>{try{client.removeChannel(ch);}catch(e){}},200);},
+      getPeers(){return [...peers.keys()];}};
+    function post(m){if(closed)return;m.f=selfId;if(!ready){if(queue.length<200)queue.push(m);return;}try{const r=ch.send({type:'broadcast',event:'m',payload:m});if(r&&r.catch)r.catch(()=>{});}catch(e){}}
+    function seen(id){const isNew=!peers.has(id);peers.set(id,Date.now());if(isNew&&room.onPeerJoin){try{room.onPeerJoin(id);}catch(e){}}return isNew;}
+    ch.on('broadcast',{event:'m'},msg=>{const m=msg&&msg.payload;if(!m||typeof m.f!=='string'||m.f===selfId)return;
+      if(m.t==='bye'){if(peers.delete(m.f)&&room.onPeerLeave)room.onPeerLeave(m.f);return;}
+      const isNew=seen(m.f);if(m.t==='hi'&&isNew)post({t:'hb'});
+      if(m.t==='a'){if(m.to&&m.to!==selfId)return;const a=actions[m.a];if(a&&a.onMessage){try{a.onMessage(m.d,{peerId:m.f});}catch(e){}}}});
+    ch.subscribe(st=>{if(st==='SUBSCRIBED'){ready=true;post({t:'hi'});queue.splice(0).forEach(post);}
+      else if((st==='CHANNEL_ERROR'||st==='TIMED_OUT')&&!NETLIB.warned){NETLIB.warned=true;console.warn('Brickyard online: realtime channel '+st);}});
+    const hb=setInterval(()=>{post({t:'hb'});const now=Date.now();for(const [id,ts] of peers)if(now-ts>10000){peers.delete(id);room.onPeerLeave&&room.onPeerLeave(id);}},3000);
+    return room;}};
+}
 function nickById(pr){return pr&&typeof pr.nm==='string'&&pr.nm.trim()?'nick:'+pr.nm.replace(/[\u0000-\u001f]/g,'').trim().slice(0,20):null;}
 function makeP2PRoom(name){
-  const T=window.Trystero;const room=T.joinRoom({appId:P2P_APP},name);
+  const T=netLib();const room=T.joinRoom({appId:P2P_APP},name);
   const aP=room.makeAction('pres'),aE=room.makeAction('ev');
   const pres=new Map(),peerFns=[],topicFns={};let mine={};const self=T.selfId;
   const peerObj=(id,pr,me)=>({peer:id,by:me?null:nickById(pr),presence:pr||{},isMe:!!me,sameTab:!!me,kind:'viewer',guest:false,updatedAt:Date.now()});
@@ -655,10 +683,10 @@ function makeP2PWorld(){
     else if(op.k==='upd'&&okId(op.id)&&docs.has(op.id)&&/^#[0-9a-f]{6}$/i.test(op.d&&op.d.c||''))docs.set(op.id,Object.assign({},docs.get(op.id),{c:op.d.c}));
     else if(op.k==='del'&&okId(op.id))docs.delete(op.id);
     else return;persist();notify();};
-  const connect=()=>{if(room||!window.Trystero)return;room=window.Trystero.joinRoom({appId:P2P_APP},'world');
+  const connect=()=>{if(room||!netLib())return;room=netLib().joinRoom({appId:P2P_APP},'world');
     aOp=room.makeAction('wop');const aReq=room.makeAction('wreq'),aSt=room.makeAction('wst');
     aOp.onMessage=op=>apply(op);
-    aReq.onMessage=(_,meta)=>{if(meta&&meta.peerId)aSt.send([...docs].slice(0,4000),{target:meta.peerId});};
+    aReq.onMessage=(_,meta)=>{if(meta&&meta.peerId)aSt.send([...docs].slice(-1500),{target:meta.peerId});};
     aSt.onMessage=list=>{if(synced||!Array.isArray(list))return;synced=true;const n=new Map();for(const e of list)if(Array.isArray(e)&&okId(e[0])&&okDoc(e[1]))n.set(e[0],clean(e[1]));
       for(const [id,d] of docs)if(!n.has(id))n.set(id,d);docs=n;persist();notify();};
     room.onPeerJoin=id=>{if(!synced)aReq.send(1,{target:id});};};
@@ -852,12 +880,12 @@ function localId(){let id=store.get('lid',null);if(!id){id='l'+Math.random().toS
 async function initMP(){
   if(!hasClaude()){
     initSupabase();
-    if(!window.Trystero){$('#onlineNote').textContent='Games run solo here. Play at '+SITE_URL+' to play online.';return;}
-    if(!window.isSecureContext||!(window.crypto&&crypto.subtle)){$('#onlineNote').textContent='Games run solo here. Open this page over https to play online.';return;}
+    if(!netLib()){$('#onlineNote').textContent='Games run solo here. Play at '+SITE_URL+' to play online.';return;}
+    if(netLib().kind!=='supabase'&&(!window.isSecureContext||!(window.crypto&&crypto.subtle))){$('#onlineNote').textContent='Games run solo here. Open this page over https to play online.';return;}
     MP.p2p=true;MP.room=makeP2PLobby();MP.worldDb=makeP2PWorld();
     const nk=$('#nick');nk.value=store.get('nick',null)||('Player'+Math.floor(100+Math.random()*900));store.set('nick',nk.value);MP.me={name:nk.value,id:localId()};$('#nickWrap').hidden=false;
     nk.addEventListener('change',()=>{const v=nk.value.replace(/[\u0000-\u001f]/g,'').trim().slice(0,20)||'Player';nk.value=v;store.set('nick',v);MP.me.name=v;MP.lastSent='';});
-    $('#onlineNote').textContent='Games are online: anyone who opens this site can play with you, connected peer to peer.';
+    $('#onlineNote').textContent='Games are online: anyone who opens the same game on this site plays with you.';
     MP.room.onPeers(ch=>{const c={};for(const p of ch.peers){if(p.sameTab)MP.peerMe=p.peer;else{const g=p.presence&&typeof p.presence.game==='string'?p.presence.game:null;if(g)c[g]=(c[g]||0)+1;}}MP.counts=c;updateCardCounts();});
     MP.room.presence({game:null});MP.connected=true;return;
   }
@@ -1427,6 +1455,7 @@ async function stmt(b,ctx){
     case 'p_material':partsOf(partv(b,ctx)).forEach(p=>{applyLook(p);p.look.material=fld(b,'MAT')||'Plastic';applyLook(p);});break;
     case 'p_collide':partsOf(partv(b,ctx)).forEach(p=>{p.noCollide=fld(b,'B')!=='TRUE';});break;
     case 'p_visible':partsOf(partv(b,ctx)).forEach(p=>{p.mesh.visible=fld(b,'B')==='TRUE';});break;
+    case 'p_label':{const v=ev(inp(b,'TEXT'),ctx);partsOf(partv(b,ctx)).forEach(p=>setPartLabel(p,typeof v==='number'?String(r3(v)):v));break;}
     case 'p_anchor':partsOf(partv(b,ctx)).forEach(p=>{if(fld(b,'B')==='TRUE')removeFrom(W.phys,p);else if(!W.phys.includes(p)){p.vy=0;W.phys.push(p);}});break;
     case 'p_deadly':{const on=fld(b,'B')==='TRUE';partsOf(partv(b,ctx)).forEach(p=>{
       if(on&&p.kind!=='kill'){p.kind='kill';if(!W.special.includes(p))W.special.push(p);applyLook(p);}
@@ -2103,6 +2132,175 @@ function bossDef(){const G=GK;const p=G.proj('boss','Boss Battle',{sky:'#2b1d3a'
   G.welcome(p,G.sset('Level',1),G.msg('Defeat the Brick King again and again. Each level brings more minions! Sword (1), blaster (2), potion (3).',5));
   G.spawnAt(p,0,.5,24);return G.def(p,'boss','Boss Battle');}
 
+/* ---------- five bigger games ---------- */
+/* 13. Brick Tycoon */
+function tycoonDef(){const G=GK;const p=G.proj('tycoon','Brick Tycoon',{sky:'#9fd8ff',timer:false,saveStats:true,saveCheckpoint:false});
+  const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[200,2,200],color:'#6fa85a',material:'Grass'});G.spawnAt(p,0,.5,24,{size:[8,1,8]});
+  const Base=G.folder(p,'Factory');
+  G.part(p,Base.id,{name:'Floor',pos:[0,.1,0],size:[56,.2,40],color:'#cfd8dc',material:'Concrete'});
+  G.part(p,Base.id,{name:'Conveyor',pos:[-2,1,0],size:[40,1,4],color:'#37474f',material:'Metal'});
+  for(let i=0;i<10;i++)G.part(p,Base.id,{name:'Stripe',pos:[-20+i*4,1.55,0],size:[.4,.1,4],color:'#ffd54f',material:'Neon'});
+  G.part(p,Base.id,{name:'Collector',pos:[20,2,0],size:[4,3,6],color:'#3ddc84',material:'Neon',label:'COLLECTOR'});
+  const ITEMS=[ // name, cost, dropper value (0 = not a dropper), color
+    ['Dropper 1',0,2,'#90a4ae'],['Dropper 2',25,3,'#4fc3f7'],['Dropper 3',120,8,'#81c784'],['Conveyor Boost',400,0,'#ffd54f'],['Dropper 4',900,20,'#ba68c8'],
+    ['Walls',1500,0,'#bcaaa4'],['Dropper 5',3500,55,'#ff8a65'],['Golden Collector',8000,0,'#ffca28'],['Dropper 6',20000,150,'#f06292'],['Brick Tower',60000,0,'#7e57c2'],['Mega Dropper',150000,600,'#26c6da']];
+  const VL=ITEMS.map((_,i)=>['bought'+(i+1),'vb'+(i+1)]).concat([['multiplier','vmult']]);
+  const show=(i,on)=>[blk('p_visible',{PART:G.mnamed('Item'+(i+1))},{B:on?'TRUE':'FALSE'}),blk('p_collide',{PART:G.mnamed('Item'+(i+1))},{B:on?'TRUE':'FALSE'})];
+  const hidePad=i=>[blk('p_visible',{PART:G.pnamed('Buy'+(i+1))},{B:'FALSE'}),blk('p_collide',{PART:G.pnamed('Buy'+(i+1))},{B:'FALSE'}),blk('p_label',{PART:G.pnamed('Buy'+(i+1)),TEXT:bt('')})];
+  let dx=-18;
+  ITEMS.forEach(([name,cost,val,col],i)=>{const M=G.model(p,'Item'+(i+1),Base.id);const k=i+1;
+    if(val){const x=dx;dx+=5.4;
+      G.part(p,M.id,{name:'Dropper',pos:[x,6.5,0],size:[3,2.4,3],color:col,material:'Metal',label:name});
+      G.part(p,M.id,{name:'Leg',pos:[x,3.5,2.2],size:[.6,6,.6],color:'#455a64',material:'Metal'});
+      const ore=G.part(p,Base.id,{name:'Ore'+k,pos:[x,-20,0],size:[1.2,1.2,1.2],color:col,material:name==='Mega Dropper'?'Neon':'Plastic',canCollide:false});
+      const dist=r3(20-x-2);
+      G.vars(G.script(p,'sss','Run '+name,blk('ev_start'),G.until(G.cmp(G.vget('vb'+k),'EQ',G.num(1))),
+        G.forever(blk('p_setpos',{PART:G.pnamed('Ore'+k),X:bn(x),Y:bn(4.6),Z:bn(0)}),blk('p_glide',{PART:G.pnamed('Ore'+k),X:bn(0),Y:bn(-2.5),Z:bn(0),S:bn(.25)}),
+          blk('p_glide',{PART:G.pnamed('Ore'+k),X:bn(dist),Y:bn(0),Z:bn(0),S:bn(r3(dist/16))}),blk('p_setpos',{PART:G.pnamed('Ore'+k),X:bn(x),Y:bn(-20),Z:bn(0)}),
+          blk('g_stat_change',{N:G.arith('MULTIPLY',G.num(val),G.vget('vmult'))},{STAT:'Cash'}),G.wait(.4))),VL);}
+    else if(name==='Conveyor Boost')G.part(p,M.id,{name:'Booster',pos:[-2,1.6,0],size:[40,.2,4.2],color:col,material:'Neon',transparency:.4,canCollide:false});
+    else if(name==='Walls'){[[0,-20,56,1],[-28,0,1,40],[28,0,1,40]].forEach(([x,z,w,d])=>G.part(p,M.id,{name:'Wall',pos:[x,4,z],size:[w,8,d],color:col,material:'Brick'}));}
+    else if(name==='Golden Collector')G.part(p,M.id,{name:'Gold',pos:[20,4,0],size:[4.4,1,6.4],color:col,material:'Metal'});
+    else if(name==='Brick Tower'){for(let y=0;y<6;y++)G.part(p,M.id,{name:'Tower',pos:[-24,2+y*4,-14],size:[8-y,4,8-y],color:OBBY_COLS[y],material:'Brick'});G.part(p,M.id,{name:'Flag',pos:[-24,27,-14],size:[.3,4,.3],color:'#ffffff'});}
+    if(k===1)return;
+    const pad=G.part(p,Base.id,{name:'Buy'+k,pos:[-25+((k-2)%5)*12.5,.35,30+Math.floor((k-2)/5)*9],size:[5,.5,5],color:'#43a047',material:'Neon',label:name+' - $'+cost.toLocaleString('en-US')});
+    G.vars(G.script(p,pad.id,'Buy',blk('ev_touch'),G.iff(G.cmp(G.vget('vb'+k),'EQ',G.num(0)),
+      G.ifElse(G.cmp(G.stat('Cash'),'GTE',G.num(cost)),[G.sadd('Cash',-cost),G.vset('vb'+k,G.num(1)),...show(i,true),...hidePad(i),G.dset('ty_'+k,G.num(1)),G.sound('win'),
+        ...(name==='Conveyor Boost'?[G.vset('vmult',G.arith('MULTIPLY',G.vget('vmult'),G.num(2)))]:name==='Golden Collector'?[G.vset('vmult',G.arith('MULTIPLY',G.vget('vmult'),G.num(3)))]:[]),G.msg('Bought '+name+'!',2)],
+        [G.msg(G.join('You need $'+cost.toLocaleString('en-US')+'. You have $',G.stat('Cash')),2),G.wait(1.5)])),G.wait(.3)),VL);});
+  const setup=[G.vset('vmult',G.num(1)),G.vset('vb1',G.num(1))];ITEMS.forEach((_,i)=>{if(i>0){setup.push(G.vset('vb'+(i+1),G.num(0)),...show(i,false));}});
+  const load=[];ITEMS.forEach(([name],i)=>{if(i===0)return;const k=i+1;load.push(G.iff(G.cmp(G.dget('ty_'+k,0),'EQ',G.num(1)),G.vset('vb'+k,G.num(1)),...show(i,true),...hidePad(i),
+    ...(name==='Conveyor Boost'?[G.vset('vmult',G.arith('MULTIPLY',G.vget('vmult'),G.num(2)))]:name==='Golden Collector'?[G.vset('vmult',G.arith('MULTIPLY',G.vget('vmult'),G.num(3)))]:[])));});
+  G.vars(G.script(p,'sss','Setup',blk('ev_start'),...setup),VL);
+  G.vars(G.script(p,'sss','Load',blk('ev_data_loaded'),G.wait(.2),...load),VL);
+  G.welcome(p,G.msg('Your dropper makes bricks worth cash. Step on the green pads to buy more droppers and upgrades. Your factory is saved!',5));
+  return G.def(p,'tycoon','Brick Tycoon');}
+
+/* 14. Disaster Survival */
+function disastersDef(){const G=GK;const p=G.proj('disasters','Disaster Survival',{sky:'#8ec9ff',timer:false,saveStats:false,saveCheckpoint:false});
+  const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[110,2,110],color:'#5aa646',material:'Grass'});
+  G.spawnAt(p,0,80,0,{size:[30,1,30],color:'#dfe6f5',material:'Glass'});
+  const M=G.folder(p,'Island');const P=o=>G.part(p,M.id,o);
+  P({name:'Sea',pos:[0,-3,0],size:[600,1,600],color:'#2f8fd8',material:'Glass',transparency:.2,canCollide:false});
+  [[-30,-25,'#ef9a9a'],[25,-30,'#90caf9'],[-28,28,'#fff59d']].forEach(([x,z,c])=>{P({name:'House',pos:[x,5,z],size:[12,10,12],color:c,material:'Brick'});P({name:'Roof',pos:[x,10.5,z],size:[13,1,13],color:'#6d4c41',material:'Wood'});
+    for(let i=0;i<5;i++)P({name:'Steps',pos:[x+7.5,1+i*2,z-4+i*2],size:[3,1,2],color:'#8d6e63',material:'Wood'});});
+  P({name:'Watchtower',pos:[28,12,26],size:[8,24,8],color:'#b0bec5',material:'Concrete'});
+  for(let i=0;i<12;i++){const a=i*.9;P({name:'Stair',pos:[r3(28+Math.cos(a)*6.5),1+i*2,r3(26+Math.sin(a)*6.5)],size:[3,1,3],color:'#90a4ae',material:'Metal'});}
+  for(let k=0;k<4;k++)P({name:'Hill',pos:[0,1.5+k*3,5],size:[30-k*7,3,30-k*7],color:['#4a9f3c','#3f8a33','#37782c','#2e6b25'][k],material:'Grass'});
+  const D='vdis',VL=[['disaster',D]];const on=k=>G.cmp(G.vget(D),'EQ',G.num(k));
+  const flood=G.part(p,'workspace',{name:'Flood',pos:[0,-8,0],size:[112,4,112],color:'#1e88e5',material:'Glass',transparency:.35,behavior:'kill'});
+  G.vars(G.script(p,flood.id,'Rise',blk('ev_start'),G.forever(G.until(on(1)),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-4),Z:bn(0)}),blk('p_glide',{PART:bme(),X:bn(0),Y:bn(11),Z:bn(0),S:bn(16)}),
+    G.until(G.cmp(G.vget(D),'NEQ',G.num(1))),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-8),Z:bn(0)}))),VL);
+  for(let i=0;i<9;i++){const m=G.part(p,'workspace',{name:'Meteor',shape:'ball',pos:[i*6,-60,0],size:[4,4,4],color:'#ff7043',material:'Neon',behavior:'kill',canCollide:false});
+    p.nodes.push(emitterNode({parent:m.id,name:'Trail'},'fire'));
+    G.vars(G.script(p,m.id,'Fall',blk('ev_start'),G.forever(G.ifElse(on(2),[blk('p_setpos',{PART:bme(),X:G.rnd(-50,50),Y:bn(90),Z:G.rnd(-50,50)}),G.wait(G.rnd(0,2)),
+      blk('p_glide',{PART:bme(),X:bn(0),Y:bn(-92),Z:bn(0),S:bn(1.6)}),G.sound('explode'),blk('p_setpos',{PART:bme(),X:bn(i*6),Y:bn(-60),Z:bn(0)})],[G.wait(.3)]))),VL);}
+  const tor=G.part(p,'workspace',{name:'Tornado',shape:'cyl',pos:[0,-80,0],size:[50,12,12],rot:[0,0,90],color:'#9e9e9e',transparency:.45,canCollide:false});
+  p.nodes.push(emitterNode({parent:tor.id,name:'Dust'},'smoke'));
+  G.vars(G.script(p,tor.id,'Move',blk('ev_start'),G.forever(G.ifElse(on(3),[G.iff(G.cmp({block:{type:'s_prop',fields:{PROP:'y'},inputs:{PART:bme()}}},'LT',G.num(0)),blk('p_setpos',{PART:bme(),X:bn(-50),Y:bn(25),Z:bn(-50)})),
+      blk('p_glideto',{PART:bme(),X:G.ppos('x'),Y:bn(25),Z:G.ppos('z'),S:bn(3.5)})],[blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-80),Z:bn(0)}),G.wait(.3)]))),VL);
+  G.vars(G.script(p,tor.id,'Fling',blk('ev_touch'),G.iff(on(3),blk('pl_damage',{N:bn(15)}),blk('pl_fling',{P:bn(130)}),G.sound('boost')),G.wait(1)),VL);
+  for(let i=0;i<7;i++){const l=G.part(p,'workspace',{name:'LavaPool',pos:[i*8,-40,40],size:[9,.6,9],color:'#ff3d00',material:'Neon',behavior:'kill'});
+    G.vars(G.script(p,l.id,'Erupt',blk('ev_start'),G.forever(G.ifElse(on(4),[blk('p_setpos',{PART:bme(),X:G.rnd(-48,48),Y:bn(.4),Z:G.rnd(-48,48)}),G.wait(G.rnd(3,5))],[blk('p_setpos',{PART:bme(),X:bn(i*8),Y:bn(-40),Z:bn(40)}),G.wait(.3)]))),VL);}
+  G.vars(G.script(p,'sss','Quake',blk('ev_start'),G.forever(G.ifElse(on(5),[G.iff(G.cmp(G.ppos('y'),'LT',G.num(60)),blk('pl_launch',{P:bn(28)}),blk('pl_damage',{N:bn(2)})),G.sound('explode'),G.wait(G.rnd(1,2))],[G.wait(.3)]))),VL);
+  const NAMES=['','FLOOD! Get to high ground!','METEOR SHOWER! Take cover!','TORNADO! Keep running!','LAVA ERUPTION! Watch your step!','EARTHQUAKE! Hold on!'];
+  G.vars(G.script(p,'sss','Rounds',blk('ev_start'),G.sset('Streak',0),G.vset(D,G.num(0)),G.msg('Survive natural disasters on the island! Rounds start from the sky lobby.',4),
+    G.forever(G.msg('Next disaster in 10 seconds...',3),G.wait(10),blk('pl_tpxyz',{X:G.rnd(-20,20),Y:bn(4),Z:G.rnd(-20,20)}),G.wait(2),G.vset(D,G.rnd(1,5)),G.sound('check'),
+      ...[1,2,3,4,5].map(k=>G.iff(on(k),G.msg('⚠ '+NAMES[k],3))),G.wait(30),G.vset(D,G.num(0)),
+      G.iff(G.AND({block:{type:'s_pl_alive'}},G.cmp(G.ppos('y'),'LT',G.num(60))),G.sadd('Streak',1),G.sadd('Survived',1),blk('data_change',{KEY:bt('nds_total'),N:bn(1)}),G.sound('win'),G.msg('You survived!',2)),
+      G.wait(2),blk('pl_tpxyz',{X:bn(0),Y:bn(83),Z:bn(0)}),blk('pl_heal',{N:bn(100)}))),VL);
+  G.script(p,'sss','Total',blk('ev_data_loaded'),G.sset('Survived',G.dget('nds_total',0)));
+  G.script(p,'sss','Out',blk('ev_died'),G.msg('You are out this round. Wait in the lobby!',3),G.sset('Streak',0));
+  G.best(p,'Streak','nds_streak');
+  return G.def(p,'disasters','Disaster Survival');}
+
+/* 15. Escape the Ghost */
+function ghostDef(){const G=GK;const p=G.proj('ghost','Escape the Ghost',{sky:'#0b0f1a',fog:150,brightness:.5,timer:false,saveStats:false,saveCheckpoint:false,deathStyle:'ragdoll'});
+  const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[130,2,130],color:'#1c2a1c',material:'Grass'});
+  const Mz=G.folder(p,'Haunted Maze');const n=8,S=13,o=-n*S/2;
+  let seed=777;const rr=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
+  const vis=Array.from({length:n},()=>Array(n).fill(false)),right=Array.from({length:n},()=>Array(n).fill(true)),down=Array.from({length:n},()=>Array(n).fill(true));const st=[[0,0]];vis[0][0]=true;
+  while(st.length){const [x,y]=st[st.length-1];const nb=[[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>[x+dx,y+dy,dx,dy]).filter(([a,b])=>a>=0&&b>=0&&a<n&&b<n&&!vis[a][b]);
+    if(!nb.length){st.pop();continue;}const [a,b,dx,dy]=nb[Math.floor(rr()*nb.length)];if(dx===1)right[x][y]=false;if(dx===-1)right[a][b]=false;if(dy===1)down[x][y]=false;if(dy===-1)down[a][b]=false;vis[a][b]=true;st.push([a,b]);}
+  for(let k=0;k<12;k++){const x=Math.floor(rr()*(n-1)),y=Math.floor(rr()*(n-1));if(rr()<.5)right[x][y]=false;else down[x][y]=false;}
+  const wall=(x,z,w,d)=>G.part(p,Mz.id,{name:'Hedge',pos:[r3(x),4,r3(z)],size:[w,8,d],color:'#24402a',material:'Grass'});
+  wall(0,o,n*S+1,1);wall(0,-o,n*S+1,1);wall(o,0,1,n*S+1);wall(-o,0,1,n*S+1);
+  for(let x=0;x<n;x++)for(let y=0;y<n;y++){if(right[x][y]&&x<n-1)wall(o+(x+1)*S,o+y*S+S/2,1,S+1);if(down[x][y]&&y<n-1)wall(o+x*S+S/2,o+(y+1)*S,S+1,1);}
+  for(let i=0;i<14;i++)G.part(p,Mz.id,{name:'Grave',pos:[r3(o+S/2+Math.floor(rr()*n)*S+3),1,r3(o+S/2+Math.floor(rr()*n)*S-4)],size:[2,2,.6],color:'#78909c',material:'Slate'});
+  G.spawnAt(p,o+S/2,.5,o+S/2,{size:[6,1,6],color:'#3949ab'});
+  const cell=()=>({X:G.arith('ADD',G.num(r3(o+S/2)),G.arith('MULTIPLY',G.rnd(0,n-1),G.num(S))),Z:G.arith('ADD',G.num(r3(o+S/2)),G.arith('MULTIPLY',G.rnd(0,n-1),G.num(S)))});
+  const scatter=[];for(let k=1;k<=5;k++){const c=cell();scatter.push(blk('p_setpos',{PART:G.pnamed('Key'+k),X:c.X,Y:bn(2),Z:c.Z}));}
+  for(let k=1;k<=5;k++){const key=G.part(p,'workspace',{name:'Key'+k,shape:'ball',pos:[0,-100,0],size:[1.6,1.6,1.6],color:'#ffd54f',material:'Neon',canCollide:false,label:'KEY'});
+    p.nodes.push(emitterNode({parent:key.id,name:'Glow'},'sparkles'));
+    G.script(p,key.id,'Grab',blk('ev_touch'),G.sadd('Keys',1),G.sound('coin'),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-100),Z:bn(0)}),
+      G.iff(G.cmp(G.stat('Keys'),'GTE',G.num(5)),G.msg('All 5 keys! Run to the glowing gate!',3),blk('p_color',{PART:G.pnamed('Gate')},{COLOUR:'#3ddc84'}),blk('p_label',{PART:G.pnamed('Gate'),TEXT:bt('ESCAPE!')})));}
+  const gate=G.part(p,'workspace',{name:'Gate',pos:[r3(-o-S/2),4,r3(-o-1.2)],size:[8,8,1],color:'#c62828',material:'Neon',label:'LOCKED',canCollide:false});
+  const reset=[G.sset('Keys',0),blk('p_color',{PART:G.pnamed('Gate')},{COLOUR:'#c62828'}),blk('p_label',{PART:G.pnamed('Gate'),TEXT:bt('LOCKED')}),...scatter];
+  G.script(p,gate.id,'Escape',blk('ev_touch'),G.ifElse(G.cmp(G.stat('Keys'),'GTE',G.num(5)),[G.sound('win'),G.sadd('Night',1),G.msg(G.join('You escaped! Night ',G.stat('Night'),' begins... another ghost joins the hunt.'),4),
+      ...reset,blk('pl_tpxyz',{X:bn(r3(o+S/2)),Y:bn(3),Z:bn(r3(o+S/2))}),blk('p_setpos',{PART:G.pnamed('Ghost'),X:bn(r3(-o-S/2)),Y:bn(2.6),Z:bn(r3(-o-S/2))}),
+      blk('rs_copy',{X:bn(r3(-o-S/2)),Y:bn(2.6),Z:bn(r3(o+S/2))},{NAME:'ExtraGhost'})],[G.msg('The gate is locked. Find all 5 keys!',2),G.wait(1)]));
+  const ghostLook={head:'#eceff1',torso:'#cfd8dc',arms:'#eceff1',legs:'#b0bec5'};
+  const chase=r=>{G.script(p,r.id,'Haunt',blk('ev_start'),G.wait(4),G.forever(G.ifElse(G.cmp({block:{type:'s_distance',inputs:{PART:bme()}}},'LT',G.num(45)),
+      [blk('rig_walk',{PART:bme(),X:G.ppos('x'),Z:G.ppos('z')})],[blk('rig_walk',{PART:bme(),X:G.rnd(-45,45),Z:G.rnd(-45,45)})]),G.wait(.25)));
+    G.script(p,r.id,'Catch',blk('ev_touch'),G.sound('die'),blk('rig_say',{PART:bme(),TEXT:bt('BOO!'),S:bn(2)}),blk('pl_kill'));
+    p.nodes.push(emitterNode({parent:r.id,name:'Mist'},'smoke'));};
+  const g1=rigNode({name:'Ghost',pos:[r3(-o-S/2),2.6,r3(-o-S/2)],scale:1.2,health:9999,respawn:0,walkSpeed:9,colors:ghostLook});p.nodes.push(g1);chase(g1);
+  const g2=rigNode({name:'ExtraGhost',parent:'rs',pos:[0,2.6,0],scale:1.1,health:9999,respawn:0,walkSpeed:10,colors:ghostLook});p.nodes.push(g2);chase(g2);
+  G.script(p,'sss','Caught',blk('ev_died'),G.msg(G.join('The ghost caught you on night ',G.stat('Night'),'. Back to night 1!'),4),G.sset('Night',1),...reset,
+    blk('controls_repeat_ext',{TIMES:bn(20),DO:doIn(blk('p_destroy',{PART:G.pnamed('ExtraGhost')}))}),blk('p_setpos',{PART:G.pnamed('Ghost'),X:bn(r3(-o-S/2)),Y:bn(2.6),Z:bn(r3(-o-S/2))}));
+  G.welcome(p,G.sset('Night',1),G.sset('Keys',0),...scatter,G.msg('Find 5 glowing keys and reach the gate before the ghost catches you!',4));
+  G.best(p,'Night','ghost_night');
+  return G.def(p,'ghost','Escape the Ghost');}
+
+/* 16. Strength Simulator */
+function strengthDef(){const G=GK;const p=G.proj('strength','Strength Simulator',{sky:'#9fd8ff',timer:false,saveStats:true,saveCheckpoint:false});
+  p.nodes=p.nodes.filter(n=>n.name!=='Baseplate');G.spawnAt(p,0,.5,0,{size:[10,1,10]});
+  const W_=G.folder(p,'World');const P=o=>G.part(p,W_.id,o);
+  const zones=[['Park',0,'#66bb6a','Grass',1,0,''],['Beach',-110,'#ffe082','Sand',3,250,'#4fc3f7'],['Volcano',-220,'#5d4037','Slate',10,5000,'#ff5722'],['Space',-330,'#1a237e','Slate',40,100000,'#e1f5fe']];
+  const VL=[['power','vpow'],['multiplier','vmul']];
+  zones.forEach(([name,z,col,mat,mul,req,acc],i)=>{const f=P({name:name+'Floor',pos:[0,-.5,z-45],size:[90,1,110],color:col,material:mat,label:i?name+' (x'+mul+' strength)':''});
+    G.vars(G.script(p,f.id,'Zone',blk('ev_touch'),G.iff(G.cmp(G.vget('vmul'),'NEQ',G.num(mul)),G.vset('vmul',G.num(mul)),G.msg(name+': lifts give x'+mul+'!',2),...(name==='Space'?[blk('pl_gravity',{V:bn(70)})]:[blk('pl_gravity',{V:bn(196.2)})]))),VL);
+    for(let k=0;k<6;k++)P({name:'Deco',pos:[r3(-38+((k*31+i*17)%76)),2,r3(z-15-((k*23+i*11)%70))],size:[3,4,3],color:acc||'#2e7d32',material:i===3?'Neon':'Grass'});
+    if(i){const g=P({name:name+'Gate',pos:[0,6,z+10],size:[90,12,1],color:'#ffffff',material:'Glass',transparency:.4,label:'Need '+req.toLocaleString('en-US')+' strength'});
+      G.script(p,g.id,'Gate',blk('ev_touch'),G.ifElse(G.cmp(G.stat('Strength'),'GTE',G.num(req)),[blk('p_collide',{PART:bme()},{B:'FALSE'}),G.sound('boost'),G.wait(2),blk('p_collide',{PART:bme()},{B:'TRUE'})],
+        [G.msg('You need '+req.toLocaleString('en-US')+' strength to enter '+name+'!',2),blk('pl_launch',{P:bn(30)}),G.wait(1)]));}});
+  const DB={id:uid(),cls:'Tool',name:'Dumbbell',parent:'pack',tooltip:'Click to lift!',cooldown:.3,swing:false};const h=partNode({parent:DB.id,name:'Handle',pos:[0,3,0],size:[.3,.3,1.6],color:'#424242',material:'Metal'});DB.handle=h.id;
+  p.nodes.push(DB,h,partNode({parent:DB.id,name:'Weight',shape:'cyl',pos:[0,3,-.9],size:[.5,1,1],rot:[0,90,0],color:'#e53935',material:'Metal'}),partNode({parent:DB.id,name:'Weight2',shape:'cyl',pos:[0,3,.9],size:[.5,1,1],rot:[0,90,0],color:'#e53935',material:'Metal'}));
+  const gain=G.arith('MULTIPLY',G.vget('vpow'),G.vget('vmul'));
+  G.vars(G.script(p,DB.id,'Lift',blk('ev_tool_act'),blk('g_stat_change',{N:gain},{STAT:'Strength'}),blk('g_stat_change',{N:gain},{STAT:'Coins'}),G.sound('click'),blk('anim_play_me',{NAME:bt('Flex')},{MODE:'once'})),VL);
+  const UP=[[2,40],[5,300],[12,2000],[30,9000],[80,40000],[200,150000],[600,700000],[2000,3000000]];
+  UP.forEach(([pw,cost],i)=>{const pad=P({name:'Upgrade'+(i+1),pos:[-35+(i%4)*10,.3,-12-Math.floor(i/4)*9],size:[6,.6,6],color:'#ffb300',material:'Neon',label:'Power '+pw+' - '+cost.toLocaleString('en-US')+' coins'});
+    G.vars(G.script(p,pad.id,'Buy',blk('ev_touch'),G.ifElse(G.cmp(G.vget('vpow'),'GTE',G.num(pw)),[G.msg('You already have power '+pw+' or better.',2)],
+      [G.ifElse(G.cmp(G.stat('Coins'),'GTE',G.num(cost)),[G.sadd('Coins',-cost),G.vset('vpow',G.num(pw)),G.dset('str_power',G.num(pw)),G.sound('win'),G.msg('Each lift now gives '+pw+'!',2)],
+        [G.msg('Power '+pw+' costs '+cost.toLocaleString('en-US')+' coins.',2)])]),G.wait(1.2)),VL);});
+  P({name:'Shop',pos:[-20,.05,-16],size:[46,.1,22],color:'#fff3e0',material:'Wood',label:'UPGRADES'});
+  G.vars(G.script(p,'sss','Setup',blk('ev_start'),G.vset('vpow',G.num(1)),G.vset('vmul',G.num(1))),VL);
+  G.vars(G.script(p,'sss','Load',blk('ev_data_loaded'),G.vset('vpow',G.dget('str_power',1))),VL);
+  G.welcome(p,G.msg('Equip the dumbbell (1) and click to lift! Buy upgrades with coins and unlock stronger zones. Progress is saved.',5));
+  return G.def(p,'strength','Strength Simulator');}
+
+/* 17. Mega Obby: 30 stages */
+function megaObbyDef(){const G=GK;const p=G.proj('megaobby','Mega Obby',{sky:'#a5d8ff'});G.noBase(p);G.spawnAt(p,0,40,0,{size:[14,1,14]});
+  const C=G.folder(p,'Stages');const P=o=>G.part(p,C.id,o);let z=-10,y=40,x=0,stage=0;
+  const col=()=>OBBY_COLS[stage%OBBY_COLS.length];
+  const check=()=>{stage++;P({name:'Stage '+stage,pos:[x,y,z-5],size:[10,1,10],color:'#3ddc84',behavior:'check',value:stage,label:'Stage '+stage});z-=10;};
+  const T=[
+    d=>{for(let i=0;i<5;i++){P({name:'Stone',pos:[x+(i%2?2.5:-2.5),y,z-4],size:[4-d*1.5,1,4-d*1.5],color:col()});z-=7+d*2;}},
+    d=>{const L=20+d*10;P({name:'Lava',pos:[x,y-1,z-L/2],size:[14,1,L],color:'#ff3b30',material:'Neon',behavior:'kill'});P({name:'Beam',pos:[x,y+1,z-L/2],size:[2.2-d*1.2,1,L],color:col()});z-=L;},
+    d=>{for(let i=0;i<3;i++){P({name:'JumpPad',pos:[x,y,z-3],size:[4,.4,4],color:'#22d3ee',material:'Neon',behavior:'jump',value:75});z-=6;y+=8;P({name:'Ledge',pos:[x,y,z-3],size:[5-d*2,1,5-d*2],color:col()});z-=6;}},
+    d=>{for(let i=0;i<4;i++){const n=P({name:'Mover',pos:[x,y,z-5],size:[5-d,1,5-d],color:col()});G.script(p,n.id,'Slide',...SCR.glide(i%2?9:-9,0,0,1.8-d*.8).blocks.blocks);z-=10;}},
+    d=>{for(let i=0;i<6;i++){const n=P({name:'Vanish',pos:[x+(i%2?2:-2),y,z-3],size:[3.5,1,3.5],color:'#a8e6ff',transparency:.15});G.script(p,n.id,'Vanish',...SCR.vanish().blocks.blocks);z-=6+d;}},
+    d=>{P({name:'Floor',pos:[x,y,z-12],size:[14,1,24],color:col()});for(let i=0;i<(d>.5?2:1);i++){const sp=P({name:'Spinner',pos:[x,y+1.5,z-7-i*10],size:[13,1,1],color:'#ff3b30',material:'Neon',behavior:'kill'});G.script(p,sp.id,'Spin',...SCR.spin(3+d*4).blocks.blocks);}z-=24;},
+    d=>{for(let i=0;i<6;i++){P({name:'Zig',pos:[x+(i%2?4:-4),y,z-3],size:[9,1,1.4-d*.5],rot:[0,i%2?35:-35,0],color:col()});z-=5;}},
+    d=>{for(let i=0;i<4;i++){P({name:'Step',pos:[x,y+2+i*3,z-3],size:[4,1,3],color:col()});z-=5+d*2;}y+=12;},
+    d=>{P({name:'Boost',pos:[x,y,z-3],size:[6,.4,6],color:'#ffd400',material:'Neon',behavior:'speed',value:2.4});z-=6;z-=10+d*6;P({name:'Landing',pos:[x,y,z-4],size:[8,1,8],color:col()});z-=8;},
+    d=>{for(let i=0;i<5;i++){const n=P({name:'Kill',pos:[x,y+1,z-4-i*6],size:[10,1,1],color:'#ff3b30',material:'Neon',behavior:'kill'});G.script(p,n.id,'Bob',...SCR.glide(0,3,0,.8-d*.3).blocks.blocks);}P({name:'Hall',pos:[x,y,z-15],size:[10,1,32],color:col()});z-=32;}
+  ];
+  for(let s=0;s<30;s++){const d=Math.min(1,s/29);T[(s*7)%T.length](d);check();if(s%10===9){x+=0;}}
+  P({name:'Finish',pos:[x,y,z-8],size:[16,1,16],color:'#ffc93c',material:'Metal',behavior:'finish',label:'FINISH'});
+  G.welcome(p,G.msg('30 stages that get harder as you go. Every checkpoint saves your stage!',4));
+  return G.def(p,'megaobby','Mega Obby');}
+
 const GAMES=[
   {id:'arena',name:'Brick Battle',tag:'Online battle',desc:'Swords, blasters and jump pads in a walled arena. Knock out training dummies and anyone else who joins.',mode:'project',make:arenaDef},
   {id:'tower',name:'Lava Tower',tag:'Obby · 8 stages',desc:'Climb a spiral of moving, fading and lava-striped platforms around a giant pillar. Spinners guard the middle.',
@@ -2113,6 +2311,11 @@ const GAMES=[
     build:buildSky,mode:'race',stageWord:'Checkpoint',scene:{sky:0x7fb8ff,fogNear:150,fogFar:560,ground:0x9fb4d6},seed:3,objective:'Cross the finish line'},
   {id:'sandbox',name:'Free Build',tag:'Sandbox',desc:'Place, paint and delete bricks on a studded baseplate. Your build is saved in this browser for next time.',
     build:buildSandbox,mode:'build',scene:{sky:0xa7d8ff,fogNear:220,fogFar:800},seed:1,objective:'Tap or click to build'},
+  {id:'tycoon',cat:'Tycoon',name:'Brick Tycoon',tag:'Tycoon · saved',desc:'Build a brick factory: droppers make cash, cash buys more droppers, boosts and a golden collector. Your factory is saved.',mode:'project',make:tycoonDef},
+  {id:'disasters',cat:'Survival',name:'Disaster Survival',tag:'Survival · endless',desc:'Floods, meteor showers, tornadoes, lava and earthquakes hit the island. Survive each round from the sky lobby.',mode:'project',make:disastersDef},
+  {id:'ghost',cat:'Survival',name:'Escape the Ghost',tag:'Horror · endless nights',desc:'Find 5 glowing keys in a dark hedge maze and reach the gate before the ghost catches you. Each night adds a ghost.',mode:'project',make:ghostDef},
+  {id:'strength',cat:'Simulator',name:'Strength Simulator',tag:'Simulator · saved',desc:'Click to lift, buy bigger power, unlock the Beach, Volcano and low-gravity Space zones. Progress is saved.',mode:'project',make:strengthDef},
+  {id:'megaobby',cat:'Obby',name:'Mega Obby',tag:'Obby · 30 stages',desc:'Thirty stages that get harder as you climb: lava beams, spinners, movers, vanishing tiles and more. Checkpoints are saved.',mode:'project',make:megaObbyDef},
   {id:'lavarise',cat:'Survival',name:'Lava Rising',tag:'Survival · endless rounds',desc:'Race up a spiral tower before the lava reaches you, then do it again. The lava gets faster every round.',mode:'project',make:lavaRiseDef},
   {id:'zombies',cat:'Battle',name:'Zombie Survival',tag:'Survival · endless waves',desc:'Hold off bigger and bigger waves of zombies in a fenced town with a sword, a blaster and healing potions.',mode:'project',make:zombiesDef},
   {id:'rainbow',cat:'Obby',name:'Rainbow Obby',tag:'Obby · 10 stages',desc:'Ten colorful stages: lava beams, jump pads, moving and vanishing platforms, a spinner and a sky elevator.',mode:'project',make:rainbowDef},
@@ -2324,7 +2527,7 @@ function instantiate(proj,list,off,map){
       if(n.behavior==='coin'){coin(n.pos[0]+off.x,n.pos[1]+off.y,n.pos[2]+off.z);continue;}
       const o=partOpts(n);o.pos=[n.pos[0]+off.x,n.pos[1]+off.y,n.pos[2]+off.z];
       const inTool=hasToolAncestor(proj,n.id);if(inTool)o.collide=false;
-      const p=addPart(o);p.node=n;map.set(n.id,p);if(inTool)p.toolPickup=true;else if(n.anchored===false){p.vy=0;W.phys.push(p);}
+      const p=addPart(o);p.node=n;map.set(n.id,p);if(n.label)setPartLabel(p,n.label);if(inTool)p.toolPickup=true;else if(n.anchored===false){p.vy=0;W.phys.push(p);}
     }else if(n.cls==='Rig')map.set(n.id,addRig(n,off));
   }
   for(const n of list)if(n.cls==='ParticleEmitter'){const par=map.get(n.parent);if(par){const e=new Emitter(n,par,scene);e.nodeId=n.id;W.emitters.push(e);}}
@@ -2520,6 +2723,7 @@ function update(dt){
       if(p.min.x<s.max.x&&p.max.x>s.min.x&&p.min.z<s.max.z&&p.max.z>s.min.z&&p.min.y<s.max.y&&p.max.y>s.min.y&&dy<0){p.pos.y+=s.max.y-p.min.y;p.vy=0;computeAABB(p);}}
     p.mesh.position.copy(p.pos);p.base.copy(p.pos);W.dyn.add(p);if(p.pos.y<W.killY)destroyPart(p);}
   for(const s of W.spinners)s.pivot.rotation.y=(tw*s.speed)%(Math.PI*2);
+  if(W.labels&&W.labels.length)for(const L of W.labels){if(L.p.destroyed){L.s.visible=false;continue;}L.s.position.set(L.p.pos.x,L.p.max.y+.9+L.s.scale.y/2,L.p.pos.z);L.s.visible=L.p.mesh.visible;}
   if(W.rigs.length)updateRigs(dt);
   if(game.project||W.projectiles.length)updateTools(dt);
   if(W.emitters.length){W.emitters.forEach(e=>e.update(dt));W.emitters=W.emitters.filter(e=>{if(e.parent.destroyed&&!e.ps.length){e.dispose();return false;}return true;});}
@@ -2578,7 +2782,7 @@ function update(dt){
     c.mesh.rotation.y+=dt*2.6;c.mesh.position.y=c.by+Math.sin(t*2+c.ph)*.35;}
   if(game.project&&!state.over){scriptFrame();saveTick();}
   if(MP.remotes.size)updateRemotes(dt);
-  if(MP.gr&&(MP.sendT-=dt)<=0){MP.sendT=.066;sendPresence();if((MP.plT=(MP.plT||0)-.066)<=0){MP.plT=1;if(MP.plistOpen)renderPlayerList();}}
+  if(MP.gr&&(MP.sendT-=dt)<=0){MP.sendT=MP.p2p&&NETLIB&&NETLIB.kind==='supabase'?.1:.066;sendPresence();if((MP.plT=(MP.plT||0)-.066)<=0){MP.plT=1;if(MP.plistOpen)renderPlayerList();}}
   if(game.project){const hp=Math.ceil(P.health);if(hp!==lastHp){lastHp=hp;$('#hpFill').style.width=(100*P.health/P.maxHealth)+'%';$('#hpFill').style.background=P.health/P.maxHealth>.5?'':P.health/P.maxHealth>.25?'var(--warn)':'var(--bad)';$('#hpTxt').textContent=hp;}}
   rtTick();
 
@@ -2718,7 +2922,7 @@ function rebuildWorld(){
   ED.emitters.forEach(e=>e.dispose());ED.emitters=[];ED.rigs=[];
   const wl=descendantsOf(ED.proj,'workspace');
   for(const n of wl){
-    if(n.cls==='Part'){const m=makePartMesh(n);eworld.add(m);ED.meshes.set(n.id,m);}
+    if(n.cls==='Part'){const m=makePartMesh(n);eworld.add(m);ED.meshes.set(n.id,m);if(n.label){const sp=textSprite(n.label);sp.scale.multiplyScalar(.8);sp.position.set(n.pos[0],n.pos[1]+n.size[1]/2+.9+sp.scale.y/2,n.pos[2]);eworld.add(sp);}}
     else if(n.cls==='Rig'){const g=makeRigMesh(n);g.position.fromArray(n.pos);g.rotation.set(0,((n.rot||[0,0,0])[1]||0)*D2R,0);eworld.add(g);ED.meshes.set(n.id,g);ED.rigs.push({g,n,ph:Math.random()*5});}
   }
   for(const n of wl)if(n.cls==='ParticleEmitter'){const pm=ED.meshes.get(n.parent);if(pm){const e=new Emitter(n,{mesh:pm,rig:(nodeOf(n.parent)||{}).cls==='Rig',destroyed:false},escene);e.nodeId=n.id;ED.emitters.push(e);}}
@@ -3222,7 +3426,7 @@ function renderProps(){
         prow('Transparency',`<input type="range" min="0" max="1" step=".05" data-k="transparency" id="p_transparency" value="${n.transparency||0}">`,'p_transparency')+(n.shape==='mesh'?prow('Mesh',`<span class="ro">${esc(n.meshName||'mesh')}${MESHINFO.get(n.meshId)?' · '+MESHINFO.get(n.meshId).tris.toLocaleString()+' triangles':' · not in this browser'}</span>`):prow('Shape',psel('shape',n.shape,SHAPES),'p_shape')));
       h+=pgrp('Transform',prow('Position',pv3('pos',n.pos,ED.snap?ED.mSnap:.1))+prow('Size',pv3('size',n.size,ED.snap?ED.mSnap:.1))+prow('Orientation',pv3('rot',n.rot||[0,0,0],ED.snap?ED.rSnap:1)));
       h+=pgrp('Behavior',prow('Anchored',pchk('anchored',n.anchored!==false),'p_anchored')+prow('CanCollide',pchk('canCollide',n.canCollide!==false),'p_canCollide')+
-        prow('Locked',pchk('locked',!!n.locked),'p_locked')+prow('Gameplay',psel('behavior',n.behavior||'none',BEHAVIORS),'p_behavior')+(vl?prow(vl[0],pnum('value',n.value||vl[1],vl[2],0),'p_value'):''));
+        prow('Locked',pchk('locked',!!n.locked),'p_locked')+prow('Label',ptext('label',n.label||''),'p_label')+prow('Gameplay',psel('behavior',n.behavior||'none',BEHAVIORS),'p_behavior')+(vl?prow(vl[0],pnum('value',n.value||vl[1],vl[2],0),'p_value'):''));
       h+=scriptsBox();
       if(n.shape==='mesh')h+=`<p class="pnote">Mesh parts collide like a box of their Size.</p>`;
       if(n.anchored===false)h+=`<p class="pnote">Unanchored parts fall and land on other parts when the game runs.</p>`;
@@ -3990,6 +4194,7 @@ function luaForScript(node,withLib){
     case 'p_material':{const m=fld(b,'MAT');return l(`BY.set(${Pt(b)}, "Material", Enum.Material.${m==='Studs'?'Plastic':m||'Plastic'})`);}
     case 'p_collide':return l(`BY.set(${Pt(b)}, "CanCollide", ${TF(b)})`);case 'p_anchor':return l(`BY.set(${Pt(b)}, "Anchored", ${TF(b)})`);
     case 'p_visible':return l(`BY.set(${Pt(b)}, "Transparency", ${fld(b,'B')==='TRUE'?0:1})`);
+    case 'p_label':L.notes.add('Part labels map to a BillboardGui with a TextLabel in Roblox.');return l(`-- set label of part to ${V(b,'TEXT','""')}`);
     case 'p_deadly':return l(`BY.set(${Pt(b)}, "Deadly", ${TF(b)}) -- handled by the Deadly kill script`);
     case 'p_clone':return l(`BY.clone(${Pt(b)}, ${xyz(b)})`);case 'p_destroy':return l(`BY.destroy(${Pt(b)})`);
     case 'rs_copy':return l(`BY.copyTo(${luaStr(fld(b,'NAME'))}, ${xyz(b)})`);
@@ -4278,6 +4483,7 @@ function defineBlocks(){
     S_({type:'p_setpos',message0:'set %1 position to x %2 y %3 z %4',args0:[PT(),N('X'),N('Y'),N('Z')]},'part_blocks'),
     S_({type:'p_glide',message0:'glide %1 by x %2 y %3 z %4 in %5 s',args0:[PT(),N('X'),N('Y'),N('Z'),N('S')],tooltip:'Smoothly slides the part. Players standing on it ride along.'},'part_blocks'),
     S_({type:'p_glideto',message0:'glide %1 to x %2 y %3 z %4 in %5 s',args0:[PT(),N('X'),N('Y'),N('Z'),N('S')]},'part_blocks'),
+    S_({type:'p_label',message0:'set label of %1 to %2',args0:[PT(),{type:'input_value',name:'TEXT'}],tooltip:'Shows text floating above the part, like a sign or a price tag. Use empty text to remove it.'},'part_blocks'),
     S_({type:'p_rotate',message0:'rotate %1 by %2 degrees around %3',args0:[PT(),N('DEG'),{type:'field_dropdown',name:'AXIS',options:[['Y','y'],['X','x'],['Z','z']]}]},'part_blocks'),
     S_({type:'p_color',message0:'set %1 color to %2',args0:[PT(),{type:'field_colour',name:'COLOUR',colour:'#ff4d5e'}]},'part_blocks'),
     S_({type:'p_transp',message0:'set %1 transparency to %2',args0:[PT(),N('V')]},'part_blocks'),
@@ -4429,7 +4635,7 @@ function defineBlocks(){
     {kind:'category',name:'Control',categorystyle:'control',contents:[K('c_wait',{S:n_(1)}),K('c_forever'),K('controls_repeat_ext',{TIMES:n_(10)}),K('controls_if'),
       K('controls_if',null,null,{extraState:{hasElse:true}}),K('c_wait_until'),K('controls_whileUntil'),K('c_stop')]},
     {kind:'category',name:'Parts',categorystyle:'parts',contents:[K('p_this'),K('p_named'),K('p_model'),K('p_model_named'),K('p_glide',Object.assign(xyz(0,0,10),{S:n_(2)})),K('p_glideto',Object.assign(xyz(0,10,0),{S:n_(2)})),
-      K('p_move',xyz(0,1,0)),K('p_setpos',xyz(0,10,0)),K('p_rotate',{PART:me(),DEG:n_(15)}),K('p_color',{PART:me()}),K('p_transp',{PART:me(),V:n_(.5)}),K('p_material',{PART:me()}),
+      K('p_move',xyz(0,1,0)),K('p_setpos',xyz(0,10,0)),K('p_rotate',{PART:me(),DEG:n_(15)}),K('p_color',{PART:me()}),K('p_transp',{PART:me(),V:n_(.5)}),K('p_material',{PART:me()}),K('p_label',{PART:me(),TEXT:t_('Hello!')}),
       K('p_collide',{PART:me()},{B:'FALSE'}),K('p_visible',{PART:me()},{B:'FALSE'}),K('p_anchor',{PART:me()},{B:'FALSE'}),K('p_deadly',{PART:me()}),K('p_clone',xyz(0,5,0)),K('p_destroy',{PART:me()})]},
     {kind:'category',name:'Player',categorystyle:'player',contents:[K('pl_kill'),K('pl_damage',{N:n_(20)}),K('pl_heal',{N:n_(20)}),K('pl_teleport',{PART:{shadow:{type:'p_this'},block:{type:'p_named',fields:{NAME:'Part'}}}}),K('pl_launch',{P:n_(90)}),
       K('pl_speed',{V:n_(24)}),K('pl_jump',{V:n_(70)}),K('pl_gravity',{V:n_(100)}),K('pl_checkpoint',{PART:me()}),
@@ -4487,6 +4693,11 @@ function drawIso(canvas,cubes,skyA,skyB){
 const TB=(fn,a,b)=>c=>{const q=[];fn(q);drawIso(c,q,a,b);};
 const floor=(q,n,col,y)=>{for(let x=0;x<n;x++)for(let z=0;z<n;z++)q.push([x,y==null?-1:y,z,typeof col==='function'?col(x,z):col]);};
 const THUMBS_MORE={
+  tycoon:TB(q=>{floor(q,9,0x6fa85a);for(let x=1;x<8;x++)q.push([x,0,4,0x37474f]);q.push([8,0,4,0x3ddc84],[8,1,4,0x3ddc84]);[[2,0x90a4ae],[4,0x4fc3f7],[6,0xba68c8]].forEach(([x,c])=>{q.push([x,2,4,c]);q.push([x,1,5,0x455a64]);});q.push([3,1,4,0xffd54f],[5,1,4,0xffd54f],[1,0,7,0x43a047],[3,0,7,0x43a047]);},'#8fd0ff','#e0f6ff'),
+  disasters:TB(q=>{floor(q,9,0x5aa646);q.push([2,0,2,0xef9a9a],[2,1,2,0x6d4c41],[6,0,6,0xb0bec5],[6,1,6,0xb0bec5],[6,2,6,0xb0bec5]);q.push([4,5,2,0xff7043],[7,6,4,0xff7043],[1,4,6,0xff7043]);for(let x=0;x<9;x++)q.push([x,-1,8,0x1e88e5]);},'#5a7fb5','#c6d8f0'),
+  ghost:TB(q=>{floor(q,9,0x1c2a1c);const M=['111111111','100010001','101110101','100000101','111011101','100010001','101110111','100000001','111111111'];M.forEach((r,z)=>[...r].forEach((ch,x)=>{if(ch==='1')q.push([x,0,z,0x24402a]);}));q.push([3,0,3,0xffd54f],[7,0,5,0xffd54f],[5,0,7,0xeceff1],[5,1,7,0xeceff1]);},'#05070d','#1a2238'),
+  strength:TB(q=>{for(let x=0;x<9;x++)for(let z=0;z<9;z++)q.push([x,-1,z,z<3?0x66bb6a:z<6?0xffe082:0x5d4037]);q.push([4,0,1,0x1e88e5],[4,1,1,0xf5cd30],[3,1,1,0xe53935],[5,1,1,0xe53935]);for(let x=0;x<9;x++)q.push([x,0,3,0xe1f5fe]);q.push([2,0,7,0xff5722],[6,0,8,0xff5722]);},'#7fc6ff','#e0f6ff'),
+  megaobby:TB(q=>{for(let i=0;i<10;i++)q.push([i,Math.floor(i/2),4-(i%3),i===9?0xffc93c:parseInt(OBBY_COLS[i].slice(1),16)]);q.push([3,0,6,0xff3b30],[4,0,6,0xff3b30],[6,2,1,0x22d3ee]);},'#7fc6ff','#d6efff'),
   lavarise:TB(q=>{floor(q,8,0xff5a1f);for(let y=0;y<7;y++){q.push([3,y,3,0x4a3f63]);q.push([4,y,4,0x4a3f63]);}for(let i=0;i<10;i++){const a=i*.62;q.push([Math.round(3.5+3*Math.cos(a)),Math.floor(i*.7),Math.round(3.5+3*Math.sin(a)),STAGE_COLS[i%8]]);}q.push([4,7,4,0xffc93c]);},'#3a1d2e','#7a2a2a'),
   zombies:TB(q=>{floor(q,9,0x4f6b3a);q.push([1,0,1,0xa1887f],[1,1,1,0x5d4037],[6,0,2,0x90a4ae],[6,1,2,0x5d4037]);q.push([4,0,5,0x7cb342],[4,1,5,0x4e6b3a],[4,2,5,0x7cb342],[6,0,6,0x7cb342],[6,1,6,0x4e6b3a],[6,2,6,0x7cb342],[2,0,6,0xc0c7d4]);},'#55606e','#8a96a6'),
   rainbow:TB(q=>{[[0,0],[1,0],[2,1],[3,1],[4,2],[5,2],[6,3],[7,3],[8,4]].forEach(([i,y],k)=>q.push([i,y,4-(k%2),k===8?0xffc93c:OBBY_COLS[k].replace?parseInt(OBBY_COLS[k].slice(1),16):0x5c9dff]));q.push([3,0,6,0xff3b30],[4,0,6,0xff3b30]);},'#7fc6ff','#d6efff'),
