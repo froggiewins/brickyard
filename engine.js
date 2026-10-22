@@ -1325,6 +1325,7 @@ function ev(b,ctx){
     case 's_pl_hpof':{const x=inp(b,'WHO');const tg=resolveTargets(x?ev(x,ctx):null);if(!tg.length)return 0;return tg[0]==='me'?r3(P.health):r3(num(tg[0].hp,100));}
     case 's_pl_countof':{const x=inp(b,'WHO');return resolveTargets(x?ev(x,ctx):null).length;}
     case 's_pl_maxhp':return r3(P.maxHealth);
+    case 's_partname':{const v=partv(b,ctx);return v?(v.isGroup?String(v.name||''):String(v.name||'')):'';}
     case 's_pl_ragdoll':return !!P.rag&&!P.dead;
     case 's_pl_speed':return r3(PHYS.walk);
     case 's_pl_moving':return !P.dead&&Math.hypot(P.vel.x,P.vel.z)>1;
@@ -1476,7 +1477,7 @@ async function stmt(b,ctx){
     case 'pl_kill':die('kill');break;
     case 'pl_teleport':{const tp=topOf(partv(b,ctx));if(tp&&!P.dead){P.pos.set(tp.x,tp.y+PH.y+.3,tp.z);P.vel.set(0,0,0);}break;}
     case 'pl_launch':P.vel.y=numv(inp(b,'P'),ctx);P.onGround=false;P.coyote=0;break;
-    case 'pl_knock':{if(P.dead)break;const x=inp(b,'WHO');const tg=resolveTargets(x?ev(x,ctx):null);const src=tg[0]==='me'||!tg.length?null:tg[0];
+    case 'pl_knock':{if(P.dead)break;const x=inp(b,'WHO');const xv=x?ev(x,ctx):null;const tg=xv&&xv.mesh&&xv.pos&&!xv.remote?[xv]:resolveTargets(xv);const src=tg[0]==='me'||!tg.length?null:tg[0];
       const pw=Math.max(0,Math.min(400,numv(inp(b,'P'),ctx)));const d=src?new V3(P.pos.x-src.pos.x,0,P.pos.z-src.pos.z):new V3(-Math.sin(P.yaw),0,-Math.cos(P.yaw));
       if(d.lengthSq()<.01)d.set(Math.random()-.5,0,Math.random()-.5);d.normalize().multiplyScalar(pw*.7);d.y=pw*.45;
       if(fld(b,'RAG')==='TRUE')ragdollPlayer(2,d);else{P.vel.copy(d);P.onGround=false;P.coyote=0;P.boost=Math.max(P.boost,.6);}break;}
@@ -1795,6 +1796,260 @@ function arenaDef(){
   N.find(n=>n.name==='Welcome').blocks=scriptOf(chain(blk('ev_start'),blk('g_stat_set',{N:bn(0)},{STAT:'KOs'}),blk('g_msg',{TEXT:bt('Grab your sword (1) or blaster (2). Knock out dummies and other players!'),S:bn(4)})));
   const def=projectDef(p,false);return Object.assign(def,{id:'arena',room:'arena',name:'Brick Battle'});
 }
+/* ---------- twelve more built-in games, each built as a normal Brickyard project (so they can be copied into Studio) ---------- */
+const GK=(()=>{
+  const num=v=>({block:{type:'math_number',fields:{NUM:v}}});
+  const stat=s=>({block:{type:'s_stat',fields:{STAT:s}}});
+  const cmp=(a,op,b)=>({block:{type:'logic_compare',fields:{OP:op},inputs:{A:a,B:b}}});
+  const rnd=(a,b)=>({block:{type:'math_random_int',inputs:{FROM:bn(a),TO:bn(b)}}});
+  const add=(a,b)=>({block:{type:'math_arithmetic',fields:{OP:'ADD'},inputs:{A:a,B:b}}});
+  const join=(...xs)=>({block:{type:'text_join',extraState:{itemCount:xs.length},inputs:Object.fromEntries(xs.map((x,i)=>['ADD'+i,typeof x==='string'?bt(x):x]))}});
+  const iff=(cond,...body)=>blk('controls_if',{IF0:cond,DO0:doIn(...body)});
+  const forever=(...b)=>blk('c_forever',{DO:doIn(...b)});
+  const wait=s=>blk('c_wait',{S:typeof s==='number'?bn(s):s});
+  const msg=(t,s)=>blk('g_msg',{TEXT:typeof t==='string'?bt(t):t,S:bn(s||3)});
+  const sset=(s,v)=>blk('g_stat_set',{N:typeof v==='number'?bn(v):v},{STAT:s});
+  const sadd=(s,v)=>blk('g_stat_change',{N:bn(v)},{STAT:s});
+  const sound=s=>blk('g_sound',null,{SND:s});
+  const until=c=>blk('c_wait_until',{COND:c});
+  const pnamed=s=>({block:{type:'p_named',fields:{NAME:s}},shadow:{type:'p_this'}});
+  const mnamed=s=>({block:{type:'p_model_named',fields:{NAME:s}},shadow:{type:'p_this'}});
+  const ppos=a=>({block:{type:'s_player',fields:{AXIS:a}}});
+  const vget=id=>({block:{type:'variables_get',fields:{VAR:{id}}}});
+  const vset=(id,v)=>blk('variables_set',{VALUE:v},{VAR:{id}});
+  const proj=(id,name,o)=>{const p=newProjectObj('baseplate',name);p.id=id;Object.assign(p.settings,{timer:true},o||{});return p;};
+  const def=(p,id,name)=>Object.assign(projectDef(p,false),{id,room:id,name});
+  const welcome=(p,...blocks)=>{p.nodes.find(n=>n.name==='Welcome').blocks=scriptOf(chain(blk('ev_start'),...blocks));};
+  const script=(p,parent,name,...blocks)=>{const s=scriptNode({parent,name,blocks:scriptOf(chain(...blocks))});p.nodes.push(s);return s;};
+  const prefab=(p,name,o,parent)=>{const nodes=PREFABS.find(x=>x.name===name).make(o||{x:0,y:0,z:0});nodes[0].parent=parent||'workspace';p.nodes.push(...nodes);return nodes;};
+  const folder=(p,name,parent)=>{const f=groupNode('Folder',{name,parent:parent||'workspace'});p.nodes.push(f);return f;};
+  const model=(p,name,parent)=>{const m=groupNode('Model',{name,parent:parent||'workspace'});p.nodes.push(m);return m;};
+  const part=(p,parent,o)=>{const n=partNode(Object.assign({parent},o));p.nodes.push(n);return n;};
+  const noBase=p=>{p.nodes=p.nodes.filter(n=>n.name!=='Baseplate');};
+  const spawnAt=(p,x,y,z,o)=>{Object.assign(p.nodes.find(n=>n.behavior==='spawn'),{pos:[x,y,z]},o||{});};
+  return {num,stat,cmp,rnd,add,join,iff,forever,wait,msg,sset,sadd,sound,until,pnamed,mnamed,ppos,vget,vset,proj,def,welcome,script,prefab,folder,model,part,noBase,spawnAt};
+})();
+const OBBY_COLS=['#5c9dff','#9b6bff','#ff6bb5','#4fd1c5','#ffb84d','#7ad36b','#ff7b5c','#c9d36b','#5cc8ff','#e57373'];
+
+/* 1. Lava Rising */
+function lavaRiseDef(){const G=GK;const p=G.proj('lavarise','Lava Rising',{sky:'#3a1d2e',fog:500});
+  const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[140,2,140],color:'#3b2a2a',material:'Slate'});
+  const T=G.folder(p,'Tower');
+  G.part(p,T.id,{name:'Pillar',shape:'cyl',pos:[0,60,0],size:[10,120,10],color:'#4a3f63',material:'Brick'});
+  for(let i=0;i<34;i++){const a=i*.52,r=12+(i%3),y=3+i*3.6;const tiny=i%5===4;
+    const n=G.part(p,T.id,{name:'Step',pos:[r3(Math.cos(a)*r),r3(y),r3(Math.sin(a)*r)],size:tiny?[3,1,3]:[6,1,6],color:OBBY_COLS[i%OBBY_COLS.length],material:i%7===3?'Neon':'Plastic'});
+    if(i%9===6)G.script(p,n.id,'Vanish',...SCR.vanish().blocks.blocks);
+    if(i===16)Object.assign(n,{behavior:'jump',value:80,color:'#22d3ee',material:'Neon',name:'JumpPad'});}
+  G.part(p,T.id,{name:'Goal',pos:[0,128,0],size:[14,1,14],color:'#ffc93c',material:'Metal',behavior:'finish'});
+  const lava=G.part(p,'workspace',{name:'Lava',pos:[0,-3,0],size:[150,2,150],color:'#ff5a1f',material:'Neon',behavior:'kill',transparency:.08});
+  G.script(p,lava.id,'Rise',blk('ev_start'),G.wait(6),G.msg('The lava is rising! Climb!',2),G.sound('boost'),
+    G.forever(blk('p_glide',{PART:bme(),X:bn(0),Y:bn(1),Z:bn(0),S:bn(1.1)})));
+  G.script(p,lava.id,'Reset',blk('ev_died'),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-3),Z:bn(0)}),G.msg('The lava drops back down. Try again!',2));
+  G.welcome(p,G.sset('Height',0),G.msg('Climb the tower before the lava gets you!',3),G.forever(G.sset('Height',G.ppos('y')),G.wait(.25)));
+  G.spawnAt(p,4,.5,26);return G.def(p,'lavarise','Lava Rising');}
+
+/* 2. Zombie Survival */
+function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky:'#55606e',fog:420,brightness:.8});
+  const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[180,2,180],color:'#4f6b3a',material:'Grass'});
+  const F=G.folder(p,'Town');
+  [[-30,-20,14,10],[28,24,12,12],[-26,34,10,14],[36,-34,16,10]].forEach(([x,z,w,d],i)=>{G.part(p,F.id,{name:'House',pos:[x,4,z],size:[w,8,d],color:['#a1887f','#90a4ae','#bcaaa4','#8d6e63'][i],material:'Brick'});
+    G.part(p,F.id,{name:'Roof',shape:'wedge',pos:[x,9.5,z],size:[w,3,d],color:'#5d4037',material:'Wood'});});
+  [[-90,0,2,180],[90,0,2,180],[0,-90,180,2],[0,90,180,2]].forEach(([x,z,w,d])=>G.part(p,F.id,{name:'Fence',pos:[x,3,z],size:[w,6,d],color:'#6d4c41',material:'Wood'}));
+  for(let i=0;i<10;i++){const a=i*.63,r=55+(i%3)*8;G.part(p,F.id,{name:'Crate',pos:[r3(Math.cos(a)*r),1.5,r3(Math.sin(a)*r)],size:[3,3,3],color:'#a1764b',material:'Wood'});}
+  for(const t of ['Sword','Blaster']){const ns=G.prefab(p,t);ns[0].parent='pack';}
+  G.prefab(p,'Healing potion',{x:0,y:2,z:16});G.prefab(p,'Healing potion',{x:-40,y:2,z:0});
+  const Z=rigNode({name:'Zombie',parent:'rs',pos:[0,2.6,0],health:60,respawn:0,walkSpeed:10,colors:{head:'#7cb342',torso:'#4e6b3a',arms:'#7cb342',legs:'#37474f'}});p.nodes.push(Z);
+  G.script(p,Z.id,'Chase',blk('ev_start'),G.forever(blk('rig_walk',{PART:bme(),X:G.ppos('x'),Z:G.ppos('z')}),G.wait(.2)));
+  G.script(p,Z.id,'Bite',blk('ev_touch'),blk('pl_damage',{N:bn(12)}),blk('rig_say',{PART:bme(),TEXT:bt('Braaains!'),S:bn(1)}),G.wait(1));
+  G.script(p,Z.id,'KO',blk('ev_rig_died'),G.sadd('KOs',1));
+  G.welcome(p,G.sset('KOs',0),G.msg('Zombies are coming! Grab your sword (1) or blaster (2). Knock out 25 to win.',4),G.wait(4),
+    G.forever(blk('rs_copy',{X:G.rnd(-80,80),Y:bn(2.6),Z:{block:{type:'math_number',fields:{NUM:-80}}}},{NAME:'Zombie'}),G.wait(G.rnd(2,4)),
+      blk('rs_copy',{X:{block:{type:'math_number',fields:{NUM:80}}},Y:bn(2.6),Z:G.rnd(-80,80)},{NAME:'Zombie'}),G.wait(G.rnd(2,4))));
+  G.script(p,'sss','WinCheck',blk('ev_start'),G.until(G.cmp(G.stat('KOs'),'GTE',G.num(25))),G.msg('You survived the horde!',3),G.wait(1),blk('g_win'));
+  return G.def(p,'zombies','Zombie Survival');}
+
+/* 3. Rainbow Obby */
+function rainbowDef(){const G=GK;const p=G.proj('rainbow','Rainbow Obby',{sky:'#9fd8ff'});G.noBase(p);G.spawnAt(p,0,40,0,{size:[14,1,14]});
+  const C=G.folder(p,'Course');let z=-10,y=40,stage=0;
+  const P=(o)=>G.part(p,C.id,o);
+  const check=()=>{stage++;P({name:'Checkpoint',pos:[0,y,z-6],size:[12,1,12],color:'#3ddc84',behavior:'check',value:stage});z-=12;};
+  const col=()=>OBBY_COLS[stage%OBBY_COLS.length];
+  // 1 stepping stones
+  for(let i=0;i<6;i++){P({name:'Stone',pos:[(i%2?3:-3),y,z-4],size:[4,1,4],color:col()});z-=7;}check();
+  // 2 lava floor with beams
+  P({name:'Lava',pos:[0,y-1,z-14],size:[16,1,28],color:'#ff3b30',material:'Neon',behavior:'kill'});
+  for(let i=0;i<3;i++)P({name:'Beam',pos:[(i-1)*5,y+1,z-14],size:[1.4,1,28],color:col()});z-=28;check();
+  // 3 jump pads up
+  for(let i=0;i<3;i++){P({name:'JumpPad',pos:[0,y,z-4],size:[4,.4,4],color:'#22d3ee',material:'Neon',behavior:'jump',value:75});z-=8;y+=9;P({name:'Ledge',pos:[0,y,z-4],size:[6,1,6],color:col()});z-=8;}check();
+  // 4 moving platforms
+  for(let i=0;i<4;i++){const n=P({name:'Mover',pos:[0,y,z-5],size:[5,1,5],color:col()});G.script(p,n.id,'Slide',...SCR.glide(i%2?10:-10,0,0,1.6).blocks.blocks);z-=10;}check();
+  // 5 vanishing tiles
+  for(let i=0;i<7;i++){const n=P({name:'Vanish',pos:[(i%2?2:-2),y,z-3],size:[3.5,1,3.5],color:'#a8e6ff',transparency:.15});G.script(p,n.id,'Vanish',...SCR.vanish().blocks.blocks);z-=6;}check();
+  // 6 spinner
+  P({name:'Floor',pos:[0,y,z-12],size:[14,1,24],color:col()});const sp=P({name:'Spinner',pos:[0,y+1.5,z-12],size:[13,1,1],color:'#ff3b30',material:'Neon',behavior:'kill'});
+  G.script(p,sp.id,'Spin',...SCR.spin(4).blocks.blocks);z-=24;check();
+  // 7 wedge climb
+  for(let i=0;i<4;i++){P({name:'Ramp',shape:'wedge',pos:[0,y+2,z-4],size:[6,4,8],rot:[0,180,0],color:col()});y+=4;z-=8;P({name:'Landing',pos:[0,y,z-2],size:[6,1,4],color:col()});z-=4;}check();
+  // 8 thin zig-zag
+  for(let i=0;i<6;i++){P({name:'Zig',pos:[(i%2?4:-4),y,z-3],size:[9,1,1.4],rot:[0,i%2?35:-35,0],color:col()});z-=5;}check();
+  // 9 falling-glide elevator
+  const el=P({name:'Elevator',pos:[0,y,z-5],size:[6,1,6],color:'#ffd54f'});G.script(p,el.id,'Lift',...SCR.glide(0,14,0,2.5).blocks.blocks);z-=10;y+=14;P({name:'Top',pos:[0,y,z-4],size:[8,1,8],color:col()});z-=8;check();
+  // 10 final sprint with speed pad
+  P({name:'SpeedPad',pos:[0,y,z-4],size:[6,.4,6],color:'#ffd400',material:'Neon',behavior:'speed',value:2.6});z-=8;
+  P({name:'Run',pos:[0,y,z-15],size:[6,1,30],color:col()});z-=30;
+  P({name:'Finish',pos:[0,y,z-8],size:[16,1,16],color:'#ffc93c',material:'Metal',behavior:'finish'});
+  G.welcome(p,G.msg('10 rainbow stages. Checkpoints save your progress!',3));
+  return G.def(p,'rainbow','Rainbow Obby');}
+
+/* 4. Gem Hunt */
+function gemsDef(){const G=GK;const p=G.proj('gems','Gem Hunt',{sky:'#a6e3ff'});
+  const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[220,2,220],color:'#58b947',material:'Grass'});
+  const W_=G.folder(p,'World');const P=o=>G.part(p,W_.id,o);
+  const hills=[[-40,-30,24,8],[50,-50,30,14],[-60,50,20,10],[30,40,26,6],[0,-80,18,20]];
+  hills.forEach(([x,z,w,h])=>{for(let k=0;k<3;k++)P({name:'Hill',pos:[x,r3((k+.5)*h/3),z],size:[w-k*6,h/3,w-k*6],color:['#4a9f3c','#3f8a33','#37782c'][k],material:'Grass'});});
+  for(let i=0;i<26;i++){const a=i*2.4,r=30+((i*37)%70);const x=r3(Math.cos(a)*r),z=r3(Math.sin(a)*r);if(hills.some(h=>Math.hypot(h[0]-x,h[1]-z)<h[2]/2+4))continue;
+    P({name:'Trunk',pos:[x,3,z],size:[1.6,6,1.6],color:'#6d4c41',material:'Wood'});P({name:'Leaves',pos:[x,7.5,z],size:[7,5,7],color:'#2e7d32',material:'Grass'});}
+  P({name:'Pond',pos:[-10,.05,20],size:[24,.2,18],color:'#2f8fd8',material:'Glass',transparency:.3,canCollide:false});
+  P({name:'Tower',pos:[80,15,80],size:[8,30,8],color:'#8c95a6',material:'Brick'});
+  P({name:'JumpPad',pos:[72,.2,80],size:[5,.4,5],color:'#22d3ee',material:'Neon',behavior:'jump',value:115});
+  const spots=[[0,1.5,-12],[-40,9.5,-30],[50,15.5,-50],[-60,11.5,50],[30,7.5,40],[0,21.5,-80],[80,31.5,80],[-10,1.5,20],[-95,1.5,-95],[95,1.5,-90],[-90,1.5,95],[60,1.5,10],[-20,1.5,-55],[15,1.5,75],[-75,1.5,0]];
+  spots.forEach(([x,y,z])=>P({name:'Gem',pos:[x,y,z],size:[2,2,2],behavior:'coin',color:'#ffd54f'}));
+  const sg=guiNode('ScreenGui',{name:'HUD'});const lb=guiNode('TextLabel',{parent:sg.id,name:'GemLabel',text:'Gems: 0 / 15',gpos:[1,-20,0,76],anchor:[1,0],gsize:[0,210,0,48],bg:'#7e57c2',bgT:.05,tc:'#ffffff',font:'Cartoon',ts:24,radius:24,strokeT:1.5,strokeTc:'#311b92'});p.nodes.push(sg,lb);
+  G.script(p,lb.id,'Count',blk('ev_start'),G.forever(blk('gui_settext',{GUI:{shadow:{type:'gui_this'}},TEXT:G.join('Gems: ',G.stat('Coins'),' / 15')}),G.wait(.2)));
+  G.welcome(p,G.sset('Coins',0),G.msg('Find all 15 gems hidden around the island!',3),G.until(G.cmp(G.stat('Coins'),'GTE',G.num(15))),G.msg('Every gem found!',2),G.wait(1),blk('g_win'));
+  return G.def(p,'gems','Gem Hunt');}
+
+/* 5. Turbo Track */
+function turboDef(){const G=GK;const p=G.proj('turbo','Turbo Track',{sky:'#7fb8ff'});G.noBase(p);G.spawnAt(p,0,60,0,{size:[14,1,14]});
+  const T=G.folder(p,'Track');const P=o=>G.part(p,T.id,o);let z=-7,y=60,cp=0;
+  const road=(len,o)=>{P(Object.assign({name:'Road',pos:[0,y,z-len/2],size:[12,1,len],color:'#3b4252',material:'Concrete'},o||{}));z-=len;};
+  const speed=()=>P({name:'Boost',pos:[0,y+.1,z+4],size:[8,.4,5],color:'#ffd400',material:'Neon',behavior:'speed',value:3});
+  const check=()=>{cp++;P({name:'Checkpoint',pos:[0,y,z-5],size:[12,1,10],color:'#3ddc84',behavior:'check',value:cp});z-=10;};
+  road(40);speed();road(10);z-=22;road(30);check();
+  road(10);P({name:'Ramp',shape:'wedge',pos:[0,y+2,z-5],size:[12,4,10],rot:[0,180,0],color:'#ff7b5c'});z-=10;z-=18;road(30);check();
+  for(let i=0;i<5;i++){road(8,{size:[6,1,8],pos:[i%2?5:-5,y,z-4],color:'#5c6bc0'});z-=4;}check();
+  road(12);P({name:'Launcher',pos:[0,y+.1,z+4],size:[8,.4,5],color:'#22d3ee',material:'Neon',behavior:'jump',value:110});z-=16;y+=24;road(30);check();
+  road(10);speed();road(10);for(let i=0;i<3;i++){const n=P({name:'Sweeper',pos:[0,y+1.5,z-8-i*14],size:[11,1,1],color:'#ff3b30',material:'Neon',behavior:'kill'});G.script(p,n.id,'Spin',...SCR.spin(3+i).blocks.blocks);}road(44);check();
+  road(20);speed();road(8);z-=26;P({name:'Finish',pos:[0,y,z-10],size:[20,1,20],color:'#ffc93c',material:'Metal',behavior:'finish'});
+  G.welcome(p,G.msg('Hit the yellow boost pads and race to the finish!',3));
+  return G.def(p,'turbo','Turbo Track');}
+
+/* 6. Sumo Smash */
+function sumoDef(){const G=GK;const p=G.proj('sumo','Sumo Smash',{sky:'#ffcf9f',deathStyle:'ragdoll'});G.noBase(p);G.spawnAt(p,0,30.5,0,{size:[8,1,8],color:'#ffffff'});
+  const R=G.folder(p,'Ring');G.part(p,R.id,{name:'Ring',shape:'cyl',pos:[0,29,0],size:[60,2,60],color:'#f5e6c8',material:'Wood'});
+  G.part(p,R.id,{name:'Edge',shape:'cyl',pos:[0,28.9,0],size:[62,1.8,62],color:'#c62828',material:'Plastic'});
+  [[-16,-16],[16,16],[16,-16]].forEach(([x,z],i)=>{const r=rigNode({name:'Sumo',pos:[x,32.6,z],scale:1.5,health:999,respawn:3,walkSpeed:8+i*2,colors:{head:'#ffcc80',torso:'#ef5350',arms:'#ffcc80',legs:'#3949ab'}});p.nodes.push(r);
+    G.script(p,r.id,'Chase',blk('ev_start'),G.wait(3),G.forever(blk('rig_walk',{PART:bme(),X:G.ppos('x'),Z:G.ppos('z')}),G.wait(.3)));
+    G.script(p,r.id,'Shove',blk('ev_touch'),blk('pl_knock',{WHO:bme(),P:bn(70)},{RAG:'TRUE'}),G.sound('pad'),G.wait(1.2));});
+  const bat={id:uid(),cls:'Tool',name:'Bonk Bat',parent:'pack',tooltip:'Bonk!',cooldown:.5,swing:true};const h=partNode({parent:bat.id,name:'Handle',pos:[0,3,0],size:[.4,.4,1.2],color:'#6d4c41',material:'Wood'});bat.handle=h.id;
+  p.nodes.push(bat,h,partNode({parent:bat.id,name:'Head',shape:'cyl',pos:[0,3,-2],size:[2.6,.9,.9],rot:[0,90,0],color:'#ffb74d',material:'Wood'}));
+  G.script(p,bat.id,'Hit',blk('ev_tool_hit'),G.iff({block:{type:'s_isrig',inputs:{PART:{block:{type:'tool_hitpart'},shadow:{type:'p_this'}}}}},blk('rig_fling',{PART:{block:{type:'tool_hitpart'},shadow:{type:'p_this'}},P:bn(90)}),G.sadd('Bonks',1),G.sound('pad')),
+    G.iff({block:{type:'s_isplayer',inputs:{PART:{block:{type:'tool_hitpart'},shadow:{type:'p_this'}}}}},blk('pl_as',{WHO:{block:{type:'tool_hitpart'}},DO:doIn(blk('pl_knock',{WHO:{block:{type:'pl_ref',fields:{WHO:'sender'}}},P:bn(80)},{RAG:'TRUE'}))})));
+  G.script(p,'player','Falls',blk('ev_died'),G.sadd('Falls',1));
+  G.welcome(p,G.sset('Falls',0),G.sset('Bonks',0),G.msg('Stay on the ring for 60 seconds! Bonk the sumos with your bat (1).',4),G.until(G.cmp({block:{type:'s_timer'}},'GTE',G.num(60))),G.msg('Sumo champion!',2),blk('g_win'));
+  return G.def(p,'sumo','Sumo Smash');}
+
+/* 7. Color Drop */
+function colorDropDef(){const G=GK;const p=G.proj('colordrop','Color Drop',{sky:'#1d2340',timer:false});G.noBase(p);G.spawnAt(p,0,40.5,-34,{size:[10,1,10],color:'#ffffff'});
+  const names=['Red','Blue','Green','Yellow'],cols=['#ef5350','#42a5f5','#66bb6a','#ffee58'];const M=names.map(n=>G.model(p,n));
+  for(let i=0;i<8;i++)for(let j=0;j<8;j++){const k=(i*3+j*5+((i*j)%3))%4;G.part(p,M[k].id,{name:names[k]+'Tile',pos:[(i-3.5)*6,40,(j-3.5)*6],size:[5.8,1,5.8],color:cols[k],material:'Neon'});}
+  G.part(p,'workspace',{name:'Bridge',pos:[0,40,-27],size:[6,1,6],color:'#ffffff'});
+  const V='vpick';const say=k=>G.msg('Stand on '+names[k].toUpperCase()+'!',2.5);
+  const branch=k=>G.iff(G.cmp(G.vget(V),'EQ',G.num(k+1)),say(k),G.wait(3),...names.flatMap((nm,o)=>o===k?[]:[blk('p_collide',{PART:G.mnamed(nm)},{B:'FALSE'}),blk('p_transp',{PART:G.mnamed(nm),V:bn(.9)})]));
+  const restore=names.flatMap(nm=>[blk('p_collide',{PART:G.mnamed(nm)},{B:'TRUE'}),blk('p_transp',{PART:G.mnamed(nm),V:bn(0)})]);
+  const s=G.script(p,'sss','Rounds',chain(blk('ev_start'),G.sset('Rounds',0),G.msg('Get onto the tiles! When a color is called, stand on it.',3),G.wait(5),
+    G.forever(G.vset(V,G.rnd(1,4)),G.sound('click'),branch(0),branch(1),branch(2),branch(3),G.sound('explode'),G.wait(2),...restore,
+      G.iff({block:{type:'logic_operation',fields:{OP:'AND'},inputs:{A:{block:{type:'logic_operation',fields:{OP:'AND'},inputs:{A:{block:{type:'s_pl_alive'}},B:G.cmp(G.ppos('y'),'GT',G.num(38))}}},B:G.cmp(G.ppos('z'),'GT',G.num(-24))}}},G.sadd('Rounds',1),G.sound('check')),
+      G.iff(G.cmp(G.stat('Rounds'),'GTE',G.num(8)),G.msg('8 rounds survived!',2),G.wait(1),blk('g_win')),G.wait(2))));
+  s.blocks.variables=[{name:'pick',id:V}];
+  G.welcome(p,G.msg('Color Drop',1));
+  return G.def(p,'colordrop','Color Drop');}
+
+/* 8. Maze Escape */
+function mazeDef(){const G=GK;const p=G.proj('maze','Maze Escape',{sky:'#b9c7d9'});
+  const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[130,2,130],color:'#a1887f',material:'Slate'});
+  const Mz=G.folder(p,'Maze');const n=12,S=9,o=-n*S/2;
+  let seed=12345;const rr=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
+  const vis=Array.from({length:n},()=>Array(n).fill(false));const right=Array.from({length:n},()=>Array(n).fill(true)),down=Array.from({length:n},()=>Array(n).fill(true));
+  const st=[[0,0]];vis[0][0]=true;
+  while(st.length){const [x,y]=st[st.length-1];const nb=[[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>[x+dx,y+dy,dx,dy]).filter(([a,b])=>a>=0&&b>=0&&a<n&&b<n&&!vis[a][b]);
+    if(!nb.length){st.pop();continue;}const [a,b,dx,dy]=nb[Math.floor(rr()*nb.length)];
+    if(dx===1)right[x][y]=false;if(dx===-1)right[a][b]=false;if(dy===1)down[x][y]=false;if(dy===-1)down[a][b]=false;vis[a][b]=true;st.push([a,b]);}
+  const wall=(x,z,w,d)=>G.part(p,Mz.id,{name:'Wall',pos:[r3(x),4,r3(z)],size:[w,8,d],color:'#e0e0e0',material:'Brick'});
+  wall(0,o,n*S+1,1);wall(0,-o,n*S+1,1);wall(o,0,1,n*S+1);wall(-o,0,1,n*S+1);
+  for(let x=0;x<n;x++)for(let y=0;y<n;y++){if(right[x][y]&&x<n-1)wall(o+(x+1)*S,o+y*S+S/2,1,S+1);if(down[x][y]&&y<n-1)wall(o+x*S+S/2,o+(y+1)*S,S+1,1);}
+  G.spawnAt(p,o+S/2,.5,o+S/2,{size:[6,1,6]});
+  G.part(p,'workspace',{name:'Exit',pos:[-o-S/2,.5,-o-S/2],size:[6,1,6],color:'#ffc93c',material:'Neon',behavior:'finish'});
+  for(let i=0;i<10;i++){const cx=Math.floor(rr()*n),cy=Math.floor(rr()*n);G.part(p,Mz.id,{name:'Coin',pos:[o+cx*S+S/2,2,o+cy*S+S/2],size:[2,2,2],behavior:'coin',color:'#ffd54f'});}
+  const tr=G.part(p,Mz.id,{name:'Trap',pos:[o+6*S+S/2,1.4,o+6*S+S/2],size:[8,1,1],color:'#ff3b30',material:'Neon',behavior:'kill'});G.script(p,tr.id,'Spin',...SCR.spin(3).blocks.blocks);
+  G.welcome(p,G.sset('Coins',0),G.msg('Find the glowing exit in the far corner. Grab coins on the way!',3));
+  return G.def(p,'maze','Maze Escape');}
+
+/* 9. Target Range */
+function targetsDef(){const G=GK;const p=G.proj('targets','Target Range',{sky:'#cfe8ff'});
+  const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[120,2,160],color:'#9ccc65',material:'Grass'});
+  const R=G.folder(p,'Range');G.part(p,R.id,{name:'Booth',pos:[0,.5,8],size:[30,1,10],color:'#8d6e63',material:'Wood'});
+  G.part(p,R.id,{name:'Counter',pos:[0,2,3],size:[30,3,1],color:'#6d4c41',material:'Wood'});G.part(p,R.id,{name:'Backstop',pos:[0,10,-90],size:[120,20,2],color:'#78909c',material:'Concrete'});
+  const ns=G.prefab(p,'Blaster');ns[0].parent='pack';
+  const hp={block:{type:'tool_hitpart'},shadow:{type:'p_this'}};
+  G.script(p,ns[0].id,'TargetHit',blk('ev_tool_hit'),G.iff(G.cmp({block:{type:'s_partname',inputs:{PART:hp}}},'EQ',{block:{type:'text',fields:{TEXT:'Target'}}}),
+    G.sadd('Score',1),G.sound('coin'),blk('pe_emit',{N:bn(25),PART:hp}),blk('p_setpos',{PART:hp,X:G.rnd(-40,40),Y:G.rnd(3,14),Z:G.rnd(-80,-25)})));
+  for(let i=0;i<6;i++){const t=G.part(p,R.id,{name:'Target',shape:'cyl',pos:[-30+i*12,4+(i%3)*4,-30-(i%2)*25],size:[.6,4,4],rot:[90,0,0],color:i%2?'#ffffff':'#ef5350',material:'Neon'});
+    p.nodes.push(emitterNode({parent:t.id,name:'Burst',enabled:false},'confetti'));
+    G.script(p,t.id,'Bob',blk('ev_start'),G.forever(blk('p_glide',{PART:bme(),X:bn(i%2?6:-6),Y:bn(0),Z:bn(0),S:bn(1.5+i*.2)}),blk('p_glide',{PART:bme(),X:bn(i%2?-6:6),Y:bn(0),Z:bn(0),S:bn(1.5+i*.2)})));}
+  G.welcome(p,G.sset('Score',0),G.msg('Equip the blaster (1) and hit 20 targets as fast as you can!',4),G.until(G.cmp(G.stat('Score'),'GTE',G.num(20))),G.msg('Sharpshooter!',2),blk('g_win'));
+  G.spawnAt(p,0,1.5,10,{size:[6,1,4]});
+  return G.def(p,'targets','Target Range');}
+
+/* 10. Cloud Hop */
+function cloudHopDef(){const G=GK;const p=G.proj('cloudhop','Cloud Hop',{sky:'#8fc8ff'});G.noBase(p);G.spawnAt(p,0,80,0,{size:[12,1,12],color:'#ffffff'});
+  const C=G.folder(p,'Clouds');const P=o=>G.part(p,C.id,Object.assign({color:'#ffffff',material:'Plastic',transparency:.05},o));let z=-6,y=80,x=0,cp=0;
+  const cloud=(w,gap,dy,dx)=>{z-=gap;y+=dy||0;x+=dx||0;P({name:'Cloud',pos:[x,y,z-w/2],size:[w,1.6,w]});z-=w;};
+  const check=()=>{cp++;z-=8;P({name:'Checkpoint',pos:[x,y,z-5],size:[10,1.6,10],color:'#3ddc84',behavior:'check',value:cp,transparency:0});z-=10;};
+  cloud(6,6);cloud(6,9);cloud(5,12,2);cloud(5,13,0,4);check();
+  for(let i=0;i<5;i++)cloud(4,14,i%2?3:-1,i%2?-5:5);check();
+  const up=G.part(p,C.id,{name:'AirJumpOrb',shape:'ball',pos:[x,y+3,z+5],size:[2,2,2],color:'#d68cff',material:'Neon',canCollide:false});
+  G.script(p,up.id,'Triple',blk('ev_touch'),blk('pl_airjumps',{N:bn(2)}),G.msg('Triple jump unlocked!',2),G.sound('win'),blk('p_visible',{PART:bme()},{B:'FALSE'}));
+  for(let i=0;i<4;i++)cloud(4,19,4,i%2?6:-6);check();
+  for(let i=0;i<4;i++){const n=P({name:'DriftCloud',pos:[x,y,z-12],size:[6,1.6,6]});G.script(p,n.id,'Drift',...SCR.glide(i%2?12:-12,0,0,2).blocks.blocks);z-=18;}check();
+  cloud(3,18,6);cloud(3,18,6);cloud(3,18,-4);z-=20;P({name:'Rainbow',pos:[x,y,z-8],size:[16,1.6,16],color:'#ffc93c',behavior:'finish',transparency:0});
+  G.welcome(p,blk('pl_airjumps',{N:bn(1)}),G.msg('You can double jump! Press jump again in the air.',3));
+  return G.def(p,'cloudhop','Cloud Hop');}
+
+/* 11. Freeze Tag */
+function freezeTagDef(){const G=GK;const p=G.proj('freezetag','Freeze Tag',{sky:'#d7f0ff'});
+  const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[140,2,140],color:'#e3f2fd',material:'Ice'});
+  const A=G.folder(p,'Arena');[[-70,0,1,140],[70,0,1,140],[0,-70,140,1],[0,70,140,1]].forEach(([x,z,w,d])=>G.part(p,A.id,{name:'Wall',pos:[x,3,z],size:[w,6,d],color:'#90caf9',material:'Ice',transparency:.3}));
+  for(let i=0;i<12;i++){const a=i*.52,r=20+(i%3)*14;G.part(p,A.id,{name:'IceBlock',pos:[r3(Math.cos(a)*r),2.5,r3(Math.sin(a)*r)],size:[5,5,5],color:'#bbdefb',material:'Ice',transparency:.2});}
+  for(let i=0;i<5;i++){const r=rigNode({name:'Runner',pos:[-40+i*20,2.6,(i%2?-1:1)*(30+i*4)],health:999,respawn:0,walkSpeed:13,colors:{head:'#f5cd30',torso:['#e53935','#8e24aa','#43a047','#fb8c00','#1e88e5'][i],arms:'#f5cd30',legs:'#37474f'}});p.nodes.push(r);
+    G.script(p,r.id,'Wander',blk('ev_start'),G.forever(blk('rig_walk',{PART:bme(),X:G.rnd(-60,60),Z:G.rnd(-60,60)})));
+    G.script(p,r.id,'Tagged',blk('ev_touch'),G.sadd('Tags',1),G.sound('check'),blk('rig_say',{PART:bme(),TEXT:bt('Frozen!'),S:bn(2)}),blk('rig_ragdoll',{PART:bme(),S:bn(2)}),G.wait(3),
+      blk('p_setpos',{PART:bme(),X:G.rnd(-60,60),Y:bn(3),Z:G.rnd(-60,60)}));}
+  G.script(p,'player','TagPlayers',blk('ev_touch_player'),G.sadd('Tags',1),blk('pl_as',{WHO:{block:{type:'pl_touched'}},DO:doIn(blk('pl_freeze',null,{B:'TRUE'}),blk('pl_say',{TEXT:bt('Frozen!'),S:bn(3)}),G.wait(3),blk('pl_freeze',null,{B:'FALSE'}))}));
+  G.welcome(p,G.sset('Tags',0),G.msg('Tag the runners (and other players) to freeze them. 12 tags wins!',4),G.until(G.cmp(G.stat('Tags'),'GTE',G.num(12))),G.msg('Ice cold!',2),blk('g_win'));
+  return G.def(p,'freezetag','Freeze Tag');}
+
+/* 12. Boss Battle */
+function bossDef(){const G=GK;const p=G.proj('boss','Boss Battle',{sky:'#2b1d3a',fog:420,brightness:.85,deathStyle:'ragdoll'});
+  const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[150,2,150],color:'#3e3550',material:'Slate'});
+  const A=G.folder(p,'Arena');for(let i=0;i<8;i++){const a=i*Math.PI/4;G.part(p,A.id,{name:'Pillar',shape:'cyl',pos:[r3(Math.cos(a)*45),8,r3(Math.sin(a)*45)],size:[5,16,5],color:'#6a5a8a',material:'Brick'});}
+  G.part(p,A.id,{name:'Throne',pos:[0,1.5,-55],size:[16,3,10],color:'#ffc93c',material:'Metal'});
+  for(const t of ['Sword','Blaster','Healing potion']){const ns=G.prefab(p,t);ns[0].parent='pack';}
+  G.prefab(p,'Healing potion',{x:40,y:2,z:20});G.prefab(p,'Healing potion',{x:-40,y:2,z:20});
+  const B=rigNode({name:'Brick King',pos:[0,7,-50],scale:2.6,health:500,respawn:0,walkSpeed:7,colors:{head:'#ffcc80',torso:'#6a1b9a',arms:'#ffcc80',legs:'#311b92'}});p.nodes.push(B);
+  p.nodes.push(emitterNode({parent:B.id,name:'Aura'},'magic'));
+  G.script(p,B.id,'Chase',blk('ev_start'),G.wait(4),G.forever(blk('rig_walk',{PART:bme(),X:G.ppos('x'),Z:G.ppos('z')}),G.wait(.4)));
+  G.script(p,B.id,'Stomp',blk('ev_touch'),blk('pl_damage',{N:bn(20)}),blk('pl_knock',{WHO:bme(),P:bn(90)},{RAG:'TRUE'}),G.sound('explode'),G.wait(1.5));
+  G.script(p,B.id,'Minions',blk('ev_start'),G.wait(10),G.forever(blk('rig_say',{PART:bme(),TEXT:bt('Minions, attack!'),S:bn(2)}),
+    blk('rs_copy',{X:bn(-30),Y:bn(2.6),Z:bn(-40)},{NAME:'Minion'}),blk('rs_copy',{X:bn(30),Y:bn(2.6),Z:bn(-40)},{NAME:'Minion'}),G.wait(14)));
+  G.script(p,B.id,'Defeat',blk('ev_rig_died'),G.msg('You defeated the Brick King!',3),G.sound('win'),G.wait(2),blk('g_win'));
+  const Mi=rigNode({name:'Minion',parent:'rs',pos:[0,2.6,0],scale:.8,health:30,respawn:0,walkSpeed:12,colors:{head:'#b39ddb',torso:'#4527a0',arms:'#b39ddb',legs:'#212121'}});p.nodes.push(Mi);
+  G.script(p,Mi.id,'Chase',blk('ev_start'),G.forever(blk('rig_walk',{PART:bme(),X:G.ppos('x'),Z:G.ppos('z')}),G.wait(.2)));
+  G.script(p,Mi.id,'Bite',blk('ev_touch'),blk('pl_damage',{N:bn(6)}),G.wait(1));
+  const sg=guiNode('ScreenGui',{name:'BossHUD'});const lb=guiNode('TextLabel',{parent:sg.id,name:'BossName',text:'THE BRICK KING',gpos:[.5,0,0,12],anchor:[.5,0],gsize:[0,320,0,44],bgT:1,tc:'#ffd54f',font:'Medieval',ts:34,strokeT:2,strokeTc:'#311b92'});p.nodes.push(sg,lb);
+  G.welcome(p,G.msg('Defeat the Brick King! Sword (1), blaster (2), potion (3).',4));
+  G.spawnAt(p,0,.5,24);return G.def(p,'boss','Boss Battle');}
+
 const GAMES=[
   {id:'arena',name:'Brick Battle',tag:'Online battle',desc:'Swords, blasters and jump pads in a walled arena. Knock out training dummies and anyone else who joins.',mode:'project',make:arenaDef},
   {id:'tower',name:'Lava Tower',tag:'Obby · 8 stages',desc:'Climb a spiral of moving, fading and lava-striped platforms around a giant pillar. Spinners guard the middle.',
@@ -1804,8 +2059,22 @@ const GAMES=[
   {id:'sky',name:'Skyline Sprint',tag:'Race · 4 checkpoints',desc:'A speedrun course above the clouds. Hit speed pads to clear big gaps, dodge spinners, beat your best time.',
     build:buildSky,mode:'race',stageWord:'Checkpoint',scene:{sky:0x7fb8ff,fogNear:150,fogFar:560,ground:0x9fb4d6},seed:3,objective:'Cross the finish line'},
   {id:'sandbox',name:'Free Build',tag:'Sandbox',desc:'Place, paint and delete bricks on a studded baseplate. Your build is saved in this browser for next time.',
-    build:buildSandbox,mode:'build',scene:{sky:0xa7d8ff,fogNear:220,fogFar:800},seed:1,objective:'Tap or click to build'}
+    build:buildSandbox,mode:'build',scene:{sky:0xa7d8ff,fogNear:220,fogFar:800},seed:1,objective:'Tap or click to build'},
+  {id:'lavarise',cat:'Survival',name:'Lava Rising',tag:'Survival · climb',desc:'The lava is rising! Race up a spiral tower of colorful steps before it reaches you.',mode:'project',make:lavaRiseDef},
+  {id:'zombies',cat:'Battle',name:'Zombie Survival',tag:'Survival · 25 KOs',desc:'Hold off waves of zombies in a fenced town with a sword, a blaster and healing potions.',mode:'project',make:zombiesDef},
+  {id:'rainbow',cat:'Obby',name:'Rainbow Obby',tag:'Obby · 10 stages',desc:'Ten colorful stages: lava beams, jump pads, moving and vanishing platforms, a spinner and a sky elevator.',mode:'project',make:rainbowDef},
+  {id:'gems',cat:'Collect',name:'Gem Hunt',tag:'Collect · 15 gems',desc:'Explore a hilly island with trees, a pond and a tall tower to find 15 hidden gems.',mode:'project',make:gemsDef},
+  {id:'turbo',cat:'Race',name:'Turbo Track',tag:'Race · 5 checkpoints',desc:'A sky racetrack with boost pads, ramps, a launcher and spinning sweepers. Beat your best time.',mode:'project',make:turboDef},
+  {id:'sumo',cat:'Battle',name:'Sumo Smash',tag:'Party · 60 seconds',desc:'Stay on the ring for a minute while big sumos try to shove you off. Bonk them back with your bat.',mode:'project',make:sumoDef},
+  {id:'colordrop',cat:'Party',name:'Color Drop',tag:'Party · 8 rounds',desc:'A color is called, every other tile vanishes. Run to the right color before the floor drops!',mode:'project',make:colorDropDef},
+  {id:'maze',cat:'Puzzle',name:'Maze Escape',tag:'Puzzle · find the exit',desc:'Find your way through a walled maze to the glowing exit. Grab coins and dodge the spinning trap.',mode:'project',make:mazeDef},
+  {id:'targets',cat:'Battle',name:'Target Range',tag:'Aim · 20 targets',desc:'Grab the blaster and hit 20 moving targets as fast as you can. Each hit pops in confetti.',mode:'project',make:targetsDef},
+  {id:'cloudhop',cat:'Obby',name:'Cloud Hop',tag:'Obby · double jump',desc:'Double jump between clouds high in the sky. Grab the purple orb for a triple jump.',mode:'project',make:cloudHopDef},
+  {id:'freezetag',cat:'Party',name:'Freeze Tag',tag:'Party · 12 tags',desc:'Chase the runners around an icy arena and tag them to freeze them. Tag other players too!',mode:'project',make:freezeTagDef},
+  {id:'boss',cat:'Battle',name:'Boss Battle',tag:'Boss · 500 health',desc:'Face the giant Brick King and his minions with a sword, a blaster and potions.',mode:'project',make:bossDef}
 ];
+GAMES.forEach(g=>{if(!g.cat)g.cat={arena:'Battle',tower:'Obby',coins:'Collect',sky:'Race',sandbox:'Build'}[g.id]||'Other';});
+let GAME_CAT=store.get('gameCat','All');
 
 /* ---------- rbxlx import ---------- */
 const BRICK={1:0xf2f3f3,5:0xd7c59a,21:0xc4281c,23:0x0d69ac,24:0xf5cd30,26:0x1b2a35,28:0x287f47,37:0x4b974b,106:0xda8541,192:0x694028,194:0xa3a2a5,199:0x635f62,1001:0xf8f8f8,1003:0x111111,1004:0xff0000,1010:0x0000ff};
@@ -3632,6 +3901,7 @@ function luaForScript(node,withLib){
     case 's_touching':return `BY.touching(${Pt(b)})`;case 's_distance':return `BY.dist(${Pt(b)})`;
     case 's_player':return `BY.ppos(${luaStr(fld(b,'AXIS'))})`;case 's_prop':return `BY.prop(${Pt(b)}, ${luaStr(fld(b,'PROP'))})`;
     case 's_pl_ragdoll':return 'false';
+    case 's_partname':return `(${Pt(b)} and ${Pt(b)}.Name or "")`;
     case 's_touch_name':return `(function() local names = {} for _, plr in Players:GetPlayers() do local c = plr.Character if c then for _, p in workspace:GetPartsInPart(script.Parent) do if p:IsDescendantOf(c) then table.insert(names, plr.Name) break end end end end return ${fld(b,'MODE')==='all'?'table.concat(names, ", ")':'names[1] or ""'} end)()`;
     case 's_touch_count':return '(function() local n = 0 for _, plr in Players:GetPlayers() do local c = plr.Character if c then for _, p in workspace:GetPartsInPart(script.Parent) do if p:IsDescendantOf(c) then n += 1 break end end end end return n end)()';
     case 's_pl_name':return '(player() and player().Name or "")';case 's_touch_player':L.notes.add('Player-to-player touch checks need a Touched handler on the character in Roblox.');return 'false';case 'pl_ref':case 'pl_ref_touchme':case 'pl_touched':case 'pl_ref_touch':case 'pl_ref_named':return 'Players:GetPlayers()';
@@ -4088,6 +4358,7 @@ function defineBlocks(){
     V_({type:'s_mouse_down',message0:'mouse down?',tooltip:'True while the player holds the left mouse button (or a finger) on the game.'},'Boolean','sense_blocks'),
     V_({type:'s_mouse_part',message0:'part under mouse',tooltip:'The part the mouse is pointing at, or nothing.'},'Part','sense_blocks'),
     V_({type:'s_mouse_xy',message0:'mouse %1',args0:[{type:'field_dropdown',name:'AXIS',options:[['x','x'],['y','y']]}],tooltip:'Mouse position like Scratch: x from -240 to 240, y from -180 to 180, with 0, 0 in the middle.'},'Number','sense_blocks'),
+    V_({type:'s_partname',message0:'name of %1',args0:[PT()],tooltip:'The name of a part, rig or model. Handy with "hit part" to check what a tool hit.'},'String','sense_blocks'),
     V_({type:'s_touching',message0:'player touching %1 ?',args0:[PT()]},'Boolean','sense_blocks'),
     V_({type:'s_key',message0:'key %1 pressed?',args0:[{type:'field_dropdown',name:'KEY',options:KEYOPTS}]},'Boolean','sense_blocks'),
     V_({type:'s_grounded',message0:'player on ground?'},'Boolean','sense_blocks'),
@@ -4138,7 +4409,7 @@ function defineBlocks(){
     {kind:'category',name:'Storage',categorystyle:'storage',contents:[{kind:'label',text:'ReplicatedStorage'},K('rs_copy',{X:n_(0),Y:n_(20),Z:n_(0)}),K('rs_onto',{PART:me()}),K('rs_last')]},
     {kind:'category',name:'Game',categorystyle:'game',contents:[K('g_msg',{TEXT:t_('Hello!'),S:n_(2)}),K('g_print',{TEXT:t_('Hello from my script')}),K('g_stat_change',{N:n_(1)}),K('g_stat_set',{N:n_(0)}),
       K('g_win'),K('g_sound'),K('g_sky'),K('g_reset_timer')]},
-    {kind:'category',name:'Sensing',categorystyle:'sensing',contents:[K('s_health'),K('s_players'),K('s_touching',{PART:me()}),K('s_touch_count'),K('s_touch_name'),K('s_key'),K('s_mouse_down'),K('s_mouse_part'),K('s_mouse_xy'),K('s_grounded'),K('s_distance',{PART:me()}),K('s_player'),K('s_prop',{PART:me()}),K('s_timer'),K('s_stat')]},
+    {kind:'category',name:'Sensing',categorystyle:'sensing',contents:[K('s_health'),K('s_players'),K('s_touching',{PART:me()}),K('s_touch_count'),K('s_touch_name'),K('s_partname',{PART:me()}),K('s_key'),K('s_mouse_down'),K('s_mouse_part'),K('s_mouse_xy'),K('s_grounded'),K('s_distance',{PART:me()}),K('s_player'),K('s_prop',{PART:me()}),K('s_timer'),K('s_stat')]},
     {kind:'category',name:'Operators',categorystyle:'ops',contents:[K('math_number'),K('math_arithmetic',{A:n_(1),B:n_(1)}),K('math_random_int',{FROM:n_(1),TO:n_(10)}),
       K('logic_compare',{A:n_(0),B:n_(0)}),K('logic_operation'),K('logic_negate'),K('logic_boolean'),K('text'),K('text_join',{ADD0:t_('Score: ')})]},
     {kind:'category',name:'Variables',categorystyle:'variables',custom:'BY_VARS'}
@@ -4160,6 +4431,22 @@ function drawIso(canvas,cubes,skyA,skyB){
     poly([[x+1,y,z],[x+1,y,z+1],[x+1,y+1,z+1],[x+1,y+1,z]],shade(c,.66));
   }
 }
+const TB=(fn,a,b)=>c=>{const q=[];fn(q);drawIso(c,q,a,b);};
+const floor=(q,n,col,y)=>{for(let x=0;x<n;x++)for(let z=0;z<n;z++)q.push([x,y==null?-1:y,z,typeof col==='function'?col(x,z):col]);};
+const THUMBS_MORE={
+  lavarise:TB(q=>{floor(q,8,0xff5a1f);for(let y=0;y<7;y++){q.push([3,y,3,0x4a3f63]);q.push([4,y,4,0x4a3f63]);}for(let i=0;i<10;i++){const a=i*.62;q.push([Math.round(3.5+3*Math.cos(a)),Math.floor(i*.7),Math.round(3.5+3*Math.sin(a)),STAGE_COLS[i%8]]);}q.push([4,7,4,0xffc93c]);},'#3a1d2e','#7a2a2a'),
+  zombies:TB(q=>{floor(q,9,0x4f6b3a);q.push([1,0,1,0xa1887f],[1,1,1,0x5d4037],[6,0,2,0x90a4ae],[6,1,2,0x5d4037]);q.push([4,0,5,0x7cb342],[4,1,5,0x4e6b3a],[4,2,5,0x7cb342],[6,0,6,0x7cb342],[6,1,6,0x4e6b3a],[6,2,6,0x7cb342],[2,0,6,0xc0c7d4]);},'#55606e','#8a96a6'),
+  rainbow:TB(q=>{[[0,0],[1,0],[2,1],[3,1],[4,2],[5,2],[6,3],[7,3],[8,4]].forEach(([i,y],k)=>q.push([i,y,4-(k%2),k===8?0xffc93c:OBBY_COLS[k].replace?parseInt(OBBY_COLS[k].slice(1),16):0x5c9dff]));q.push([3,0,6,0xff3b30],[4,0,6,0xff3b30]);},'#7fc6ff','#d6efff'),
+  gems:TB(q=>{floor(q,9,0x58b947);q.push([2,0,2,0x4a9f3c],[2,1,2,0x3f8a33],[6,0,5,0x6d4c41],[6,1,5,0x2e7d32],[6,2,5,0x2e7d32],[4,0,6,0x2f8fd8]);q.push([1,0,6,'coin'],[5,0,2,'coin'],[2,2,2,'coin'],[7,0,7,'coin']);},'#8fd0ff','#e0f6ff'),
+  turbo:TB(q=>{for(let i=0;i<9;i++){q.push([i,1,3,i===2||i===6?0xffd400:0x3b4252]);q.push([i,1,4,i===2||i===6?0xffd400:0x3b4252]);}q.push([8,1,5,0xffc93c],[4,2,3,0xff7b5c]);},'#5f9eff','#bcdcff'),
+  sumo:TB(q=>{for(let x=0;x<9;x++)for(let z=0;z<9;z++){const d=Math.hypot(x-4,z-4);if(d<4.6)q.push([x,0,z,d>3.8?0xc62828:0xf5e6c8]);}q.push([3,1,3,0xef5350],[3,2,3,0xffcc80],[5,1,5,0xef5350],[5,2,5,0xffcc80],[5,1,3,0x1e88e5],[5,2,3,0xf5cd30]);},'#ffb57a','#ffe2c4'),
+  colordrop:TB(q=>{const C=[0xef5350,0x42a5f5,0x66bb6a,0xffee58];for(let x=0;x<8;x++)for(let z=0;z<8;z++){const k=(x*3+z*5+((x*z)%3))%4;if(k===1||(x+z)%5)q.push([x,0,z,C[k]]);}q.push([3,1,3,0x1e88e5],[3,2,3,0xf5cd30]);},'#1d2340','#3a4374'),
+  maze:TB(q=>{floor(q,9,0xa1887f);const M=['111111111','100010001','101010111','101000101','101111101','100001001','111101011','100000001','111111111'];M.forEach((r,z)=>[...r].forEach((ch,x)=>{if(ch==='1')q.push([x,0,z,0xe0e0e0]);}));q.push([7,0,7,0xffc93c]);},'#b9c7d9','#e8eef6'),
+  targets:TB(q=>{floor(q,9,0x9ccc65);for(let x=0;x<9;x++)q.push([x,0,0,0x78909c],[x,1,0,0x78909c]);q.push([2,1,2,0xef5350],[5,2,2,0xffffff],[7,1,3,0xef5350],[4,0,7,0x6d4c41],[4,1,7,0x455a64]);},'#a8d4ff','#e6f3ff'),
+  cloudhop:TB(q=>{[[0,0,4],[2,1,4],[4,2,3],[6,3,4],[8,4,4]].forEach(([x,y,z],i)=>{q.push([x,y,z,i===4?0xffc93c:0xffffff]);q.push([x,y,z+1,i===4?0xffc93c:0xffffff]);});q.push([5,4,3,0xd68cff]);},'#6fb2ff','#d8ecff'),
+  freezetag:TB(q=>{floor(q,9,0xe3f2fd);q.push([2,0,2,0xbbdefb],[2,1,2,0xbbdefb],[6,0,6,0xbbdefb],[4,0,4,0xe53935],[4,1,4,0xf5cd30],[6,0,3,0x81d4fa],[6,1,3,0x81d4fa]);},'#bfe3ff','#effaff'),
+  boss:TB(q=>{floor(q,9,0x3e3550);q.push([0,0,0,0x6a5a8a],[0,1,0,0x6a5a8a],[8,0,0,0x6a5a8a],[8,1,0,0x6a5a8a]);for(let y=0;y<3;y++){q.push([4,y,3,0x311b92]);q.push([5,y,3,0x311b92]);}for(let y=3;y<5;y++){q.push([4,y,3,0x6a1b9a]);q.push([5,y,3,0x6a1b9a]);}q.push([4,5,3,0xffcc80],[5,5,3,0xffcc80],[2,0,7,0xc0c7d4]);},'#2b1d3a','#4a3260')
+};
 const THUMBS={
   tower:c=>{const q=[];for(let x=0;x<8;x++)for(let z=0;z<8;z++)q.push([x,-1,z,0xff5a1f]);for(let y=0;y<7;y++){q.push([3,y,3,0x4a3f63]);q.push([4,y,3,0x4a3f63]);q.push([3,y,4,0x4a3f63]);q.push([4,y,4,0x4a3f63]);}
     for(let i=0;i<12;i++){const a=i*.55,x=Math.round(3.5+3*Math.cos(a)),z=Math.round(3.5+3*Math.sin(a));q.push([x,Math.floor(i*.55),z,STAGE_COLS[Math.floor(i/3)]]);}
@@ -4179,16 +4466,19 @@ const THUMBS={
 };
 const ago=ms=>{const s=(Date.now()-ms)/1000;if(s<60)return 'just now';if(s<3600)return Math.floor(s/60)+' min ago';if(s<86400)return Math.floor(s/3600)+' h ago';return Math.floor(s/86400)+' d ago';};
 let delArm=null;
+document.addEventListener('click',e=>{const c=e.target.closest('#gameChips [data-cat]');if(!c)return;GAME_CAT=c.dataset.cat;store.set('gameCat',GAME_CAT);renderCards();});
 function renderCards(){
   const grid=$('#grid');grid.innerHTML='';const bests=store.get('bests',{});
-  GAMES.forEach(gm=>{const b=document.createElement('button');b.type='button';b.className='card';
+  const chips=$('#gameChips');if(chips){const cats=['All',...new Set(GAMES.map(g=>g.cat))];chips.innerHTML=cats.map(c=>`<button type="button" class="chip" aria-pressed="${c===GAME_CAT}" data-cat="${c}">${c}${c==='All'?' ('+GAMES.length+')':''}</button>`).join('');}
+  GAMES.filter(gm=>GAME_CAT==='All'||gm.cat===GAME_CAT).forEach(gm=>{const b=document.createElement('button');b.type='button';b.className='card';
     const bv=bests[gm.id];let best='';
     if(gm.id==='arena')best='Online PvP';
+    else if(gm.mode==='project')best=bv!=null?`Best <b>${fmt(bv)}</b>`:'Not won yet';
     else if(gm.mode==='race')best=bv!=null?`Best <b>${fmt(bv)}</b>`:'No time yet';
     else if(gm.mode==='coins')best=bv?`Best <b>${bv.coins}</b> coins`:'No score yet';
     else{const n=(store.get('build',null)||[]).length;best=n?`<b>${n}</b> blocks saved`:'Fresh baseplate';}
     b.innerHTML=`<canvas aria-hidden="true"></canvas><div class="body"><span class="tag">${gm.tag}</span><h3>${gm.name}</h3><p>${gm.desc}</p><div class="meta"><span class="best">${best}</span><span class="playpill">Play</span></div></div>`;
-    THUMBS[gm.id](b.querySelector('canvas'));
+    (THUMBS[gm.id]||THUMBS_MORE[gm.id]||THUMBS.baseplate)(b.querySelector('canvas'));
     b.dataset.room=gm.id;b.onclick=()=>startGame(gm.make?gm.make():gm);grid.appendChild(b);});
   updateCardCounts();
   const my=$('#mygrid');my.innerHTML='';

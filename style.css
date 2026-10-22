@@ -92,6 +92,10 @@ button.card:hover{transform:translateY(-3px);border-color:var(--accent)}
 #emoteMenu button{font:inherit;font-size:12px;font-weight:700;color:var(--ink);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 6px;cursor:pointer;text-align:left}
 #emoteMenu button:hover{border-color:var(--sky)}
 #emoteMenu p{grid-column:1/-1;margin:2px 4px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:-4px 0 2px}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer}
+.chip:hover{border-color:var(--sky)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#1a0e00}
 .acct{cursor:pointer;font-weight:800;font-size:13px}
 .acct i{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:11px;color:#0d1420;font-weight:800}
 .acctform{display:flex;flex-direction:column;gap:12px}
