@@ -1827,12 +1827,24 @@ const GK=(()=>{
   const part=(p,parent,o)=>{const n=partNode(Object.assign({parent},o));p.nodes.push(n);return n;};
   const noBase=p=>{p.nodes=p.nodes.filter(n=>n.name!=='Baseplate');};
   const spawnAt=(p,x,y,z,o)=>{Object.assign(p.nodes.find(n=>n.behavior==='spawn'),{pos:[x,y,z]},o||{});};
-  return {num,stat,cmp,rnd,add,join,iff,forever,wait,msg,sset,sadd,sound,until,pnamed,mnamed,ppos,vget,vset,proj,def,welcome,script,prefab,folder,model,part,noBase,spawnAt};
+  const arith=(op,a,b)=>({block:{type:'math_arithmetic',fields:{OP:op},inputs:{A:a,B:b}}});
+  const ifElse=(cond,a,b)=>blk('controls_if',{IF0:cond,DO0:doIn(...a),ELSE:doIn(...b)},null,{extraState:{hasElse:true}});
+  const vchg=(id,n)=>blk('math_change',{DELTA:typeof n==='number'?bn(n):n},{VAR:{id}});
+  const tp=(x,y,z)=>blk('pl_tpxyz',{X:bn(x),Y:bn(y),Z:bn(z)});
+  const dget=(k,d)=>({block:{type:'data_get_or',inputs:{KEY:bt(k),DEF:bn(d)}}});
+  const dset=(k,v)=>blk('data_set',{KEY:bt(k),V:v});
+  const vars=(sc,list)=>{sc.blocks.variables=list.map(([name,id])=>({name,id}));return sc;};
+  const OR=(a,b)=>({block:{type:'logic_operation',fields:{OP:'OR'},inputs:{A:a,B:b}}});
+  const AND=(a,b)=>({block:{type:'logic_operation',fields:{OP:'AND'},inputs:{A:a,B:b}}});
+  /* keeps a "Best ..." stat that is saved between visits (higher is better) */
+  const best=(p,st,key)=>script(p,'sss','Best '+st,blk('ev_data_loaded'),sset('Best '+st,dget(key,0)),
+    forever(iff(cmp(stat(st),'GT',stat('Best '+st)),sset('Best '+st,stat(st)),dset(key,stat(st))),wait(.5)));
+  return {arith,ifElse,vchg,tp,dget,dset,vars,OR,AND,best,num,stat,cmp,rnd,add,join,iff,forever,wait,msg,sset,sadd,sound,until,pnamed,mnamed,ppos,vget,vset,proj,def,welcome,script,prefab,folder,model,part,noBase,spawnAt};
 })();
 const OBBY_COLS=['#5c9dff','#9b6bff','#ff6bb5','#4fd1c5','#ffb84d','#7ad36b','#ff7b5c','#c9d36b','#5cc8ff','#e57373'];
 
 /* 1. Lava Rising */
-function lavaRiseDef(){const G=GK;const p=G.proj('lavarise','Lava Rising',{sky:'#3a1d2e',fog:500});
+function lavaRiseDef(){const G=GK;const p=G.proj('lavarise','Lava Rising',{sky:'#3a1d2e',fog:500,saveStats:false,saveCheckpoint:false});
   const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[140,2,140],color:'#3b2a2a',material:'Slate'});
   const T=G.folder(p,'Tower');
   G.part(p,T.id,{name:'Pillar',shape:'cyl',pos:[0,60,0],size:[10,120,10],color:'#4a3f63',material:'Brick'});
@@ -1840,16 +1852,21 @@ function lavaRiseDef(){const G=GK;const p=G.proj('lavarise','Lava Rising',{sky:'
     const n=G.part(p,T.id,{name:'Step',pos:[r3(Math.cos(a)*r),r3(y),r3(Math.sin(a)*r)],size:tiny?[3,1,3]:[6,1,6],color:OBBY_COLS[i%OBBY_COLS.length],material:i%7===3?'Neon':'Plastic'});
     if(i%9===6)G.script(p,n.id,'Vanish',...SCR.vanish().blocks.blocks);
     if(i===16)Object.assign(n,{behavior:'jump',value:80,color:'#22d3ee',material:'Neon',name:'JumpPad'});}
-  G.part(p,T.id,{name:'Goal',pos:[0,128,0],size:[14,1,14],color:'#ffc93c',material:'Metal',behavior:'finish'});
+  const goal=G.part(p,T.id,{name:'Goal',pos:[0,128,0],size:[14,1,14],color:'#ffc93c',material:'Neon'});
   const lava=G.part(p,'workspace',{name:'Lava',pos:[0,-3,0],size:[150,2,150],color:'#ff5a1f',material:'Neon',behavior:'kill',transparency:.08});
-  G.script(p,lava.id,'Rise',blk('ev_start'),G.wait(6),G.msg('The lava is rising! Climb!',2),G.sound('boost'),
-    G.forever(blk('p_glide',{PART:bme(),X:bn(0),Y:bn(1),Z:bn(0),S:bn(1.1)})));
-  G.script(p,lava.id,'Reset',blk('ev_died'),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-3),Z:bn(0)}),G.msg('The lava drops back down. Try again!',2));
-  G.welcome(p,G.sset('Height',0),G.msg('Climb the tower before the lava gets you!',3),G.forever(G.sset('Height',G.ppos('y')),G.wait(.25)));
+  const GR='vgrace',VL=[['grace',GR]];
+  const speed=G.arith('DIVIDE',G.num(1.2),G.arith('ADD',G.num(1),G.arith('MULTIPLY',G.stat('Round'),G.num(.3))));
+  G.vars(G.script(p,lava.id,'Rise',blk('ev_start'),G.vset(GR,G.num(6)),G.forever(G.ifElse(G.cmp(G.vget(GR),'GT',G.num(0)),[G.vchg(GR,-1),G.wait(1)],
+    [blk('p_glide',{PART:bme(),X:bn(0),Y:bn(1),Z:bn(0),S:speed})]))),VL);
+  const reset=()=>[blk('p_setpos',{PART:G.pnamed('Lava'),X:bn(0),Y:bn(-3),Z:bn(0)}),G.vset(GR,G.num(5))];
+  G.vars(G.script(p,goal.id,'NextRound',blk('ev_touch'),G.sadd('Round',1),G.sound('win'),G.msg(G.join('Round ',G.stat('Round'),'! The lava gets faster...'),3),G.tp(4,4,26),...reset()),VL);
+  G.vars(G.script(p,'sss','LavaGotYou',blk('ev_died'),G.msg(G.join('The lava got you on round ',G.stat('Round'),'. Back to round 1!'),3),G.sset('Round',1),...reset()),VL);
+  G.welcome(p,G.sset('Round',1),G.sset('Height',0),G.msg('Reach the gold top, then climb again. The lava gets faster every round!',4),G.forever(G.sset('Height',G.ppos('y')),G.wait(.25)));
+  G.best(p,'Round','lava_round');
   G.spawnAt(p,4,.5,26);return G.def(p,'lavarise','Lava Rising');}
 
 /* 2. Zombie Survival */
-function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky:'#55606e',fog:420,brightness:.8});
+function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky:'#55606e',fog:420,brightness:.8,timer:false,saveStats:false,saveCheckpoint:false});
   const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[180,2,180],color:'#4f6b3a',material:'Grass'});
   const F=G.folder(p,'Town');
   [[-30,-20,14,10],[28,24,12,12],[-26,34,10,14],[36,-34,16,10]].forEach(([x,z,w,d],i)=>{G.part(p,F.id,{name:'House',pos:[x,4,z],size:[w,8,d],color:['#a1887f','#90a4ae','#bcaaa4','#8d6e63'][i],material:'Brick'});
@@ -1861,11 +1878,13 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
   const Z=rigNode({name:'Zombie',parent:'rs',pos:[0,2.6,0],health:60,respawn:0,walkSpeed:10,colors:{head:'#7cb342',torso:'#4e6b3a',arms:'#7cb342',legs:'#37474f'}});p.nodes.push(Z);
   G.script(p,Z.id,'Chase',blk('ev_start'),G.forever(blk('rig_walk',{PART:bme(),X:G.ppos('x'),Z:G.ppos('z')}),G.wait(.2)));
   G.script(p,Z.id,'Bite',blk('ev_touch'),blk('pl_damage',{N:bn(12)}),blk('rig_say',{PART:bme(),TEXT:bt('Braaains!'),S:bn(1)}),G.wait(1));
-  G.script(p,Z.id,'KO',blk('ev_rig_died'),G.sadd('KOs',1));
-  G.welcome(p,G.sset('KOs',0),G.msg('Zombies are coming! Grab your sword (1) or blaster (2). Knock out 25 to win.',4),G.wait(4),
-    G.forever(blk('rs_copy',{X:G.rnd(-80,80),Y:bn(2.6),Z:{block:{type:'math_number',fields:{NUM:-80}}}},{NAME:'Zombie'}),G.wait(G.rnd(2,4)),
-      blk('rs_copy',{X:{block:{type:'math_number',fields:{NUM:80}}},Y:bn(2.6),Z:G.rnd(-80,80)},{NAME:'Zombie'}),G.wait(G.rnd(2,4))));
-  G.script(p,'sss','WinCheck',blk('ev_start'),G.until(G.cmp(G.stat('KOs'),'GTE',G.num(25))),G.msg('You survived the horde!',3),G.wait(1),blk('g_win'));
+  G.vars(G.script(p,Z.id,'KO',blk('ev_rig_died'),G.sadd('KOs',1),G.vchg('vzleft',-1)),[['zombies left','vzleft']]);
+  const ZL='vzleft';const edge=()=>G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[blk('rs_copy',{X:G.rnd(-80,80),Y:bn(2.6),Z:G.rnd(-82,-78)},{NAME:'Zombie'})],[blk('rs_copy',{X:G.rnd(78,82),Y:bn(2.6),Z:G.rnd(-80,80)},{NAME:'Zombie'})]);
+  G.vars(G.script(p,'sss','Waves',blk('ev_start'),G.sset('Wave',0),G.sset('KOs',0),G.msg('Zombies attack in waves. Grab your sword (1) or blaster (2). How long can you last?',4),G.wait(4),
+    G.forever(G.sadd('Wave',1),G.msg(G.join('Wave ',G.stat('Wave'),'!'),2),G.sound('check'),G.vset(ZL,G.arith('ADD',G.arith('MULTIPLY',G.stat('Wave'),G.num(3)),G.num(2))),
+      blk('controls_repeat_ext',{TIMES:G.vget(ZL),DO:doIn(edge(),G.wait(1.1))}),G.until(G.cmp(G.vget(ZL),'LTE',G.num(0))),
+      G.msg('Wave cleared! +50 health. Next wave in 5 seconds...',3),blk('pl_heal',{N:bn(50)}),G.wait(5))),[['zombies left',ZL]]);
+  G.best(p,'Wave','zombie_wave');
   return G.def(p,'zombies','Zombie Survival');}
 
 /* 3. Rainbow Obby */
@@ -1902,7 +1921,7 @@ function rainbowDef(){const G=GK;const p=G.proj('rainbow','Rainbow Obby',{sky:'#
   return G.def(p,'rainbow','Rainbow Obby');}
 
 /* 4. Gem Hunt */
-function gemsDef(){const G=GK;const p=G.proj('gems','Gem Hunt',{sky:'#a6e3ff'});
+function gemsDef(){const G=GK;const p=G.proj('gems','Gem Hunt',{sky:'#a6e3ff',timer:false,saveStats:true,saveCheckpoint:false});
   const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[220,2,220],color:'#58b947',material:'Grass'});
   const W_=G.folder(p,'World');const P=o=>G.part(p,W_.id,o);
   const hills=[[-40,-30,24,8],[50,-50,30,14],[-60,50,20,10],[30,40,26,6],[0,-80,18,20]];
@@ -1913,32 +1932,44 @@ function gemsDef(){const G=GK;const p=G.proj('gems','Gem Hunt',{sky:'#a6e3ff'});
   P({name:'Tower',pos:[80,15,80],size:[8,30,8],color:'#8c95a6',material:'Brick'});
   P({name:'JumpPad',pos:[72,.2,80],size:[5,.4,5],color:'#22d3ee',material:'Neon',behavior:'jump',value:115});
   const spots=[[0,1.5,-12],[-40,9.5,-30],[50,15.5,-50],[-60,11.5,50],[30,7.5,40],[0,21.5,-80],[80,31.5,80],[-10,1.5,20],[-95,1.5,-95],[95,1.5,-90],[-90,1.5,95],[60,1.5,10],[-20,1.5,-55],[15,1.5,75],[-75,1.5,0]];
-  spots.forEach(([x,y,z])=>P({name:'Gem',pos:[x,y,z],size:[2,2,2],behavior:'coin',color:'#ffd54f'}));
-  const sg=guiNode('ScreenGui',{name:'HUD'});const lb=guiNode('TextLabel',{parent:sg.id,name:'GemLabel',text:'Gems: 0 / 15',gpos:[1,-20,0,76],anchor:[1,0],gsize:[0,210,0,48],bg:'#7e57c2',bgT:.05,tc:'#ffffff',font:'Cartoon',ts:24,radius:24,strokeT:1.5,strokeTc:'#311b92'});p.nodes.push(sg,lb);
-  G.script(p,lb.id,'Count',blk('ev_start'),G.forever(blk('gui_settext',{GUI:{shadow:{type:'gui_this'}},TEXT:G.join('Gems: ',G.stat('Coins'),' / 15')}),G.wait(.2)));
-  G.welcome(p,G.sset('Coins',0),G.msg('Find all 15 gems hidden around the island!',3),G.until(G.cmp(G.stat('Coins'),'GTE',G.num(15))),G.msg('Every gem found!',2),G.wait(1),blk('g_win'));
+  const jump=()=>blk('p_setpos',{PART:bme(),X:G.rnd(-95,95),Y:bn(1.5),Z:G.rnd(-95,95)});
+  spots.forEach(([x,y,z])=>{const g=P({name:'Gem',shape:'ball',pos:[x,y,z],size:[1.8,1.8,1.8],color:'#ffd54f',material:'Neon',canCollide:false});
+    p.nodes.push(emitterNode({parent:g.id,name:'Shine',rate:3},'sparkles'));
+    G.script(p,g.id,'Collect',blk('ev_touch'),G.sadd('Gems',1),G.sound('coin'),blk('pe_emit',{N:bn(20),PART:bme()}),jump());
+    G.script(p,g.id,'Spin',blk('ev_start'),G.forever(blk('p_rotate',{PART:bme(),DEG:bn(6)},{AXIS:'y'}),G.wait(0)));});
+  const cr=P({name:'Crystal',shape:'ball',pos:[0,4,-30],size:[3,3,3],color:'#d68cff',material:'Neon',canCollide:false});p.nodes.push(emitterNode({parent:cr.id,name:'Magic'},'magic'));
+  G.script(p,cr.id,'Collect',blk('ev_touch'),G.sadd('Gems',5),G.sound('win'),G.msg('Super crystal! +5 gems',2),blk('pe_emit',{N:bn(60),PART:bme()}),jump());
+  G.script(p,cr.id,'Wander',blk('ev_start'),G.forever(G.wait(15),jump(),G.msg('The super crystal moved somewhere new...',2)));
+  const sg=guiNode('ScreenGui',{name:'HUD'});const lb=guiNode('TextLabel',{parent:sg.id,name:'GemLabel',text:'Gems: 0',gpos:[1,-20,0,76],anchor:[1,0],gsize:[0,210,0,48],bg:'#7e57c2',bgT:.05,tc:'#ffffff',font:'Cartoon',ts:24,radius:24,strokeT:1.5,strokeTc:'#311b92'});p.nodes.push(sg,lb);
+  G.script(p,lb.id,'Count',blk('ev_start'),G.forever(blk('gui_settext',{GUI:{shadow:{type:'gui_this'}},TEXT:G.join('Gems: ',G.stat('Gems'))}),G.wait(.2)));
+  G.welcome(p,G.msg('Gems keep popping up in new places, and the purple super crystal is worth 5. Your total is saved!',4));
   return G.def(p,'gems','Gem Hunt');}
 
 /* 5. Turbo Track */
-function turboDef(){const G=GK;const p=G.proj('turbo','Turbo Track',{sky:'#7fb8ff'});G.noBase(p);G.spawnAt(p,0,60,0,{size:[14,1,14]});
+function turboDef(){const G=GK;const p=G.proj('turbo','Turbo Track',{sky:'#7fb8ff',saveStats:false,saveCheckpoint:false});G.noBase(p);G.spawnAt(p,0,60,0,{size:[14,1,14]});
   const T=G.folder(p,'Track');const P=o=>G.part(p,T.id,o);let z=-7,y=60,cp=0;
   const road=(len,o)=>{P(Object.assign({name:'Road',pos:[0,y,z-len/2],size:[12,1,len],color:'#3b4252',material:'Concrete'},o||{}));z-=len;};
   const speed=()=>P({name:'Boost',pos:[0,y+.1,z+4],size:[8,.4,5],color:'#ffd400',material:'Neon',behavior:'speed',value:3});
-  const check=()=>{cp++;P({name:'Checkpoint',pos:[0,y,z-5],size:[12,1,10],color:'#3ddc84',behavior:'check',value:cp});z-=10;};
+  const check=()=>{cp++;const c=P({name:'Checkpoint',pos:[0,y,z-5],size:[12,1,10],color:'#3ddc84',material:'Neon'});G.script(p,c.id,'Save',blk('ev_touch'),blk('pl_checkpoint',{PART:bme()}),G.sound('check'));z-=10;};
   road(40);speed();road(10);z-=22;road(30);check();
   road(10);P({name:'Ramp',shape:'wedge',pos:[0,y+2,z-5],size:[12,4,10],rot:[0,180,0],color:'#ff7b5c'});z-=10;z-=18;road(30);check();
   for(let i=0;i<5;i++){road(8,{size:[6,1,8],pos:[i%2?5:-5,y,z-4],color:'#5c6bc0'});z-=4;}check();
   road(12);P({name:'Launcher',pos:[0,y+.1,z+4],size:[8,.4,5],color:'#22d3ee',material:'Neon',behavior:'jump',value:110});z-=16;y+=24;road(30);check();
   road(10);speed();road(10);for(let i=0;i<3;i++){const n=P({name:'Sweeper',pos:[0,y+1.5,z-8-i*14],size:[11,1,1],color:'#ff3b30',material:'Neon',behavior:'kill'});G.script(p,n.id,'Spin',...SCR.spin(3+i).blocks.blocks);}road(44);check();
-  road(20);speed();road(8);z-=26;P({name:'Finish',pos:[0,y,z-10],size:[20,1,20],color:'#ffc93c',material:'Metal',behavior:'finish'});
-  G.welcome(p,G.msg('Hit the yellow boost pads and race to the finish!',3));
+  road(20);speed();road(8);z-=26;const fin=P({name:'Finish',pos:[0,y,z-10],size:[20,1,20],color:'#ffc93c',material:'Neon'});
+  const LT='vlap',lt=G.vget(LT);
+  G.vars(G.script(p,fin.id,'Lap',blk('ev_touch'),G.sadd('Laps',1),G.vset(LT,{block:{type:'s_timer'}}),G.sound('win'),G.msg(G.join('Lap ',G.stat('Laps'),': ',lt,' seconds'),3),
+    G.iff(G.OR(G.cmp(G.stat('Best Lap'),'EQ',G.num(0)),G.cmp(lt,'LT',G.stat('Best Lap'))),G.sset('Best Lap',lt),G.dset('turbo_best_lap',lt),G.msg('New best lap!',2)),
+    blk('g_reset_timer'),blk('pl_checkpoint',{PART:G.pnamed('SpawnLocation')}),G.tp(0,63,0)),[['lap time',LT]]);
+  G.script(p,'sss','BestLap',blk('ev_data_loaded'),G.sset('Best Lap',G.dget('turbo_best_lap',0)));
+  G.welcome(p,G.sset('Laps',0),G.msg('Endless laps! Hit the boost pads, cross the finish and beat your best lap.',4));
   return G.def(p,'turbo','Turbo Track');}
 
 /* 6. Sumo Smash */
-function sumoDef(){const G=GK;const p=G.proj('sumo','Sumo Smash',{sky:'#ffcf9f',deathStyle:'ragdoll'});G.noBase(p);G.spawnAt(p,0,30.5,0,{size:[8,1,8],color:'#ffffff'});
+function sumoDef(){const G=GK;const p=G.proj('sumo','Sumo Smash',{sky:'#ffcf9f',deathStyle:'ragdoll',timer:false,saveStats:false,saveCheckpoint:false});G.noBase(p);G.spawnAt(p,0,30.5,0,{size:[8,1,8],color:'#ffffff'});
   const R=G.folder(p,'Ring');G.part(p,R.id,{name:'Ring',shape:'cyl',pos:[0,29,0],size:[60,2,60],color:'#f5e6c8',material:'Wood'});
   G.part(p,R.id,{name:'Edge',shape:'cyl',pos:[0,28.9,0],size:[62,1.8,62],color:'#c62828',material:'Plastic'});
-  [[-16,-16],[16,16],[16,-16]].forEach(([x,z],i)=>{const r=rigNode({name:'Sumo',pos:[x,32.6,z],scale:1.5,health:999,respawn:3,walkSpeed:8+i*2,colors:{head:'#ffcc80',torso:'#ef5350',arms:'#ffcc80',legs:'#3949ab'}});p.nodes.push(r);
+  [[-16,-16],[16,16],[16,-16],[0,0]].forEach(([x,z],i)=>{const r=rigNode({name:'Sumo',parent:i===3?'rs':'workspace',pos:[x,32.6,z],scale:1.5,health:999,respawn:3,walkSpeed:8+i*2,colors:{head:'#ffcc80',torso:'#ef5350',arms:'#ffcc80',legs:'#3949ab'}});p.nodes.push(r);
     G.script(p,r.id,'Chase',blk('ev_start'),G.wait(3),G.forever(blk('rig_walk',{PART:bme(),X:G.ppos('x'),Z:G.ppos('z')}),G.wait(.3)));
     G.script(p,r.id,'Shove',blk('ev_touch'),blk('pl_knock',{WHO:bme(),P:bn(70)},{RAG:'TRUE'}),G.sound('pad'),G.wait(1.2));});
   const bat={id:uid(),cls:'Tool',name:'Bonk Bat',parent:'pack',tooltip:'Bonk!',cooldown:.5,swing:true};const h=partNode({parent:bat.id,name:'Handle',pos:[0,3,0],size:[.4,.4,1.2],color:'#6d4c41',material:'Wood'});bat.handle=h.id;
@@ -1946,27 +1977,34 @@ function sumoDef(){const G=GK;const p=G.proj('sumo','Sumo Smash',{sky:'#ffcf9f',
   G.script(p,bat.id,'Hit',blk('ev_tool_hit'),G.iff({block:{type:'s_isrig',inputs:{PART:{block:{type:'tool_hitpart'},shadow:{type:'p_this'}}}}},blk('rig_fling',{PART:{block:{type:'tool_hitpart'},shadow:{type:'p_this'}},P:bn(90)}),G.sadd('Bonks',1),G.sound('pad')),
     G.iff({block:{type:'s_isplayer',inputs:{PART:{block:{type:'tool_hitpart'},shadow:{type:'p_this'}}}}},blk('pl_as',{WHO:{block:{type:'tool_hitpart'}},DO:doIn(blk('pl_knock',{WHO:{block:{type:'pl_ref',fields:{WHO:'sender'}}},P:bn(80)},{RAG:'TRUE'}))})));
   G.script(p,'player','Falls',blk('ev_died'),G.sadd('Falls',1));
-  G.welcome(p,G.sset('Falls',0),G.sset('Bonks',0),G.msg('Stay on the ring for 60 seconds! Bonk the sumos with your bat (1).',4),G.until(G.cmp({block:{type:'s_timer'}},'GTE',G.num(60))),G.msg('Sumo champion!',2),blk('g_win'));
+  G.script(p,'sss','FellOff',blk('ev_died'),G.msg(G.join('You fell! You lasted ',G.stat('Time'),' seconds.'),3),G.sset('Time',0));
+  const SC='vsumos';
+  G.vars(G.script(p,'sss','MoreSumos',blk('ev_start'),G.vset(SC,G.num(3)),G.forever(G.wait(25),G.iff(G.cmp(G.vget(SC),'LT',G.num(8)),blk('rs_copy',{X:G.rnd(-15,15),Y:bn(32.6),Z:G.rnd(-15,15)},{NAME:'Sumo'}),G.vchg(SC,1),G.sound('pad'),G.msg('Another sumo joins the ring!',2)))),[['sumos',SC]]);
+  G.welcome(p,G.sset('Time',0),G.sset('Falls',0),G.sset('Bonks',0),G.msg('Stay on the ring as long as you can! Bonk the sumos with your bat (1).',4),
+    G.forever(G.wait(1),G.iff(G.AND({block:{type:'s_pl_alive'}},G.cmp(G.ppos('y'),'GT',G.num(25))),G.sadd('Time',1))));
+  G.best(p,'Time','sumo_time');
   return G.def(p,'sumo','Sumo Smash');}
 
 /* 7. Color Drop */
-function colorDropDef(){const G=GK;const p=G.proj('colordrop','Color Drop',{sky:'#1d2340',timer:false});G.noBase(p);G.spawnAt(p,0,40.5,-34,{size:[10,1,10],color:'#ffffff'});
+function colorDropDef(){const G=GK;const p=G.proj('colordrop','Color Drop',{sky:'#1d2340',timer:false,saveStats:false,saveCheckpoint:false});G.noBase(p);G.spawnAt(p,0,40.5,-34,{size:[10,1,10],color:'#ffffff'});
   const names=['Red','Blue','Green','Yellow'],cols=['#ef5350','#42a5f5','#66bb6a','#ffee58'];const M=names.map(n=>G.model(p,n));
   for(let i=0;i<8;i++)for(let j=0;j<8;j++){const k=(i*3+j*5+((i*j)%3))%4;G.part(p,M[k].id,{name:names[k]+'Tile',pos:[(i-3.5)*6,40,(j-3.5)*6],size:[5.8,1,5.8],color:cols[k],material:'Neon'});}
   G.part(p,'workspace',{name:'Bridge',pos:[0,40,-27],size:[6,1,6],color:'#ffffff'});
   const V='vpick';const say=k=>G.msg('Stand on '+names[k].toUpperCase()+'!',2.5);
-  const branch=k=>G.iff(G.cmp(G.vget(V),'EQ',G.num(k+1)),say(k),G.wait(3),...names.flatMap((nm,o)=>o===k?[]:[blk('p_collide',{PART:G.mnamed(nm)},{B:'FALSE'}),blk('p_transp',{PART:G.mnamed(nm),V:bn(.9)})]));
+  const branch=k=>G.iff(G.cmp(G.vget(V),'EQ',G.num(k+1)),say(k),G.ifElse(G.cmp(G.stat('Rounds'),'LT',G.num(10)),[G.wait(G.arith('MINUS',G.num(3),G.arith('MULTIPLY',G.stat('Rounds'),G.num(.18))))],[G.wait(1.2)]),...names.flatMap((nm,o)=>o===k?[]:[blk('p_collide',{PART:G.mnamed(nm)},{B:'FALSE'}),blk('p_transp',{PART:G.mnamed(nm),V:bn(.9)})]));
   const restore=names.flatMap(nm=>[blk('p_collide',{PART:G.mnamed(nm)},{B:'TRUE'}),blk('p_transp',{PART:G.mnamed(nm),V:bn(0)})]);
   const s=G.script(p,'sss','Rounds',chain(blk('ev_start'),G.sset('Rounds',0),G.msg('Get onto the tiles! When a color is called, stand on it.',3),G.wait(5),
     G.forever(G.vset(V,G.rnd(1,4)),G.sound('click'),branch(0),branch(1),branch(2),branch(3),G.sound('explode'),G.wait(2),...restore,
       G.iff({block:{type:'logic_operation',fields:{OP:'AND'},inputs:{A:{block:{type:'logic_operation',fields:{OP:'AND'},inputs:{A:{block:{type:'s_pl_alive'}},B:G.cmp(G.ppos('y'),'GT',G.num(38))}}},B:G.cmp(G.ppos('z'),'GT',G.num(-24))}}},G.sadd('Rounds',1),G.sound('check')),
-      G.iff(G.cmp(G.stat('Rounds'),'GTE',G.num(8)),G.msg('8 rounds survived!',2),G.wait(1),blk('g_win')),G.wait(2))));
+      G.wait(2))));
   s.blocks.variables=[{name:'pick',id:V}];
-  G.welcome(p,G.msg('Color Drop',1));
+  G.script(p,'sss','Fell',blk('ev_died'),G.msg(G.join('You fell after ',G.stat('Rounds'),' rounds!'),3),G.sset('Rounds',0));
+  G.best(p,'Rounds','colordrop_rounds');
+  G.welcome(p,G.msg('Rounds get faster the longer you survive!',2));
   return G.def(p,'colordrop','Color Drop');}
 
 /* 8. Maze Escape */
-function mazeDef(){const G=GK;const p=G.proj('maze','Maze Escape',{sky:'#b9c7d9'});
+function mazeDef(){const G=GK;const p=G.proj('maze','Maze Escape',{sky:'#b9c7d9',saveStats:false,saveCheckpoint:false});
   const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[130,2,130],color:'#a1887f',material:'Slate'});
   const Mz=G.folder(p,'Maze');const n=12,S=9,o=-n*S/2;
   let seed=12345;const rr=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
@@ -1979,14 +2017,21 @@ function mazeDef(){const G=GK;const p=G.proj('maze','Maze Escape',{sky:'#b9c7d9'
   wall(0,o,n*S+1,1);wall(0,-o,n*S+1,1);wall(o,0,1,n*S+1);wall(-o,0,1,n*S+1);
   for(let x=0;x<n;x++)for(let y=0;y<n;y++){if(right[x][y]&&x<n-1)wall(o+(x+1)*S,o+y*S+S/2,1,S+1);if(down[x][y]&&y<n-1)wall(o+x*S+S/2,o+(y+1)*S,S+1,1);}
   G.spawnAt(p,o+S/2,.5,o+S/2,{size:[6,1,6]});
-  G.part(p,'workspace',{name:'Exit',pos:[-o-S/2,.5,-o-S/2],size:[6,1,6],color:'#ffc93c',material:'Neon',behavior:'finish'});
+  const ex=G.part(p,'workspace',{name:'Exit',pos:[-o-S/2,.5,-o-S/2],size:[6,1,6],color:'#ffc93c',material:'Neon',canCollide:false});
+  const C=[[o+S/2,o+S/2],[-o-S/2,o+S/2],[-o-S/2,-o-S/2],[o+S/2,-o-S/2]],CV='vcorner',ET='vesc';
+  G.vars(G.script(p,ex.id,'Escape',blk('ev_touch'),G.sadd('Escapes',1),G.vset(ET,{block:{type:'s_timer'}}),G.sound('win'),G.msg(G.join('Escaped in ',G.vget(ET),' s! The exit moved to another corner...'),3),
+    G.iff(G.OR(G.cmp(G.stat('Best Time'),'EQ',G.num(0)),G.cmp(G.vget(ET),'LT',G.stat('Best Time'))),G.sset('Best Time',G.vget(ET)),G.dset('maze_best',G.vget(ET))),
+    G.vchg(CV,1),G.iff(G.cmp(G.vget(CV),'GT',G.num(4)),G.vset(CV,G.num(1))),
+    ...C.map(([x,z],k)=>G.iff(G.cmp(G.vget(CV),'EQ',G.num(k+1)),blk('p_setpos',{PART:bme(),X:bn(r3(x)),Y:bn(.5),Z:bn(r3(z))}))),blk('g_reset_timer')),[['corner',CV],['escape time',ET]]);
+  G.vars(G.script(p,ex.id,'Start',blk('ev_start'),G.vset(CV,G.num(3))),[['corner',CV]]);
+  G.script(p,'sss','BestTime',blk('ev_data_loaded'),G.sset('Best Time',G.dget('maze_best',0)));
   for(let i=0;i<10;i++){const cx=Math.floor(rr()*n),cy=Math.floor(rr()*n);G.part(p,Mz.id,{name:'Coin',pos:[o+cx*S+S/2,2,o+cy*S+S/2],size:[2,2,2],behavior:'coin',color:'#ffd54f'});}
   const tr=G.part(p,Mz.id,{name:'Trap',pos:[o+6*S+S/2,1.4,o+6*S+S/2],size:[8,1,1],color:'#ff3b30',material:'Neon',behavior:'kill'});G.script(p,tr.id,'Spin',...SCR.spin(3).blocks.blocks);
-  G.welcome(p,G.sset('Coins',0),G.msg('Find the glowing exit in the far corner. Grab coins on the way!',3));
+  G.welcome(p,G.sset('Coins',0),G.sset('Escapes',0),G.msg('Find the glowing exit. Every time you escape, it moves to another corner!',4));
   return G.def(p,'maze','Maze Escape');}
 
 /* 9. Target Range */
-function targetsDef(){const G=GK;const p=G.proj('targets','Target Range',{sky:'#cfe8ff'});
+function targetsDef(){const G=GK;const p=G.proj('targets','Target Range',{sky:'#cfe8ff',saveStats:false,saveCheckpoint:false});
   const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[120,2,160],color:'#9ccc65',material:'Grass'});
   const R=G.folder(p,'Range');G.part(p,R.id,{name:'Booth',pos:[0,.5,8],size:[30,1,10],color:'#8d6e63',material:'Wood'});
   G.part(p,R.id,{name:'Counter',pos:[0,2,3],size:[30,3,1],color:'#6d4c41',material:'Wood'});G.part(p,R.id,{name:'Backstop',pos:[0,10,-90],size:[120,20,2],color:'#78909c',material:'Concrete'});
@@ -1997,7 +2042,10 @@ function targetsDef(){const G=GK;const p=G.proj('targets','Target Range',{sky:'#
   for(let i=0;i<6;i++){const t=G.part(p,R.id,{name:'Target',shape:'cyl',pos:[-30+i*12,4+(i%3)*4,-30-(i%2)*25],size:[.6,4,4],rot:[90,0,0],color:i%2?'#ffffff':'#ef5350',material:'Neon'});
     p.nodes.push(emitterNode({parent:t.id,name:'Burst',enabled:false},'confetti'));
     G.script(p,t.id,'Bob',blk('ev_start'),G.forever(blk('p_glide',{PART:bme(),X:bn(i%2?6:-6),Y:bn(0),Z:bn(0),S:bn(1.5+i*.2)}),blk('p_glide',{PART:bme(),X:bn(i%2?-6:6),Y:bn(0),Z:bn(0),S:bn(1.5+i*.2)})));}
-  G.welcome(p,G.sset('Score',0),G.msg('Equip the blaster (1) and hit 20 targets as fast as you can!',4),G.until(G.cmp(G.stat('Score'),'GTE',G.num(20))),G.msg('Sharpshooter!',2),blk('g_win'));
+  G.welcome(p,G.msg('Equip the blaster (1). Each round lasts 60 seconds: hit as many targets as you can!',4),G.wait(3),
+    G.forever(G.sset('Score',0),blk('g_reset_timer'),G.msg('Go! 60 seconds!',1.5),G.sound('check'),G.until(G.cmp({block:{type:'s_timer'}},'GTE',G.num(60))),
+      G.sound('win'),G.msg(G.join('Time! You hit ',G.stat('Score'),' targets.'),3),G.wait(4)));
+  G.best(p,'Score','targets_score');
   G.spawnAt(p,0,1.5,10,{size:[6,1,4]});
   return G.def(p,'targets','Target Range');}
 
@@ -2017,37 +2065,42 @@ function cloudHopDef(){const G=GK;const p=G.proj('cloudhop','Cloud Hop',{sky:'#8
   return G.def(p,'cloudhop','Cloud Hop');}
 
 /* 11. Freeze Tag */
-function freezeTagDef(){const G=GK;const p=G.proj('freezetag','Freeze Tag',{sky:'#d7f0ff'});
+function freezeTagDef(){const G=GK;const p=G.proj('freezetag','Freeze Tag',{sky:'#d7f0ff',timer:false,saveStats:true,saveCheckpoint:false});
   const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[140,2,140],color:'#e3f2fd',material:'Ice'});
   const A=G.folder(p,'Arena');[[-70,0,1,140],[70,0,1,140],[0,-70,140,1],[0,70,140,1]].forEach(([x,z,w,d])=>G.part(p,A.id,{name:'Wall',pos:[x,3,z],size:[w,6,d],color:'#90caf9',material:'Ice',transparency:.3}));
   for(let i=0;i<12;i++){const a=i*.52,r=20+(i%3)*14;G.part(p,A.id,{name:'IceBlock',pos:[r3(Math.cos(a)*r),2.5,r3(Math.sin(a)*r)],size:[5,5,5],color:'#bbdefb',material:'Ice',transparency:.2});}
-  for(let i=0;i<5;i++){const r=rigNode({name:'Runner',pos:[-40+i*20,2.6,(i%2?-1:1)*(30+i*4)],health:999,respawn:0,walkSpeed:13,colors:{head:'#f5cd30',torso:['#e53935','#8e24aa','#43a047','#fb8c00','#1e88e5'][i],arms:'#f5cd30',legs:'#37474f'}});p.nodes.push(r);
+  for(let i=0;i<6;i++){const r=rigNode({name:'Runner',parent:i===5?'rs':'workspace',pos:[-40+i*20,2.6,(i%2?-1:1)*(30+i*4)],health:999,respawn:0,walkSpeed:13,colors:{head:'#f5cd30',torso:['#e53935','#8e24aa','#43a047','#fb8c00','#1e88e5','#00acc1'][i],arms:'#f5cd30',legs:'#37474f'}});p.nodes.push(r);
     G.script(p,r.id,'Wander',blk('ev_start'),G.forever(blk('rig_walk',{PART:bme(),X:G.rnd(-60,60),Z:G.rnd(-60,60)})));
     G.script(p,r.id,'Tagged',blk('ev_touch'),G.sadd('Tags',1),G.sound('check'),blk('rig_say',{PART:bme(),TEXT:bt('Frozen!'),S:bn(2)}),blk('rig_ragdoll',{PART:bme(),S:bn(2)}),G.wait(3),
       blk('p_setpos',{PART:bme(),X:G.rnd(-60,60),Y:bn(3),Z:G.rnd(-60,60)}));}
   G.script(p,'player','TagPlayers',blk('ev_touch_player'),G.sadd('Tags',1),blk('pl_as',{WHO:{block:{type:'pl_touched'}},DO:doIn(blk('pl_freeze',null,{B:'TRUE'}),blk('pl_say',{TEXT:bt('Frozen!'),S:bn(3)}),G.wait(3),blk('pl_freeze',null,{B:'FALSE'}))}));
-  G.welcome(p,G.sset('Tags',0),G.msg('Tag the runners (and other players) to freeze them. 12 tags wins!',4),G.until(G.cmp(G.stat('Tags'),'GTE',G.num(12))),G.msg('Ice cold!',2),blk('g_win'));
+  const NX='vnext',RC='vrunners';
+  G.vars(G.script(p,'sss','MoreRunners',blk('ev_data_loaded'),G.vset(NX,G.arith('ADD',G.stat('Tags'),G.num(10))),G.vset(RC,G.num(5)),
+    G.forever(G.until(G.cmp(G.stat('Tags'),'GTE',G.vget(NX))),G.vchg(NX,10),G.iff(G.cmp(G.vget(RC),'LT',G.num(12)),blk('rs_copy',{X:G.rnd(-60,60),Y:bn(2.6),Z:G.rnd(-60,60)},{NAME:'Runner'}),G.vchg(RC,1),G.msg('A new runner joined the chase!',2)))),[['next',NX],['runners',RC]]);
+  G.welcome(p,G.msg('Tag the runners (and other players) to freeze them. Your total tags are saved, and every 10 tags brings a new runner!',5));
   return G.def(p,'freezetag','Freeze Tag');}
 
 /* 12. Boss Battle */
-function bossDef(){const G=GK;const p=G.proj('boss','Boss Battle',{sky:'#2b1d3a',fog:420,brightness:.85,deathStyle:'ragdoll'});
+function bossDef(){const G=GK;const p=G.proj('boss','Boss Battle',{sky:'#2b1d3a',fog:420,brightness:.85,deathStyle:'ragdoll',timer:false,saveStats:false,saveCheckpoint:false});
   const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[150,2,150],color:'#3e3550',material:'Slate'});
   const A=G.folder(p,'Arena');for(let i=0;i<8;i++){const a=i*Math.PI/4;G.part(p,A.id,{name:'Pillar',shape:'cyl',pos:[r3(Math.cos(a)*45),8,r3(Math.sin(a)*45)],size:[5,16,5],color:'#6a5a8a',material:'Brick'});}
   G.part(p,A.id,{name:'Throne',pos:[0,1.5,-55],size:[16,3,10],color:'#ffc93c',material:'Metal'});
   for(const t of ['Sword','Blaster','Healing potion']){const ns=G.prefab(p,t);ns[0].parent='pack';}
   G.prefab(p,'Healing potion',{x:40,y:2,z:20});G.prefab(p,'Healing potion',{x:-40,y:2,z:20});
-  const B=rigNode({name:'Brick King',pos:[0,7,-50],scale:2.6,health:500,respawn:0,walkSpeed:7,colors:{head:'#ffcc80',torso:'#6a1b9a',arms:'#ffcc80',legs:'#311b92'}});p.nodes.push(B);
+  const B=rigNode({name:'Brick King',pos:[0,7,-50],scale:2.6,health:500,respawn:6,walkSpeed:7,colors:{head:'#ffcc80',torso:'#6a1b9a',arms:'#ffcc80',legs:'#311b92'}});p.nodes.push(B);
   p.nodes.push(emitterNode({parent:B.id,name:'Aura'},'magic'));
   G.script(p,B.id,'Chase',blk('ev_start'),G.wait(4),G.forever(blk('rig_walk',{PART:bme(),X:G.ppos('x'),Z:G.ppos('z')}),G.wait(.4)));
   G.script(p,B.id,'Stomp',blk('ev_touch'),blk('pl_damage',{N:bn(20)}),blk('pl_knock',{WHO:bme(),P:bn(90)},{RAG:'TRUE'}),G.sound('explode'),G.wait(1.5));
   G.script(p,B.id,'Minions',blk('ev_start'),G.wait(10),G.forever(blk('rig_say',{PART:bme(),TEXT:bt('Minions, attack!'),S:bn(2)}),
-    blk('rs_copy',{X:bn(-30),Y:bn(2.6),Z:bn(-40)},{NAME:'Minion'}),blk('rs_copy',{X:bn(30),Y:bn(2.6),Z:bn(-40)},{NAME:'Minion'}),G.wait(14)));
-  G.script(p,B.id,'Defeat',blk('ev_rig_died'),G.msg('You defeated the Brick King!',3),G.sound('win'),G.wait(2),blk('g_win'));
+    blk('controls_repeat_ext',{TIMES:G.stat('Level'),DO:doIn(blk('rs_copy',{X:bn(-30),Y:bn(2.6),Z:bn(-40)},{NAME:'Minion'}),blk('rs_copy',{X:bn(30),Y:bn(2.6),Z:bn(-40)},{NAME:'Minion'}),G.wait(.6))}),G.wait(14)));
+  G.script(p,B.id,'Defeat',blk('ev_rig_died'),G.sound('win'),G.msg(G.join('You beat level ',G.stat('Level'),'! The Brick King returns in 6 seconds with more minions...'),4),G.sadd('Level',1),blk('pl_heal',{N:bn(50)}));
   const Mi=rigNode({name:'Minion',parent:'rs',pos:[0,2.6,0],scale:.8,health:30,respawn:0,walkSpeed:12,colors:{head:'#b39ddb',torso:'#4527a0',arms:'#b39ddb',legs:'#212121'}});p.nodes.push(Mi);
   G.script(p,Mi.id,'Chase',blk('ev_start'),G.forever(blk('rig_walk',{PART:bme(),X:G.ppos('x'),Z:G.ppos('z')}),G.wait(.2)));
   G.script(p,Mi.id,'Bite',blk('ev_touch'),blk('pl_damage',{N:bn(6)}),G.wait(1));
   const sg=guiNode('ScreenGui',{name:'BossHUD'});const lb=guiNode('TextLabel',{parent:sg.id,name:'BossName',text:'THE BRICK KING',gpos:[.5,0,0,12],anchor:[.5,0],gsize:[0,320,0,44],bgT:1,tc:'#ffd54f',font:'Medieval',ts:34,strokeT:2,strokeTc:'#311b92'});p.nodes.push(sg,lb);
-  G.welcome(p,G.msg('Defeat the Brick King! Sword (1), blaster (2), potion (3).',4));
+  G.script(p,'sss','Defeated',blk('ev_died'),G.msg(G.join('The Brick King wins this time. You reached level ',G.stat('Level'),'.'),3),G.sset('Level',1),blk('rig_heal',{PART:G.pnamed('Brick King'),N:bn(1000)}));
+  G.best(p,'Level','boss_level');
+  G.welcome(p,G.sset('Level',1),G.msg('Defeat the Brick King again and again. Each level brings more minions! Sword (1), blaster (2), potion (3).',5));
   G.spawnAt(p,0,.5,24);return G.def(p,'boss','Boss Battle');}
 
 const GAMES=[
@@ -2060,18 +2113,18 @@ const GAMES=[
     build:buildSky,mode:'race',stageWord:'Checkpoint',scene:{sky:0x7fb8ff,fogNear:150,fogFar:560,ground:0x9fb4d6},seed:3,objective:'Cross the finish line'},
   {id:'sandbox',name:'Free Build',tag:'Sandbox',desc:'Place, paint and delete bricks on a studded baseplate. Your build is saved in this browser for next time.',
     build:buildSandbox,mode:'build',scene:{sky:0xa7d8ff,fogNear:220,fogFar:800},seed:1,objective:'Tap or click to build'},
-  {id:'lavarise',cat:'Survival',name:'Lava Rising',tag:'Survival · climb',desc:'The lava is rising! Race up a spiral tower of colorful steps before it reaches you.',mode:'project',make:lavaRiseDef},
-  {id:'zombies',cat:'Battle',name:'Zombie Survival',tag:'Survival · 25 KOs',desc:'Hold off waves of zombies in a fenced town with a sword, a blaster and healing potions.',mode:'project',make:zombiesDef},
+  {id:'lavarise',cat:'Survival',name:'Lava Rising',tag:'Survival · endless rounds',desc:'Race up a spiral tower before the lava reaches you, then do it again. The lava gets faster every round.',mode:'project',make:lavaRiseDef},
+  {id:'zombies',cat:'Battle',name:'Zombie Survival',tag:'Survival · endless waves',desc:'Hold off bigger and bigger waves of zombies in a fenced town with a sword, a blaster and healing potions.',mode:'project',make:zombiesDef},
   {id:'rainbow',cat:'Obby',name:'Rainbow Obby',tag:'Obby · 10 stages',desc:'Ten colorful stages: lava beams, jump pads, moving and vanishing platforms, a spinner and a sky elevator.',mode:'project',make:rainbowDef},
-  {id:'gems',cat:'Collect',name:'Gem Hunt',tag:'Collect · 15 gems',desc:'Explore a hilly island with trees, a pond and a tall tower to find 15 hidden gems.',mode:'project',make:gemsDef},
-  {id:'turbo',cat:'Race',name:'Turbo Track',tag:'Race · 5 checkpoints',desc:'A sky racetrack with boost pads, ramps, a launcher and spinning sweepers. Beat your best time.',mode:'project',make:turboDef},
-  {id:'sumo',cat:'Battle',name:'Sumo Smash',tag:'Party · 60 seconds',desc:'Stay on the ring for a minute while big sumos try to shove you off. Bonk them back with your bat.',mode:'project',make:sumoDef},
-  {id:'colordrop',cat:'Party',name:'Color Drop',tag:'Party · 8 rounds',desc:'A color is called, every other tile vanishes. Run to the right color before the floor drops!',mode:'project',make:colorDropDef},
-  {id:'maze',cat:'Puzzle',name:'Maze Escape',tag:'Puzzle · find the exit',desc:'Find your way through a walled maze to the glowing exit. Grab coins and dodge the spinning trap.',mode:'project',make:mazeDef},
-  {id:'targets',cat:'Battle',name:'Target Range',tag:'Aim · 20 targets',desc:'Grab the blaster and hit 20 moving targets as fast as you can. Each hit pops in confetti.',mode:'project',make:targetsDef},
+  {id:'gems',cat:'Collect',name:'Gem Hunt',tag:'Collect · endless',desc:'Gems keep popping up around a hilly island, and a wandering super crystal is worth 5. Your total is saved.',mode:'project',make:gemsDef},
+  {id:'turbo',cat:'Race',name:'Turbo Track',tag:'Race · endless laps',desc:'Lap after lap on a sky racetrack with boost pads, a launcher and spinning sweepers. Beat your best lap.',mode:'project',make:turboDef},
+  {id:'sumo',cat:'Battle',name:'Sumo Smash',tag:'Party · endless',desc:'Stay on the ring as long as you can while more and more sumos try to shove you off. Bonk them back!',mode:'project',make:sumoDef},
+  {id:'colordrop',cat:'Party',name:'Color Drop',tag:'Party · endless rounds',desc:'A color is called, every other tile vanishes. Rounds get faster the longer you survive.',mode:'project',make:colorDropDef},
+  {id:'maze',cat:'Puzzle',name:'Maze Escape',tag:'Puzzle · endless',desc:'Escape the maze, and the exit moves to another corner. How many escapes, and how fast?',mode:'project',make:mazeDef},
+  {id:'targets',cat:'Battle',name:'Target Range',tag:'Aim · 60-second rounds',desc:'Hit as many moving targets as you can in 60 seconds, round after round. Beat your record.',mode:'project',make:targetsDef},
   {id:'cloudhop',cat:'Obby',name:'Cloud Hop',tag:'Obby · double jump',desc:'Double jump between clouds high in the sky. Grab the purple orb for a triple jump.',mode:'project',make:cloudHopDef},
-  {id:'freezetag',cat:'Party',name:'Freeze Tag',tag:'Party · 12 tags',desc:'Chase the runners around an icy arena and tag them to freeze them. Tag other players too!',mode:'project',make:freezeTagDef},
-  {id:'boss',cat:'Battle',name:'Boss Battle',tag:'Boss · 500 health',desc:'Face the giant Brick King and his minions with a sword, a blaster and potions.',mode:'project',make:bossDef}
+  {id:'freezetag',cat:'Party',name:'Freeze Tag',tag:'Party · endless',desc:'Tag runners (and players) to freeze them. Your total is saved, and every 10 tags adds a runner.',mode:'project',make:freezeTagDef},
+  {id:'boss',cat:'Battle',name:'Boss Battle',tag:'Boss · endless levels',desc:'Beat the giant Brick King again and again. Each level brings more minions.',mode:'project',make:bossDef}
 ];
 GAMES.forEach(g=>{if(!g.cat)g.cat={arena:'Battle',tower:'Obby',coins:'Collect',sky:'Race',sandbox:'Build'}[g.id]||'Other';});
 let GAME_CAT=store.get('gameCat','All');
@@ -4473,7 +4526,7 @@ function renderCards(){
   GAMES.filter(gm=>GAME_CAT==='All'||gm.cat===GAME_CAT).forEach(gm=>{const b=document.createElement('button');b.type='button';b.className='card';
     const bv=bests[gm.id];let best='';
     if(gm.id==='arena')best='Online PvP';
-    else if(gm.mode==='project')best=bv!=null?`Best <b>${fmt(bv)}</b>`:'Not won yet';
+    else if(gm.mode==='project')best=gm.cat==='Obby'?(bv!=null?`Best <b>${fmt(bv)}</b>`:'Not finished yet'):'Endless';
     else if(gm.mode==='race')best=bv!=null?`Best <b>${fmt(bv)}</b>`:'No time yet';
     else if(gm.mode==='coins')best=bv?`Best <b>${bv.coins}</b> coins`:'No score yet';
     else{const n=(store.get('build',null)||[]).length;best=n?`<b>${n}</b> blocks saved`:'Fresh baseplate';}
