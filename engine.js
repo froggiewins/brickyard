@@ -3524,24 +3524,26 @@ function gkPowerups(p,spots,o){const G=GK;o=o||{};const y=o.y||1.5;
 function towerHellDef(){const G=GK;const p=G.proj('towerhell','Tower of Hell',{sky:'#1b1f3b',fog:700,brightness:.95,timer:false,saveStats:false,saveCheckpoint:false,lobby:true,lobbyWait:12,lobbyRound:300,lobbyScore:'Height'});
   const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[90,2,90],color:'#2b2f4a',material:'Slate'});
   G.spawnAt(p,0,.5,0,{size:[5,1,5],color:'#ffc93c'});
-  const H=14,COLS=['#ff5252','#ffab40','#ffd740','#69f0ae','#40c4ff','#7c4dff','#ff4081','#b2ff59','#ff6e40','#e0e0e0','#64ffda'];
-  const KINDS=['Stairs','Tiny Steps','Sliders','Vanishing','Spinner','Truss','Bouncy','Crushers','Lava Steps','Ghost Steps','Wall Hops'];
+  const H=14,COLS=['#ff5252','#ffab40','#ffd740','#69f0ae','#40c4ff','#7c4dff','#ff4081','#b2ff59','#ff6e40','#e0e0e0','#64ffda','#ea80fc','#ffd180','#ff8a80'];
+  const KINDS=['Stairs','Tiny Steps','Sliders','Vanishing','Spinner','Truss','Bouncy','Crushers','Lava Steps','Ghost Steps','Wall Hops','Elevators','Beams','Double Spinner'];
   const centers=[];
   KINDS.forEach((kind,ki)=>{const M=G.model(p,'Section'+(ki+1),'rs').id;const col=COLS[ki];const P=o=>G.part(p,M,o);
     // floor with a hole in the middle, glass walls
     [[-9.5,0,11,30],[9.5,0,11,30],[0,-9.5,8,11],[0,9.5,8,11]].forEach(([x,z,w,d])=>P({name:'Floor',pos:[x,.5,z],size:[w,1,d],color:col,material:'Plastic'}));
     [[0,-15,30,1],[0,15,30,1],[-15,0,1,30],[15,0,1,30]].forEach(([x,z,w,d])=>P({name:'Glass',pos:[x,H/2,z],size:[w,H,d],color:'#b3e5fc',material:'Glass',transparency:.75}));
     P({name:'Sign',pos:[0,H-1.5,-14.3],size:[6,1.4,.2],color:'#11141f',label:kind.toUpperCase()});
-    const n=7,R=10,sz=kind==='Tiny Steps'?2.6:kind==='Truss'?1.4:kind==='Wall Hops'?1.2:4;
+    const n=7,R=10,sz=kind==='Tiny Steps'?2.6:kind==='Truss'?1.4:kind==='Wall Hops'?1.2:kind==='Beams'?1:4;
     for(let i=0;i<n;i++){const a=i*Math.PI*2/8+.4,x=r3(Math.cos(a)*R),z=r3(Math.sin(a)*R),y=r3(2.4+i*1.35);
-      const st=P({name:'Step',pos:[x,y,z],size:kind==='Truss'?[sz,1,sz*3]:kind==='Wall Hops'?[sz,1,4.2]:[sz,1,sz],transparency:kind==='Ghost Steps'?.88:0,rot:kind==='Truss'||kind==='Wall Hops'?[0,r3(-a*180/Math.PI),0]:[0,0,0],color:i%2?col:'#ffffff',material:kind==='Bouncy'&&i%2?'Neon':'Plastic',
+      const st=P({name:'Step',pos:[x,y,z],size:kind==='Truss'?[sz,1,sz*3]:kind==='Wall Hops'?[sz,1,4.2]:kind==='Beams'?[sz,1,6]:[sz,1,sz],transparency:kind==='Ghost Steps'?.88:0,rot:kind==='Truss'||kind==='Wall Hops'||kind==='Beams'?[0,r3(-a*180/Math.PI),0]:[0,0,0],color:i%2?col:'#ffffff',material:kind==='Bouncy'&&i%2?'Neon':'Plastic',
         behavior:kind==='Bouncy'&&i===3?'jump':'none',value:kind==='Bouncy'&&i===3?75:0});
       if(kind==='Lava Steps'&&i%2&&i<6)P({name:'LavaStrip',pos:[x,y+.55,z],size:[sz*.5,.12,sz],color:'#ff3d00',material:'Neon',behavior:'kill'});
+      if(kind==='Elevators'&&i%2)G.script(p,st.id,'Lift',...SCR.glide(0,2.4,0,1.3).blocks.blocks);
       if(kind==='Sliders'&&i%2)G.script(p,st.id,'Slide',...SCR.glide(0,0,i%4===1?4:-4,1.4).blocks.blocks);
       if(kind==='Vanishing'&&i>0)G.script(p,st.id,'Vanish',...SCR.vanish().blocks.blocks);
       if(kind==='Crushers'&&i%2===0&&i>0){const kb=P({name:'Crusher',pos:[x,y+5.5,z],size:[sz+1,1,sz+1],color:'#ff1744',material:'Neon',behavior:'kill'});G.script(p,kb.id,'Bob',...SCR.glide(0,-3.2,0,.9).blocks.blocks);}}
     P({name:'Step',pos:[r3(Math.cos(7*Math.PI*2/8+.4)*5),11.2,r3(Math.sin(7*Math.PI*2/8+.4)*5)],size:[3,1,3],color:col});
     P({name:'Top',pos:[0,12,0],size:[4,1,4],color:'#ffffff',material:'Neon'});
+    if(kind==='Double Spinner'){[3.5,8.5].forEach((hy,j)=>{const sp=P({name:'Spinner',pos:[0,hy,0],size:[22,1,1],color:'#ff1744',material:'Neon',behavior:'kill'});G.script(p,sp.id,'Spin',...SCR.spin(j?-2.6:2).blocks.blocks);});}
     if(kind==='Spinner'){const sp=P({name:'Spinner',pos:[0,6.5,0],size:[22,1,1],color:'#ff1744',material:'Neon',behavior:'kill'});G.script(p,sp.id,'Spin',...SCR.spin(2.2).blocks.blocks);}
     const list=p.nodes.filter(nd=>nd.parent===M);list.push(p.nodes.find(nd=>nd.id===M));const c=nodesBounds(list).getCenter(new V3());centers.push(r3(c.y));});
   const LEVELS=6,FIN=G.part(p,'workspace',{name:'TopOfTower',pos:[0,LEVELS*H+1.5,0],size:[14,1,14],color:'#ffd740',material:'Neon',label:'THE TOP!'});
