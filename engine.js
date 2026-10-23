@@ -2638,6 +2638,7 @@ function gemsDef(){const G=GK;const p=G.proj('gems','Gem Hunt',{sky:'#a6e3ff',ti
   G.vars(G.hscript(p,'sss','Rainbow drop',G.onMsg('round start'),blk('p_setpos',{PART:G.pnamed('RainbowGem'),X:bn(0),Y:bn(-60),Z:bn(0)}),G.vset('vrg',G.num(0)),G.wait(45),G.iff(G.inMatch(),G.vset('vrg',G.num(1)),G.bc('rainbow gem'),blk('p_setpos',{PART:G.pnamed('RainbowGem'),X:ox(G.rnd(-80,80)),Y:bn(30),Z:G.rnd(-80,80)}),blk('p_glide',{PART:G.pnamed('RainbowGem'),X:bn(0),Y:bn(-27),Z:bn(0),S:bn(3)}))),[['rainbow gem','vrg'],...G.MV,...GV2]);
   G.script(p,'sss','Rainbow msg',G.onMsg('rainbow gem'),G.sound('check'),G.msg('🌈 A RAINBOW GEM (+10) fell from the sky! Race for it!',3));
   G.vars(G.script(p,rg.id,'Grab',blk('ev_touch'),G.iff(G.cmp(G.vget('vrg'),'EQ',G.num(1)),G.shSet('vrg',G.num(0)),G.sadd('Gems',10),G.sound('win'),G.msg('RAINBOW GEM! +10',2),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-60),Z:bn(0)}))),[['rainbow gem','vrg']]);
+  gkPowerups(p,[[-60,0],[60,20],[0,60],[260,0],[380,20],[320,60]]);
   G.matchFlags(p);
   return G.def(p,'gems','Gem Hunt');}
 
@@ -2965,6 +2966,7 @@ function freezeTagDef(){const G=GK;const p=G.proj('freezetag','Freeze Tag',{sky:
   // ice skates: a burst of speed on the slippery pond in the corner
   G.part(p,A.id,{name:'IcePond',shape:'cyl',pos:[-50,.15,50],size:[24,.3,24],color:'#e1f5fe',material:'Ice',behavior:'speed',value:1.8,label:'SKATE'});
   G.script(p,'sss','Level coins',blk('ev_start'),G.forever(G.vset('vlvc',G.vget(LV)),G.until(G.cmp(G.vget(LV),'GT',G.vget('vlvc'))),blk('pl_coins',{N:bn(2)})));
+  gkPowerups(p,[[-40,-40],[40,-40],[0,-60],[300-40,-40],[340,-40],[300,-60]]);
   G.welcome(p,G.msg('Freeze Tag: matches start from the lobby. Most freezes wins! Your snowball launcher (1) freezes from range.',4));
   G.best(p,'Level','freeze_level');
   return G.def(p,'freezetag','Freeze Tag');}
@@ -3509,6 +3511,16 @@ function gkFighterBots(p,o){const G=GK;const NB='vfbots',BV=[['fighter bots',NB]
     G.iff(G.cmp(G.vget(NB),'GT',G.num(n)),G.vset(NB,G.num(n))),
     ...Array.from({length:n},(_,i)=>{const k=i+1,h=o.home[i%o.home.length];return G.ifElse(G.cmp(G.num(k),'LTE',G.vget(NB)),[blk('rig_heal',{PART:G.pnamed('Fighter'+k),N:bn(1000)}),blk('p_visible',{PART:G.pnamed('Fighter'+k)},{B:'TRUE'}),blk('p_setpos',{PART:G.pnamed('Fighter'+k),X:OX(h[0]),Y:bn(2.6+(o.y||0)),Z:bn(h[1])})],
       [blk('p_visible',{PART:G.pnamed('Fighter'+k)},{B:'FALSE'}),blk('p_setpos',{PART:G.pnamed('Fighter'+k),X:bn(k*6),Y:bn(2.6),Z:bn(300)})]);})),BV);}
+/* mystery power-up boxes: speed, super jump, shield, heal or feather (low gravity). Each respawns after 15 seconds */
+function gkPowerups(p,spots,o){const G=GK;o=o||{};const y=o.y||1.5;
+  spots.forEach(([x,z],i)=>{const b=G.part(p,'workspace',{name:'PowerBox',pos:[x,y,z],size:[2.2,2.2,2.2],color:'#7c4dff',material:'Neon',canCollide:false,label:'?'});
+    G.script(p,b.id,'Spin',blk('ev_start'),G.forever(blk('p_rotate',{PART:bme(),DEG:bn(5)},{AXIS:'y'}),G.wait(.04)));
+    G.vars(G.script(p,b.id,'Open',blk('ev_touch'),blk('p_visible',{PART:bme()},{B:'FALSE'}),G.sound('win'),G.vset('vpwr',G.rnd(1,5)),
+      G.ifElse(G.cmp(G.vget('vpwr'),'EQ',G.num(1)),[G.msg('⚡ SPEED for 6 seconds!',1.5),blk('pl_speed',{V:bn(26)}),G.wait(6),blk('pl_speed',{V:bn(16)})],
+       [G.ifElse(G.cmp(G.vget('vpwr'),'EQ',G.num(2)),[G.msg('🦘 SUPER JUMP!',1.5),blk('pl_jump',{V:bn(80)}),G.wait(8),blk('pl_jump',{V:bn(50)})],
+        [G.ifElse(G.cmp(G.vget('vpwr'),'EQ',G.num(3)),[G.msg('🛡️ SHIELD for 6 seconds!',1.5),blk('pl_shield',{S:bn(6)}),G.wait(6)],
+         [G.ifElse(G.cmp(G.vget('vpwr'),'EQ',G.num(4)),[G.msg('❤️ Full heal!',1.5),blk('pl_heal',{N:bn(200)}),G.wait(1)],[G.msg('🪶 FEATHER: low gravity for 8 seconds!',1.5),blk('pl_gravity',{V:bn(80)}),G.wait(8),blk('pl_gravity',{V:bn(196.2)})])])])]),
+      G.wait(9),blk('p_visible',{PART:bme()},{B:'TRUE'})),[['power','vpwr']]);});}
 function towerHellDef(){const G=GK;const p=G.proj('towerhell','Tower of Hell',{sky:'#1b1f3b',fog:700,brightness:.95,timer:false,saveStats:false,saveCheckpoint:false,lobby:true,lobbyWait:12,lobbyRound:300,lobbyScore:'Height'});
   const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[90,2,90],color:'#2b2f4a',material:'Slate'});
   G.spawnAt(p,0,.5,0,{size:[5,1,5],color:'#ffc93c'});
@@ -3939,6 +3951,7 @@ function hideSeekDef(){const G=GK;const p=G.proj('hideseek','Hide and Seek',{sky
   G.vars(G.script(p,tn.id,'Taunt',blk('ev_tool_act'),G.iff(G.AND(eq(RD,2),G.cmp(G.vget(CG),'EQ',G.num(0))),G.sadd('Score',5),G.sound('boost'),blk('pl_say',{TEXT:bt('Nya nya! Can\'t find me!'),S:bn(2.5)}))),[...VARS,['caught',CG]]);
   G.vars(G.script(p,'sss','Give taunt',G.onMsg('hide'),blk('tool_take',null,{NAME:'Taunt'}),G.iff(G.NOT(amSeeker()),blk('tool_give',null,{NAME:'Taunt'}))),VARS);
   G.script(p,'sss','Take taunt',G.onMsg('round end'),blk('tool_take',null,{NAME:'Taunt'}));
+  gkPowerups(p,[[-20,50],[20,-50],[70,0],[380,50],[420,-50],[470,0]]);
   G.welcome(p,G.sset('Score',0),G.msg('Hide and Seek: one seeker, everyone else hides. Bots join when players are short.',5));
   return G.def(p,'hideseek','Hide and Seek');}
 
@@ -3995,6 +4008,7 @@ function evadeDef(){const G=GK;const p=G.proj('evade','Evade',{sky:'#4a148c',fog
     G.vset('vgt',G.idOf(G.pref('randplaying'))),blk('p_setpos',{PART:G.pnamed('Ghast'),X:G.arith('ADD',G.axOf(G.byId(G.vget('vgt')),'x'),G.rnd(-25,25)),Y:bn(4),Z:G.arith('ADD',G.axOf(G.byId(G.vget('vgt')),'z'),G.rnd(-25,25))}),G.bc('ghast blink')))),VARS);
   G.script(p,'sss','Blink msg',G.onMsg('ghast blink'),G.sound('die'),G.msg('👻 The Ghast blinked somewhere nearby...',2));
   G.vars(G.hscript(p,'sss','Screamer burst',G.onMsg('round start'),G.whileDo(G.inMatch(),G.wait(G.rnd(8,14)),G.iff(G.cmp(G.vget(NA),'GTE',G.num(2)),blk('rig_speed',{PART:G.pnamed('Screamer'),N:bn(24)}),blk('rig_say',{PART:G.pnamed('Screamer'),TEXT:bt('AAAAAAAAA!'),S:bn(2)}),G.wait(2.5),blk('rig_speed',{PART:G.pnamed('Screamer'),N:bn(15.8)})))),VARS);
+  gkPowerups(p,[[-45,45],[45,-45],[0,-80],[355,45],[445,-45],[400,-80]]);
   G.welcome(p,G.sset('Score',0),G.msg('Evade: run from the nextbots! Downed players can be picked up by teammates.',5));
   G.best(p,'Score','evade_best');
   return G.def(p,'evade','Evade');}
