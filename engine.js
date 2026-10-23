@@ -3690,63 +3690,63 @@ function arsenalDef(){const G=GK;const p=G.proj('arsenal','Arsenal',{sky:'#ffb74
 
 /* 24. Deathrun: run the trap course; Death (a player, or a bot if there are few players) springs the traps */
 function deathrunDef(){const G=GK;const p=G.proj('deathrun','Deathrun',{sky:'#263238',fog:500,brightness:.9,timer:false,saveStats:false,saveCheckpoint:false,deathStyle:'ragdoll',lobby:true,lobbyWait:12,lobbyRound:120,lobbyScore:'Score',lobbyElim:true});
-  const TR=[1,2,3,4,5,6,7,8];G.noBase(p);const C=G.folder(p,'Course').id;const P=o=>G.part(p,C,o);
+  const TR=[1,2,3,4,5,6,7,8];G.noBase(p);const Y=20;
   G.spawnAt(p,0,20.5,10,{size:[12,1,10],color:'#43a047'});
-  const Y=20;let z=4;
-  const seg=(len,col)=>{const pt=P({name:'Path',pos:[0,Y,z-len/2],size:[12,1,len],color:col||'#546e7a',material:'Concrete'});z-=len;return pt;};
-  [[-7,0],[7,0]].forEach(([x])=>P({name:'Rail',pos:[x,Y+3,-140],size:[1,6,300],color:'#90a4ae',material:'Glass',transparency:.6}));
-  const DV=[],traps=[];
-  const trap=(k,name,partsFn)=>{traps.push({k,name});};
-  // 1 floor drop
-  seg(10);const drop=P({name:'TrapDrop',pos:[0,Y,z-6],size:[12,1,12],color:'#8d6e63',material:'Wood',label:'1'});z-=12;
-  // 2 spikes
-  seg(8);const spikeZ=z-6;P({name:'Path',pos:[0,Y,spikeZ],size:[12,1,12],color:'#546e7a',material:'Concrete'});const spikes=P({name:'TrapSpikes',pos:[0,Y-1.5,spikeZ],size:[11,1.5,11],color:'#b0bec5',material:'Metal',behavior:'kill'});z-=12;
-  // 3 sweeper bar
-  seg(8);const sweepZ=z-6;P({name:'Path',pos:[0,Y,sweepZ],size:[12,1,12],color:'#546e7a',material:'Concrete'});const sweep=P({name:'TrapSweep',pos:[-30,Y+1.6,sweepZ],size:[2,2,11],color:'#ff1744',material:'Neon',behavior:'kill'});z-=12;
-  // 4 lava flood
-  seg(8);const lavaZ=z-8;P({name:'Path',pos:[0,Y,lavaZ],size:[12,1,16],color:'#546e7a',material:'Concrete'});const lava=P({name:'TrapLava',pos:[0,Y-3,lavaZ],size:[11.6,1,15.6],color:'#ff3d00',material:'Neon',behavior:'kill'});z-=16;
-  // 5 boulder
-  seg(30);const boulder=P({name:'TrapBoulder',shape:'ball',pos:[0,Y+3,-500],size:[8,8,8],color:'#6d4c41',material:'Slate',behavior:'kill'});const bZ=z+30;
-  // 6 laser gate
-  seg(6);const laserZ=z-2;const laser=P({name:'TrapLaser',pos:[0,Y-8,laserZ],size:[12,6,.6],color:'#e040fb',material:'Neon',behavior:'kill',canCollide:false});seg(10);
-  // 7 hammer that swings across the path
-  const hamZ=z-5;P({name:'Path',pos:[0,Y,hamZ],size:[12,1,10],color:'#546e7a',material:'Concrete'});P({name:'TrapHammer',pos:[-16,Y+2.5,hamZ],size:[6,4,2.4],color:'#6d4c41',material:'Metal',behavior:'kill'});z-=10;seg(6);
-  // 8 crumbling bridge over the lava
-  const brZ=z-8;const BRM=G.model(p,'TrapBridge').id;for(let i=0;i<4;i++)G.part(p,BRM,{name:'Plank',pos:[0,Y,brZ+6-i*4],size:[12,1,3.8],color:'#8d6e63',material:'Wood'});z-=16;seg(8);
-  const fin=P({name:'Finish',pos:[0,Y,z-8],size:[16,1,16],color:'#ffd740',material:'Neon',label:'FINISH'});const finZ=z-8;
-  P({name:'Below',pos:[0,Y-20,-140],size:[60,1,320],color:'#ff3d00',material:'Neon',behavior:'kill'});
-  // Death's control room above the course with six buttons
-  const roomZ=-80;P({name:'DeathRoom',pos:[22,Y+14,roomZ],size:[14,1,40],color:'#212121',material:'Metal',label:"DEATH'S ROOM"});
-  const TRAPZ=[drop,spikes,sweep,lava,boulder,laser].map(t=>t.pos[2]);
-  [drop.pos[2],spikeZ,sweepZ,lavaZ,bZ-15,laserZ,hamZ,brZ].forEach((mz,i)=>P({name:'Mark'+(i+1),pos:[0,Y+2,mz+(i===4?0:4)],size:[1,1,1],color:'#000000',transparency:1,canCollide:false}));
-  const ROLE='vdeath',RQ=k=>'vtrap'+k,DONE=k=>'vtrapdone'+k,KV=[['death',ROLE],...TR.map(k=>['trap request '+k,RQ(k)]),...TR.map(k=>['trap done '+k,DONE(k)])];
-  TR.forEach(k=>{const b=G.part(p,'workspace',{name:'Button'+k,pos:[18,Y+15,roomZ-20+k*4.5],size:[3,.6,3],color:'#d50000',material:'Neon',label:String(k)});
-    G.vars(G.script(p,b.id,'Press',blk('ev_touch'),G.iff(G.cmp(G.vget(ROLE),'EQ',G.myId()),G.shChg(RQ(k),1),G.sound('click'),G.msg('Trap '+k+'!',1),G.wait(2))),KV);});
-  const deathBot=rigNode({name:'Death',pos:[26,Y+17.1,roomZ],scale:1.3,health:9999,respawn:0,walkSpeed:0,colors:{head:'#212121',torso:'#000000',arms:'#212121',legs:'#000000'}});p.nodes.push(deathBot);
-  // trap actions (host)
-  const ACT={1:[blk('p_collide',{PART:G.pnamed('TrapDrop')},{B:'FALSE'}),blk('p_transp',{PART:G.pnamed('TrapDrop')},{V:bn(.9)}),G.wait(2.5),blk('p_collide',{PART:G.pnamed('TrapDrop')},{B:'TRUE'}),blk('p_transp',{PART:G.pnamed('TrapDrop')},{V:bn(0)})],
-    2:[blk('p_glide',{PART:G.pnamed('TrapSpikes'),X:bn(0),Y:bn(2.5),Z:bn(0),S:bn(.2)}),G.wait(1.6),blk('p_glide',{PART:G.pnamed('TrapSpikes'),X:bn(0),Y:bn(-2.5),Z:bn(0),S:bn(.6)})],
-    3:[blk('p_setpos',{PART:G.pnamed('TrapSweep'),X:bn(-8),Y:bn(Y+1.6),Z:bn(TRAPZ[2])}),blk('p_glide',{PART:G.pnamed('TrapSweep'),X:bn(16),Y:bn(0),Z:bn(0),S:bn(1)}),blk('p_setpos',{PART:G.pnamed('TrapSweep'),X:bn(-30),Y:bn(Y+1.6),Z:bn(TRAPZ[2])})],
-    4:[blk('p_glide',{PART:G.pnamed('TrapLava'),X:bn(0),Y:bn(3.6),Z:bn(0),S:bn(.6)}),G.wait(2.5),blk('p_glide',{PART:G.pnamed('TrapLava'),X:bn(0),Y:bn(-3.6),Z:bn(0),S:bn(.8)})],
-    5:[blk('p_setpos',{PART:G.pnamed('TrapBoulder'),X:bn(0),Y:bn(Y+4.5),Z:bn(bZ-30)}),blk('p_glide',{PART:G.pnamed('TrapBoulder'),X:bn(0),Y:bn(0),Z:bn(32),S:bn(1.6)}),blk('p_setpos',{PART:G.pnamed('TrapBoulder'),X:bn(0),Y:bn(Y+3),Z:bn(-500)})],
-    7:[blk('p_setpos',{PART:G.pnamed('TrapHammer'),X:bn(-9),Y:bn(Y+2.5),Z:bn(hamZ)}),blk('p_glide',{PART:G.pnamed('TrapHammer'),X:bn(18),Y:bn(0),Z:bn(0),S:bn(.7)}),blk('p_glide',{PART:G.pnamed('TrapHammer'),X:bn(-18),Y:bn(0),Z:bn(0),S:bn(.7)}),blk('p_setpos',{PART:G.pnamed('TrapHammer'),X:bn(-16),Y:bn(Y+2.5),Z:bn(hamZ)})],
-    8:[blk('p_color',{PART:G.mnamed('TrapBridge')},{COLOUR:'#ff7043'}),G.wait(.4),blk('p_collide',{PART:G.mnamed('TrapBridge')},{B:'FALSE'}),blk('p_transp',{PART:G.mnamed('TrapBridge')},{V:bn(.85)}),G.wait(2.5),blk('p_collide',{PART:G.mnamed('TrapBridge')},{B:'TRUE'}),blk('p_transp',{PART:G.mnamed('TrapBridge')},{V:bn(0)}),blk('p_color',{PART:G.mnamed('TrapBridge')},{COLOUR:'#8d6e63'})],
-    6:[blk('p_setpos',{PART:G.pnamed('TrapLaser'),X:bn(0),Y:bn(Y+3.5),Z:bn(TRAPZ[5])}),G.wait(2),blk('p_setpos',{PART:G.pnamed('TrapLaser'),X:bn(0),Y:bn(Y-8),Z:bn(TRAPZ[5])})]};
-  TR.forEach(k=>{G.vars(G.hscript(p,'sss','Trap '+k,blk('ev_start'),G.vset(DONE(k),G.num(0)),G.forever(G.until(G.cmp(G.vget(RQ(k)),'GT',G.vget(DONE(k)))),G.vset(DONE(k),G.vget(RQ(k))),G.sound('explode'),...ACT[k],G.wait(3.5))),KV);});
-  // a bot Death springs traps when a runner is close; only if there are fewer than 3 players
-  G.vars(G.hscript(p,'sss','Death bot',blk('ev_start'),G.forever(G.wait(.25),G.iff(G.cmp(G.vget(ROLE),'EQ',G.txt('bot')),
-    ...TR.map((k,i)=>G.iff(G.AND(G.cmp(G.vget(RQ(k)),'EQ',G.vget(DONE(k))),G.cmp({block:{type:'s_near_dist',inputs:{PART:G.pnamed('Mark'+k)}}},'LT',G.num(k===5?24:9))),
-      G.iff(G.cmp(G.rnd(1,3),'LTE',G.num(2)),G.vchg(RQ(k),1),blk('rig_say',{PART:G.pnamed('Death'),TEXT:bt(['Bye!','Spikes!','Swing!','Hot!','Rolling!','Zap!','BONK!','Crumble!'][i]),S:bn(1)})),G.wait(.6)))))),KV);
+  const MOX='vdox',MV2=[['map x',MOX]];
+  const ROLE='vdeath',RQ=k=>'vtrap'+k,DONE=(k,S)=>'vtrapdone'+k+S,KV=[['death',ROLE],['map x',MOX],...TR.map(k=>['trap request '+k,RQ(k)]),...TR.map(k=>['trap done '+k,DONE(k,'')]),...TR.map(k=>['trap done B'+k,DONE(k,'B')])];
+  // two courses: the Dungeon and the Haunted Woods (300 studs east, traps in a different order)
+  const COURSES=[{ox:0,S:'',path:'#546e7a',mat:'Concrete',order:[1,2,3,4,5,6,7,8],name:'DUNGEON'},{ox:300,S:'B',path:'#5d4037',mat:'Wood',order:[3,1,7,4,2,8,5,6],name:'HAUNTED WOODS'}];
+  const pick=(S)=>G.cmp(G.vget(MOX),'EQ',G.num(S?300:0));
+  G.vars(G.script(p,'sss','Pick course',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(MOX,G.num(0)),blk('g_sky',null,{COLOUR:'#263238'})],[G.vset(MOX,G.num(300)),blk('g_sky',null,{COLOUR:'#1b2a1b'}),G.msg('Course: HAUNTED WOODS',2)]),
+    G.tp(0,23,8),G.iff(G.cmp(G.vget(MOX),'GT',G.num(0)),G.tp(300,23,8))),MV2);
+  COURSES.forEach(({ox,S,path,mat,order})=>{const C=G.folder(p,'Course'+S).id;const P=o=>G.part(p,C,Object.assign({},o,{name:o.name+S,pos:[o.pos[0]+ox,o.pos[1],o.pos[2]]}));
+    let z=4;const seg=len=>{P({name:'Path',pos:[0,Y,z-len/2],size:[12,1,len],color:path,material:mat});z-=len;};
+    if(S)P({name:'Start',pos:[0,Y,8],size:[12,1,10],color:'#43a047'});
+    if(S)for(let i=0;i<20;i++){const sd=i%2?1:-1;P({name:'Tree',pos:[sd*(14+(i*7)%9),Y-6,-i*15],size:[2,22,2],color:'#3e2723',material:'Wood'});P({name:'Leaves',pos:[sd*(14+(i*7)%9),Y+6,-i*15],size:[8,6,8],color:'#1b5e20',material:'Grass',canCollide:false});}
+    const Z={};
+    const build={
+      1:()=>{seg(8);Z[1]=z-6;P({name:'TrapDrop',pos:[0,Y,z-6],size:[12,1,12],color:'#8d6e63',material:'Wood',label:'1'});z-=12;},
+      2:()=>{seg(8);Z[2]=z-6;P({name:'Path',pos:[0,Y,Z[2]],size:[12,1,12],color:path,material:mat});P({name:'TrapSpikes',pos:[0,Y-1.5,Z[2]],size:[11,1.5,11],color:'#b0bec5',material:'Metal',behavior:'kill'});z-=12;},
+      3:()=>{seg(8);Z[3]=z-6;P({name:'Path',pos:[0,Y,Z[3]],size:[12,1,12],color:path,material:mat});P({name:'TrapSweep',pos:[-30,Y+1.6,Z[3]],size:[2,2,11],color:'#ff1744',material:'Neon',behavior:'kill'});z-=12;},
+      4:()=>{seg(8);Z[4]=z-8;P({name:'Path',pos:[0,Y,Z[4]],size:[12,1,16],color:path,material:mat});P({name:'TrapLava',pos:[0,Y-3,Z[4]],size:[11.6,1,15.6],color:'#ff3d00',material:'Neon',behavior:'kill'});z-=16;},
+      5:()=>{seg(30);Z[5]=z+15;Z.b=z+30;P({name:'TrapBoulder',shape:'ball',pos:[0,Y+3,-500],size:[8,8,8],color:'#6d4c41',material:'Slate',behavior:'kill'});},
+      6:()=>{seg(6);Z[6]=z-2;P({name:'TrapLaser',pos:[0,Y-8,Z[6]],size:[12,6,.6],color:'#e040fb',material:'Neon',behavior:'kill',canCollide:false});seg(10);},
+      7:()=>{Z[7]=z-5;P({name:'Path',pos:[0,Y,Z[7]],size:[12,1,10],color:path,material:mat});P({name:'TrapHammer',pos:[-16,Y+2.5,Z[7]],size:[6,4,2.4],color:'#6d4c41',material:'Metal',behavior:'kill'});z-=10;seg(6);},
+      8:()=>{Z[8]=z-8;const BRM=G.model(p,'TrapBridge'+S).id;for(let i=0;i<4;i++)G.part(p,BRM,{name:'Plank',pos:[ox,Y,Z[8]+6-i*4],size:[12,1,3.8],color:'#8d6e63',material:'Wood'});z-=16;seg(8);}};
+    seg(10);order.forEach(k=>build[k]());
+    const fin=P({name:'Finish',pos:[0,Y,z-8],size:[16,1,16],color:'#ffd740',material:'Neon',label:'FINISH'});
+    [-7,7].forEach(x=>P({name:'Rail',pos:[x,Y+3,(z-8)/2],size:[1,6,-z+30],color:'#90a4ae',material:'Glass',transparency:.6}));
+    P({name:'Below',pos:[0,Y-20,(z-8)/2],size:[60,1,-z+60],color:'#ff3d00',material:'Neon',behavior:'kill'});
+    const roomZ=r3((z-8)/2);P({name:'DeathRoom',pos:[22,Y+14,roomZ],size:[14,1,44],color:'#212121',material:'Metal',label:"DEATH'S ROOM"});
+    TR.forEach(k=>P({name:'Mark'+k,pos:[0,Y+2,k===5?Z[5]:Z[k]+4],size:[1,1,1],color:'#000000',transparency:1,canCollide:false}));
+    TR.forEach(k=>{const b=G.part(p,'workspace',{name:'Button'+k+S,pos:[18+ox,Y+15,r3(roomZ+20-order.indexOf(k)*5)],size:[3,.6,3],color:'#d50000',material:'Neon',label:String(order.indexOf(k)+1)});
+      G.vars(G.script(p,b.id,'Press',blk('ev_touch'),G.iff(G.cmp(G.vget(ROLE),'EQ',G.myId()),G.shChg(RQ(k),1),G.sound('click'),G.msg('Trap '+(order.indexOf(k)+1)+'!',1),G.wait(2))),KV);});
+    const deathBot=rigNode({name:'Death'+S,pos:[26+ox,Y+17.1,roomZ],scale:1.3,health:9999,respawn:0,walkSpeed:0,colors:{head:'#212121',torso:'#000000',arms:'#212121',legs:'#000000'}});p.nodes.push(deathBot);
+    const n=nm=>G.pnamed(nm+S),X=v=>bn(v+ox);
+    const ACT={1:[blk('p_collide',{PART:n('TrapDrop')},{B:'FALSE'}),blk('p_transp',{PART:n('TrapDrop')},{V:bn(.9)}),G.wait(2.5),blk('p_collide',{PART:n('TrapDrop')},{B:'TRUE'}),blk('p_transp',{PART:n('TrapDrop')},{V:bn(0)})],
+      2:[blk('p_glide',{PART:n('TrapSpikes'),X:bn(0),Y:bn(2.5),Z:bn(0),S:bn(.2)}),G.wait(1.6),blk('p_glide',{PART:n('TrapSpikes'),X:bn(0),Y:bn(-2.5),Z:bn(0),S:bn(.6)})],
+      3:[blk('p_setpos',{PART:n('TrapSweep'),X:X(-8),Y:bn(Y+1.6),Z:bn(Z[3])}),blk('p_glide',{PART:n('TrapSweep'),X:bn(16),Y:bn(0),Z:bn(0),S:bn(1)}),blk('p_setpos',{PART:n('TrapSweep'),X:X(-30),Y:bn(Y+1.6),Z:bn(Z[3])})],
+      4:[blk('p_glide',{PART:n('TrapLava'),X:bn(0),Y:bn(3.6),Z:bn(0),S:bn(.6)}),G.wait(2.5),blk('p_glide',{PART:n('TrapLava'),X:bn(0),Y:bn(-3.6),Z:bn(0),S:bn(.8)})],
+      5:[blk('p_setpos',{PART:n('TrapBoulder'),X:X(0),Y:bn(Y+4.5),Z:bn(Z.b-30)}),blk('p_glide',{PART:n('TrapBoulder'),X:bn(0),Y:bn(0),Z:bn(32),S:bn(1.6)}),blk('p_setpos',{PART:n('TrapBoulder'),X:X(0),Y:bn(Y+3),Z:bn(-500)})],
+      6:[blk('p_setpos',{PART:n('TrapLaser'),X:X(0),Y:bn(Y+3.5),Z:bn(Z[6])}),G.wait(2),blk('p_setpos',{PART:n('TrapLaser'),X:X(0),Y:bn(Y-8),Z:bn(Z[6])})],
+      7:[blk('p_setpos',{PART:n('TrapHammer'),X:X(-9),Y:bn(Y+2.5),Z:bn(Z[7])}),blk('p_glide',{PART:n('TrapHammer'),X:bn(18),Y:bn(0),Z:bn(0),S:bn(.7)}),blk('p_glide',{PART:n('TrapHammer'),X:bn(-18),Y:bn(0),Z:bn(0),S:bn(.7)}),blk('p_setpos',{PART:n('TrapHammer'),X:X(-16),Y:bn(Y+2.5),Z:bn(Z[7])})],
+      8:[blk('p_color',{PART:G.mnamed('TrapBridge'+S)},{COLOUR:'#ff7043'}),G.wait(.4),blk('p_collide',{PART:G.mnamed('TrapBridge'+S)},{B:'FALSE'}),blk('p_transp',{PART:G.mnamed('TrapBridge'+S)},{V:bn(.85)}),G.wait(2.5),blk('p_collide',{PART:G.mnamed('TrapBridge'+S)},{B:'TRUE'}),blk('p_transp',{PART:G.mnamed('TrapBridge'+S)},{V:bn(0)}),blk('p_color',{PART:G.mnamed('TrapBridge'+S)},{COLOUR:'#8d6e63'})]};
+    TR.forEach(k=>G.vars(G.hscript(p,'sss','Trap '+k+S,blk('ev_start'),G.vset(DONE(k,S),G.num(0)),G.forever(G.until(G.AND(pick(S),G.cmp(G.vget(RQ(k)),'GT',G.vget(DONE(k,S))))),G.vset(DONE(k,S),G.vget(RQ(k))),G.sound('explode'),...ACT[k],G.wait(3.5))),KV));
+    G.vars(G.hscript(p,'sss','Death bot'+S,blk('ev_start'),G.forever(G.wait(.25),G.iff(G.AND(pick(S),G.cmp(G.vget(ROLE),'EQ',G.txt('bot'))),
+      ...TR.map((k,i)=>G.iff(G.AND(G.cmp(G.vget(RQ(k)),'EQ',G.vget(DONE(k,S))),G.cmp({block:{type:'s_near_dist',inputs:{PART:n('Mark'+k)}}},'LT',G.num(k===5?24:9))),
+        G.iff(G.cmp(G.rnd(1,3),'LTE',G.num(2)),G.vchg(RQ(k),1),blk('rig_say',{PART:n('Death'),TEXT:bt(['Bye!','Spikes!','Swing!','Hot!','Rolling!','Zap!','BONK!','Crumble!'][i]),S:bn(1)})),G.wait(.6)))))),KV);
+    G.vars(G.script(p,fin.id,'Finish',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.cmp(G.stat('Finished'),'EQ',G.num(0))),G.sset('Finished',1),G.sadd('Score',10),G.sound('win'),G.msg('You beat Deathrun! +10 coins',3),blk('pl_coins',{N:bn(10)}))),[...KV,...G.MV]);
+    COURSES.find(c=>c.S===S).roomZ=roomZ;});
   const MV=G.matchFlags(p);
-  G.vars(G.hscript(p,'sss','Pick Death',G.onMsg('round start'),...TR.map(k=>[G.vset(RQ(k),G.num(0)),G.vset(DONE(k),G.num(0))]).flat(),
-    G.ifElse(G.cmp(G.players(),'GTE',G.num(3)),[G.vset(ROLE,G.idOf(G.pref('randplaying'))),G.asP(G.byId(G.vget(ROLE)),G.tp(22,Y+16,roomZ),G.msg('You are DEATH! Step on the red buttons to spring traps on the runners.',5)),
-      blk('p_visible',{PART:G.pnamed('Death')},{B:'FALSE'})],[G.vset(ROLE,G.txt('bot')),blk('p_visible',{PART:G.pnamed('Death')},{B:'TRUE'}),G.msg('Death is watching... run!',3)])),[...KV,...MV]);
-  G.vars(G.script(p,fin.id,'Finish',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.cmp(G.stat('Finished'),'EQ',G.num(0))),G.sset('Finished',1),G.sadd('Score',10),G.sound('win'),G.msg('You beat Deathrun! +10 coins',3),blk('pl_coins',{N:bn(10)}))),[...KV,...MV]);
+  const R0=COURSES[0].roomZ,R1=COURSES[1].roomZ;
+  G.vars(G.hscript(p,'sss','Pick Death',G.onMsg('round start'),...TR.map(k=>[G.vset(RQ(k),G.num(0)),G.vset(DONE(k,''),G.num(0)),G.vset(DONE(k,'B'),G.num(0))]).flat(),
+    G.ifElse(G.cmp(G.players(),'GTE',G.num(3)),[G.vset(ROLE,G.idOf(G.pref('randplaying'))),G.asP(G.byId(G.vget(ROLE)),G.wait(.2),G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(0)),[G.tp(22,Y+16,R0)],[G.tp(322,Y+16,R1)]),G.msg('You are DEATH! Step on the red buttons to spring traps on the runners.',5)),
+      blk('p_visible',{PART:G.pnamed('Death')},{B:'FALSE'}),blk('p_visible',{PART:G.pnamed('DeathB')},{B:'FALSE'})],[G.vset(ROLE,G.txt('bot')),blk('p_visible',{PART:G.pnamed('Death')},{B:'TRUE'}),blk('p_visible',{PART:G.pnamed('DeathB')},{B:'TRUE'}),G.msg('Death is watching... run!',3)])),[...KV,...MV]);
   G.vars(G.script(p,'sss','Reset',G.onMsg('round start'),G.sset('Finished',0)),MV);
   G.vars(G.script(p,'sss','Runner down',blk('ev_died'),G.iff(G.NOT(G.cmp(G.vget(ROLE),'EQ',G.myId())),G.shChg('vdeathkills',1))),[['death kills','vdeathkills'],...KV]);
   G.vars(G.script(p,'sss','Death score',G.onMsg('round end'),G.iff(G.cmp(G.vget(ROLE),'EQ',G.myId()),G.sset('Score',G.arith('MULTIPLY',G.vget('vdeathkills'),G.num(4))))),[['death kills','vdeathkills'],...KV]);
   G.vars(G.hscript(p,'sss','Reset kills',G.onMsg('round start'),G.vset('vdeathkills',G.num(0))),[['death kills','vdeathkills']]);
-  G.welcome(p,G.sset('Score',0),G.sset('Finished',0),G.msg('Deathrun: reach the end of the course while Death springs the traps!',5));
+  G.welcome(p,G.sset('Score',0),G.sset('Finished',0),G.msg('Deathrun: reach the end of the course while Death springs the traps! Two courses take turns.',5));
   return G.def(p,'deathrun','Deathrun');}
 
 /* 25. Hide and Seek: one seeker, everyone else hides. Bots hide (or seek) when players are short */
