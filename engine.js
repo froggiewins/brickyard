@@ -3823,7 +3823,14 @@ function arsenalDef(){const G=GK;const p=G.proj('arsenal','Arsenal',{sky:'#ffb74
     for(let i=0;i<12;i++){const a=i/12*Math.PI*2,r=48;Q({name:'Snowbank',pos:[OX+r3(Math.cos(a)*r),1.5,r3(Math.sin(a)*r)],size:[8,3,4],rot:[0,r3(-a*57.3),0],color:'#ffffff',material:'Snow'});}
     [[0,-40],[0,40],[0,0]].forEach(([x,z2])=>Q({name:'IceBlock',pos:[OX+x,2.5,z2],size:[5,5,5],color:'#80deea',material:'Ice',transparency:.25}));
     [[-50,-50],[50,50],[50,-50],[-50,50]].forEach(([x,z2])=>Q({name:'JumpPad',pos:[OX+x,.3,z2],size:[4,.4,4],color:'#22d3ee',material:'Neon',behavior:'jump',value:95}));}
-  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(AOX,G.num(0)),blk('g_sky',null,{COLOUR:'#ffb74d'})],[G.vset(AOX,G.num(300)),blk('g_sky',null,{COLOUR:'#b3e5fc'}),G.msg('Map: SNOW FORT',2)]),
+  {const OX=600,R3=G.folder(p,'Rooftops').id;const Q=o=>G.part(p,R3,o);
+    Q({name:'Street',pos:[OX,-1,0],size:[150,2,150],color:'#455a64',material:'Concrete'});
+    const blds=[[-45,-45,24,18],[0,-45,20,26],[45,-45,24,14],[-45,0,20,22],[45,0,20,20],[-45,45,24,16],[0,45,20,24],[45,45,24,18]];
+    blds.forEach(([x,z2,w,h],i)=>{Q({name:'Building',pos:[OX+x,h/2,z2],size:[w,h,w],color:['#8d6e63','#78909c','#a1887f','#90a4ae'][i%4],material:'Brick'});
+      Q({name:'Roof',pos:[OX+x,h+.3,z2],size:[w-2,.6,w-2],color:'#37474f',material:'Concrete'});Q({name:'JumpPad',pos:[OX+x+w/2+3,.3,z2],size:[4,.4,4],color:'#22d3ee',material:'Neon',behavior:'jump',value:Math.min(150,60+h*3.4)});});
+    [[-45,-22.5,-45,22.5],[45,-22.5,45,22.5],[-22.5,-45,22.5,-45],[-22.5,45,22.5,45]].forEach(([x1,z1,x2,z2])=>Q({name:'Plank',pos:[OX+(x1+x2)/2,16,(z1+z2)/2],size:[Math.abs(x2-x1)+3,.6,Math.abs(z2-z1)+3],color:'#8d6e63',material:'Wood'}));
+    Q({name:'Center',pos:[OX,2,0],size:[16,4,16],color:'#607d8b',material:'Concrete'});}
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.vset(AOX,G.arith('MULTIPLY',G.rnd(0,2),G.num(300))),G.ifElse(G.cmp(G.vget(AOX),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#ffb74d'})],[G.ifElse(G.cmp(G.vget(AOX),'EQ',G.num(300)),[blk('g_sky',null,{COLOUR:'#b3e5fc'}),G.msg('Map: SNOW FORT',2)],[blk('g_sky',null,{COLOUR:'#ff8a65'}),G.msg('Map: ROOFTOPS',2)])]),
     blk('pl_tpxyz',{X:ox(G.rnd(-55,55)),Y:bn(4),Z:G.rnd(-55,55)})),AV);
   const TIERS=[['Blaster',25,.3,'#5cc8ff',230,0],['Rapid Blaster',12,.1,'#69f0ae',260,0],['Scatter Cannon',45,.8,'#ffab40',200,.6],['Flamethrower',9,.07,'#ff9100',95,.3],['Sniper',100,1.4,'#ea80fc',420,1.6],['Railgun',80,1.0,'#18ffff',600,1.8],['Rocket Launcher',70,1.2,'#ff5252',150,1]];
   TIERS.forEach(([nm,dmg,cool,col,spd,len],i)=>gkGun(p,i===0?'pack':'rs',nm,{dmg,cool,color:col,speed:spd,len,tip:'Weapon '+(i+1)+' of '+(TIERS.length+1)}));
