@@ -2655,6 +2655,9 @@ function gemsDef(){const G=GK;const p=G.proj('gems','Gem Hunt',{sky:'#a6e3ff',ti
   G.script(p,'sss','Rainbow msg',G.onMsg('rainbow gem'),G.sound('check'),G.msg('🌈 A RAINBOW GEM (+10) fell from the sky! Race for it!',3));
   G.vars(G.script(p,rg.id,'Grab',blk('ev_touch'),G.iff(G.cmp(G.vget('vrg'),'EQ',G.num(1)),G.shSet('vrg',G.num(0)),G.sadd('Gems',10),G.sound('win'),G.msg('RAINBOW GEM! +10',2),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-60),Z:bn(0)}))),[['rainbow gem','vrg']]);
   gkPowerups(p,[[-60,0],[60,20],[0,60],[260,0],[380,20],[320,60]]);
+  G.vars(G.hscript(p,'sss','Gem rush',G.onMsg('round start'),G.wait(72),G.iff(G.inMatch(),G.bc('gem rush'))),[...G.MV]);
+  G.script(p,'sss','Gem rush msg',G.onMsg('gem rush'),G.sound('check'),G.msg('💎 GEM RUSH! The last 18 seconds: every gem counts double!',3),G.vset('vrush',G.num(1)),G.wait(18),G.vset('vrush',G.num(0)));
+  G.script(p,'sss','Rush bonus',blk('ev_start'),G.forever(G.vset('vgl',G.stat('Gems')),G.until(G.cmp(G.stat('Gems'),'NEQ',G.vget('vgl'))),G.iff(G.AND(G.cmp(G.vget('vrush'),'EQ',G.num(1)),G.cmp(G.stat('Gems'),'GT',G.vget('vgl'))),G.sadd('Gems',G.arith('MINUS',G.stat('Gems'),G.vget('vgl'))))));
   G.matchFlags(p);
   return G.def(p,'gems','Gem Hunt');}
 
@@ -3687,6 +3690,11 @@ function murderDef(){const G=GK;const p=G.proj('murder','Murder Mystery',{sky:'#
     G.iff(G.cmp(G.arith('ADD',G.arith('MULTIPLY',G.arith('MINUS',G.prop(G.pnamed('Bot'+k),'x'),G.vget(GX)),G.arith('MINUS',G.prop(G.pnamed('Bot'+k),'x'),G.vget(GX))),G.arith('MULTIPLY',G.arith('MINUS',G.prop(G.pnamed('Bot'+k),'z'),G.vget(GZ)),G.arith('MINUS',G.prop(G.pnamed('Bot'+k),'z'),G.vget(GZ)))),'LT',G.num(400)),
       blk('rig_walk',{PART:G.pnamed('Bot'+k),X:G.vget(GX),Z:G.vget(GZ)}),G.iff(G.cmp(G.arith('ADD',G.arith('MULTIPLY',G.arith('MINUS',G.prop(G.pnamed('Bot'+k),'x'),G.vget(GX)),G.arith('MINUS',G.prop(G.pnamed('Bot'+k),'x'),G.vget(GX))),G.arith('MULTIPLY',G.arith('MINUS',G.prop(G.pnamed('Bot'+k),'z'),G.vget(GZ)),G.arith('MINUS',G.prop(G.pnamed('Bot'+k),'z'),G.vget(GZ)))),'LT',G.num(9)),
         G.vset(GD,G.num(0)),G.vset(SH,G.txt('Bot'+k)),blk('rig_say',{PART:G.pnamed('Bot'+k),TEXT:bt('I have the gun now!'),S:bn(2)})))))),VARS));
+  // a full coin bag (8 coins) buys innocents a speed burst, and the murderer a few seconds of invisibility
+  G.vars(G.script(p,'sss','Coin bag',G.onMsg('round start'),G.sset('Coins',0),G.vset('vbag',G.num(0)),G.whileDo(G.inMatch(),
+    G.iff(G.AND(G.cmp(G.stat('Coins'),'GTE',G.num(8)),G.cmp(G.vget('vbag'),'EQ',G.num(0))),G.vset('vbag',G.num(1)),G.sound('win'),
+      G.ifElse(eq(MU,G.myId()),[G.msg('Coin bag full! You turn INVISIBLE for 6 seconds...',3),blk('pl_visible',null,{B:'FALSE'}),G.wait(6),blk('pl_visible',null,{B:'TRUE'})],
+        [G.msg('Coin bag full! SPEED BOOST for 10 seconds!',3),blk('pl_speed',{V:bn(24)}),G.wait(10),blk('pl_speed',{V:bn(16)})])),G.wait(.5))),[...VARS,['bag','vbag']]);
   G.welcome(p,G.msg('Murder Mystery: find out who the murderer is before it is too late. Bots fill the empty spots.',5));
   G.best(p,'Score','murder_score');
   return G.def(p,'murder','Murder Mystery');}
@@ -3970,6 +3978,12 @@ function hideSeekDef(){const G=GK;const p=G.proj('hideseek','Hide and Seek',{sky
   G.vars(G.script(p,'sss','Give taunt',G.onMsg('hide'),blk('tool_take',null,{NAME:'Taunt'}),G.iff(G.NOT(amSeeker()),blk('tool_give',null,{NAME:'Taunt'}))),VARS);
   G.script(p,'sss','Take taunt',G.onMsg('round end'),blk('tool_take',null,{NAME:'Taunt'}));
   gkPowerups(p,[[-20,50],[20,-50],[70,0],[380,50],[420,-50],[470,0]]);
+  // the seeker gets a sprint ability (8 second recharge)
+  const spr={id:uid(),cls:'Tool',name:'Sprint',parent:'rs',tooltip:'Seeker sprint: 3 seconds of speed',cooldown:8,swing:false};
+  const sph=partNode({parent:spr.id,name:'Handle',shape:'ball',pos:[0,3,0],size:[.8,.8,.8],color:'#ffd600',material:'Neon'});spr.handle=sph.id;p.nodes.push(spr,sph);
+  G.script(p,spr.id,'Go',blk('ev_tool_act'),G.sound('boost'),blk('pl_speed',{V:bn(30)}),G.wait(3),blk('pl_speed',{V:bn(16)}));
+  G.vars(G.script(p,'sss','Give sprint',G.onMsg('seek'),blk('tool_take',null,{NAME:'Sprint'}),G.iff(amSeeker(),blk('tool_give',null,{NAME:'Sprint'}))),VARS);
+  G.script(p,'sss','Take sprint',G.onMsg('round end'),blk('tool_take',null,{NAME:'Sprint'}));
   G.welcome(p,G.sset('Score',0),G.msg('Hide and Seek: one seeker, everyone else hides. Bots join when players are short.',5));
   return G.def(p,'hideseek','Hide and Seek');}
 
