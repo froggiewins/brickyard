@@ -2130,6 +2130,20 @@ function canPlace(c,s){const h=s/2-.02;const mn=new V3(c.x-h,c.y-h,c.z-h),mx=new
   if(mn.x<P.pos.x+PH.x&&mx.x>P.pos.x-PH.x&&mn.y<P.pos.y+PH.y&&mx.y>P.pos.y-PH.y&&mn.z<P.pos.z+PH.z&&mx.z>P.pos.z-PH.z)return false;
   return c.y>0&&Math.abs(c.x)<128&&Math.abs(c.z)<128;}
 function placeBrick(x,y,z,s,color,fin){fin=BFIN[fin]?+fin:0;const p=block(x,y,z,s,s,s,color,Object.assign({},BFIN[fin]));p.data.built=true;p.data.rec=[x,y,z,s,color,fin];return p;}
+const STAMPS={
+  tree:()=>{const o=[];for(let y=0;y<3;y++)o.push([0,y,0,'#6d4c41']);for(let x=-1;x<=1;x++)for(let z=-1;z<=1;z++)for(let y=3;y<5;y++)if(!(y===4&&Math.abs(x)+Math.abs(z)===2))o.push([x,y,z,'#2e7d32']);o.push([0,5,0,'#43a047']);return o;},
+  house:()=>{const o=[];for(let x=-2;x<=2;x++)for(let z=-2;z<=2;z++)for(let y=0;y<3;y++){const edge=Math.abs(x)===2||Math.abs(z)===2;if(!edge)continue;if(z===2&&x===0&&y<2)continue;if(y===1&&(x===0||z===0)&&!(z===2))o.push([x,y,z,'#bbdefb',2]);else o.push([x,y,z,'#ef9a9a']);}
+    for(let x=-2;x<=2;x++)for(let z=-2;z<=2;z++)o.push([x,3,z,'#6d4c41']);for(let x=-1;x<=1;x++)for(let z=-1;z<=1;z++)o.push([x,4,z,'#5d4037']);o.push([0,5,0,'#4e342e']);return o;},
+  tower:()=>{const o=[];for(let y=0;y<8;y++)for(let x=0;x<=1;x++)for(let z=0;z<=1;z++)o.push([x,y,z,y%2?'#b0bec5':'#90a4ae']);for(let x=-1;x<=2;x++)for(let z=-1;z<=2;z++)if(x<0||x>1||z<0||z>1)o.push([x,8,z,'#ffd54f',1]);return o;},
+  car:()=>{const o=[];for(let z=-2;z<=1;z++)for(let x=0;x<=1;x++)o.push([x,1,z,'#e53935',3]);for(let x=0;x<=1;x++)o.push([x,2,-1,'#90caf9',2],[x,2,0,'#90caf9',2]);[[-1,0,-2],[2,0,-2],[-1,0,1],[2,0,1]].forEach(([x,y,z])=>o.push([x,y,z,'#212121']));return o;},
+  snowman:()=>{const o=[];for(let x=-1;x<=1;x++)for(let z=-1;z<=1;z++)o.push([x,0,z,'#fafafa']);o.push([0,1,0,'#fafafa'],[0,2,0,'#fafafa'],[0,2,1,'#ff9800'],[0,3,0,'#212121']);return o;},
+  bridge:()=>{const o=[];for(let z=0;z<10;z++){o.push([0,0,-z,'#8d6e63'],[1,0,-z,'#8d6e63']);if(z%3===0)o.push([-1,1,-z,'#5d4037'],[2,1,-z,'#5d4037']);}return o;},
+  castle:()=>{const o=[];for(let x=-4;x<=4;x++){for(let y=0;y<3;y++)o.push([x,y,0,'#9e9e9e']);if(x%2===0)o.push([x,3,0,'#bdbdbd']);}return o;},
+  rocket:()=>{const o=[];for(let y=0;y<6;y++)o.push([0,y,0,y===5?'#e53935':'#eceff1',y===5?1:3]);o.push([0,6,0,'#e53935'],[-1,0,0,'#e53935'],[1,0,0,'#e53935'],[0,0,-1,'#e53935'],[0,0,1,'#e53935'],[0,-1,0,'#ff9100',1]);return o;}};
+function placeStamp(c){if(MP.world){toast('Stamps work in your own builds','#ff9aa4');return;}const id=($('#bstamp')||{}).value||'tree';const list=(STAMPS[id]||STAMPS.tree)();buildSnap();let n=0;
+  const base=new V3(Math.floor(c.x/2)*2+1,Math.floor(c.y/2)*2+1,Math.floor(c.z/2)*2+1);
+  for(const [dx,dy,dz,col,fin] of list){const q=new V3(base.x+dx*2,base.y+dy*2,base.z+dz*2);if(q.y<1)continue;if(canPlace(q,2)){placeBrick(q.x,q.y,q.z,2,col,fin||0);n++;}}
+  if(n){SFX.place();saveBuild();toast('Placed '+n+' blocks','#9fe3ff',1);}else{SFX.nope();B.undo.pop();}}
 function buildSnap(){if(MP.world)return;B.undo.push(W.parts.filter(p=>p.data.built).map(p=>p.data.rec.slice()));if(B.undo.length>40)B.undo.shift();}
 function buildUndo(){if(MP.world){toast('Undo works in your own builds','#ff9aa4');return;}const prev=B.undo.pop();if(!prev){SFX.nope();toast('Nothing to undo','#9fb0cc',1);return;}
   W.parts.filter(p=>p.data.built).forEach(removePart);prev.forEach(r=>placeBrick(r[0],r[1],r[2],r[3],r[4],r[5]));SFX.del();saveBuild();}
@@ -2147,6 +2161,7 @@ function builderClick(e){
     else if(B.tool==='paint'){if(part&&part.data.docId){SFX.place();const id=part.data.docId,col=B.color;worldWrite(()=>MP.world.doc(id).update({c:col}));}else SFX.nope();}
     updateGhost(e);return;}
   if(B.tool==='pick'){const c=part&&part.mesh&&part.mesh.material&&part.mesh.material.color?'#'+part.mesh.material.color.getHexString():null;if(c){setBColor(c,!BCOLORS.includes(c));SFX.click();toast('Picked '+c,c,1.2);setBTool('build');}else SFX.nope();updateGhost(e);return;}
+  if(B.tool==='stamp'){const sv=B.size;B.size=2;const c=cellFor(hit);B.size=sv;placeStamp(c);updateGhost(e);return;}
   if(B.tool==='build'){const c=cellFor(hit);if(!canPlace(c,B.size)){SFX.nope();return;}buildSnap();placeBrick(c.x,c.y,c.z,B.size,B.color,B.fin);SFX.place();saveBuild();}
   else if(B.tool==='delete'){if(part&&part.data.built){buildSnap();removePart(part);SFX.del();saveBuild();}else SFX.nope();}
   else if(B.tool==='paint'){if(part&&part.data.built){buildSnap();const r=part.data.rec;removePart(part);placeBrick(r[0],r[1],r[2],r[3],B.color,B.fin);SFX.place();saveBuild();}else SFX.nope();}
@@ -2209,6 +2224,7 @@ function loadBricks(list){
 }
 $('#bsaveBtn').addEventListener('click',()=>openSaves());
 $('#btools').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;setBTool(b.dataset.tool);});
+$('#bstamp')&&$('#bstamp').addEventListener('change',()=>{setBTool('stamp');cv.focus({preventScroll:true});});
 $('#bsizes').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;B.size=+b.dataset.size;$('#bsizes').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
 function setBTool(t){B.tool=t;$('#btools').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.tool===t));if(B.ghost)B.ghost.visible=false;}
 $('#bclear').addEventListener('click',()=>{const b=$('#bclear');
@@ -4550,7 +4566,7 @@ addEventListener('keydown',e=>{
   if(paused)return;
   if(e.code==='Space'){e.preventDefault();if(!e.repeat)P.jumpBuf=.15;jumpHeld=true;}
   if(e.code==='KeyR'&&!e.repeat&&!P.dead&&!state.over){die('kill');}
-  if(game.mode==='build'){if(e.code==='Digit1')setBTool('build');if(e.code==='Digit2')setBTool('paint');if(e.code==='Digit3')setBTool('delete');if(e.code==='Digit4')setBTool('pick');}
+  if(game.mode==='build'){if(e.code==='Digit1')setBTool('build');if(e.code==='Digit2')setBTool('paint');if(e.code==='Digit3')setBTool('delete');if(e.code==='Digit4')setBTool('pick');if(e.code==='Digit5')setBTool('stamp');}
   if(/^Arrow/.test(e.code))e.preventDefault();
   if(!e.repeat)rtFire('key',e.code);
   if(game.mode!=='build'&&/^Digit[1-9]$/.test(e.code)&&!e.repeat){const i=+e.code.slice(5)-1;if(P.backpack[i])equipTool(P.backpack[i]);}
