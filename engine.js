@@ -2634,12 +2634,25 @@ function turboDef(){const G=GK;const p=G.proj('turbo','Turbo Track',{sky:'#7fb8f
 
 /* 6. Sumo Smash: sumo bots only fill the ring when there are not enough players */
 function arenaExtras(p){const G=GK;
-  gkFighterBots(p,{total:4,max:3,home:[[-60,-60],[60,60],[60,-60]],area:70,dmg:9,acc:4});
+  const BOX='vbbox',BV2=[['map x',BOX]];const ox=v=>G.arith('ADD',typeof v==='number'?G.num(v):v,G.vget(BOX));
+  {const OX=300,M2=G.folder(p,'Moon Base').id;const Q=o=>G.part(p,M2,o);
+    Q({name:'MoonDust',pos:[OX,-1,0],size:[160,2,160],color:'#9e9e9e',material:'Slate'});
+    for(let i=0;i<9;i++){const x=((i*53)%120)-60,z=((i*97)%120)-60;Q({name:'Crater',shape:'cyl',pos:[OX+x,.1,z],size:[12,.3,12],color:'#757575',material:'Slate'});}
+    [[0,-80,160,2],[0,80,160,2],[-80,0,2,160],[80,0,2,160]].forEach(([x,z,w,d])=>Q({name:'Dome',pos:[OX+x,6,z],size:[w,12,d],color:'#b3e5fc',material:'Glass',transparency:.6}));
+    [[-30,-30],[30,30],[-30,30],[30,-30]].forEach(([x,z],i)=>{Q({name:'Module',shape:'cyl',pos:[OX+x,5,z],size:[12,10,12],color:'#eceff1',material:'Metal'});Q({name:'ModuleTop',pos:[OX+x,10.4,z],size:[8,.8,8],color:['#ef5350','#42a5f5','#66bb6a','#ffca28'][i],material:'Neon'});
+      Q({name:'Ramp',shape:'wedge',pos:[OX+x,5,z+(z<0?11:-11)],size:[6,10,10],rot:[0,z<0?180:0,0],color:'#90a4ae',material:'Metal'});});
+    Q({name:'Rocket',shape:'cyl',pos:[OX,12,0],size:[6,24,6],color:'#fafafa',material:'Metal'});Q({name:'RocketNose',shape:'ball',pos:[OX,24.5,0],size:[6,6,6],color:'#e53935',material:'Metal'});
+    [[-12,14],[14,-12],[0,-40],[0,40]].forEach(([x,z])=>Q({name:'Cover',pos:[OX+x,2,z],size:[8,4,2],color:'#78909c',material:'Metal'}));}
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(BOX,G.num(0)),blk('pl_gravity',{V:bn(196.2)}),blk('g_sky',null,{COLOUR:'#8ec9ff'})],
+    [G.vset(BOX,G.num(300)),blk('pl_gravity',{V:bn(70)}),blk('g_sky',null,{COLOUR:'#0b0d1a'}),G.msg('Map: MOON BASE. Low gravity!',2.5)]),blk('pl_tpxyz',{X:ox(G.rnd(-20,20)),Y:bn(5),Z:G.rnd(-20,20)})),BV2);
+  G.vars(G.script(p,'sss','Respawn on map',blk('ev_spawn'),G.wait(.05),G.iff(G.cmp(G.vget(BOX),'GT',G.num(0)),blk('pl_tpxyz',{X:ox(G.rnd(-50,50)),Y:bn(5),Z:G.rnd(-50,50)}))),BV2);
+  G.script(p,'sss','Normal gravity',G.onMsg('round end'),blk('pl_gravity',{V:bn(196.2)}));
+  gkFighterBots(p,{total:4,max:3,home:[[-60,-60],[60,60],[60,-60]],area:70,dmg:9,acc:4,ox:BOX});
   // power-up orb in the middle every 20 seconds
   const orb=G.part(p,'workspace',{name:'PowerOrb',shape:'ball',pos:[0,-40,0],size:[2.4,2.4,2.4],color:'#ffd740',material:'Neon',canCollide:false,unbreakable:true,label:'POWER'});
   p.nodes.push(emitterNode({parent:orb.id,name:'Glow'},'sparkles'));
-  G.vars(G.hscript(p,'sss','Power orb',G.onMsg('round start'),G.vset('vorb',G.num(0)),G.whileDo(G.inMatch(),G.wait(20),G.iff(G.inMatch(),G.vset('vorb',G.num(1)),blk('p_setpos',{PART:G.pnamed('PowerOrb'),X:bn(0),Y:bn(5),Z:bn(0)}),G.bc('orb')),
-    G.until(G.OR(G.cmp(G.vget('vorb'),'EQ',G.num(0)),G.NOT(G.inMatch()))),blk('p_setpos',{PART:G.pnamed('PowerOrb'),X:bn(0),Y:bn(-40),Z:bn(0)}))),[['orb up','vorb'],...G.MV]);
+  G.vars(G.hscript(p,'sss','Power orb',G.onMsg('round start'),G.vset('vorb',G.num(0)),G.whileDo(G.inMatch(),G.wait(20),G.iff(G.inMatch(),G.vset('vorb',G.num(1)),blk('p_setpos',{PART:G.pnamed('PowerOrb'),X:ox(0),Y:bn(5),Z:bn(0)}),G.bc('orb')),
+    G.until(G.OR(G.cmp(G.vget('vorb'),'EQ',G.num(0)),G.NOT(G.inMatch()))),blk('p_setpos',{PART:G.pnamed('PowerOrb'),X:bn(0),Y:bn(-40),Z:bn(0)}))),[['orb up','vorb'],...G.MV,...BV2]);
   G.script(p,'sss','Orb msg',G.onMsg('orb'),G.sound('check'),G.msg('A POWER ORB appeared in the middle!',2));
   G.vars(G.script(p,orb.id,'Grab',blk('ev_touch'),G.iff(G.cmp(G.vget('vorb'),'EQ',G.num(1)),G.shSet('vorb',G.num(0)),G.vset('vpw',G.rnd(1,4)),G.sound('win'),
     G.ifElse(G.cmp(G.vget('vpw'),'EQ',G.num(1)),[G.msg('SPEED BOOST for 10 seconds!',2),blk('pl_speed',{V:bn(26)}),G.wait(10),blk('pl_speed',{V:bn(16)})],
@@ -3340,21 +3353,22 @@ function gkMelee(p,parent,name,o){const T={id:uid(),cls:'Tool',name,parent,toolt
 
 /* 20. Tower of Hell: a random tower, the same for everyone, rebuilt every match */
 /* bots that fill a lobby up to `total` fighters: they chase, shoot and can be knocked out. Host-run so everyone sees the same bots */
-function gkFighterBots(p,o){const G=GK;const NB='vfbots',BV=[['fighter bots',NB]],n=o.max||5,cols=o.cols||['#e53935','#1e88e5','#43a047','#8e24aa','#fb8c00'];
+function gkFighterBots(p,o){const G=GK;const NB='vfbots',BV=[['fighter bots',NB],...(o.ox?[['map x',o.ox]]:[])],OX=v=>o.ox?G.arith('ADD',typeof v==='number'?G.num(v):v,G.vget(o.ox)):(typeof v==='number'?bn(v):v),n=o.max||5,cols=o.cols||['#e53935','#1e88e5','#43a047','#8e24aa','#fb8c00'];
   for(let k=1;k<=n;k++){const home=o.home[(k-1)%o.home.length];const r=rigNode({name:'Fighter'+k,pos:[home[0],2.6+(o.y||0),home[1]],health:o.hp||100,respawn:4,walkSpeed:o.speed||14,colors:{head:'#ffcc80',torso:cols[(k-1)%cols.length],arms:'#ffcc80',legs:'#212121'}});p.nodes.push(r);
     G.part(p,'workspace',{name:'FBolt'+k,shape:'ball',pos:[0,-50,0],size:[.8,.8,.8],color:cols[(k-1)%cols.length],material:'Neon',canCollide:false,unbreakable:true});
     G.vars(G.hscript(p,r.id,'Fight',blk('ev_start'),G.forever(G.ifElse(G.cmp(G.num(k),'GT',G.vget(NB)),[G.wait(.5)],
       [G.ifElse(G.cmp(G.nearD(bme()),'LT',G.num(32)),[blk('rig_walk',{PART:bme(),X:G.arith('ADD',G.nearAx(bme(),'x'),G.rnd(-9,9)),Z:G.arith('ADD',G.nearAx(bme(),'z'),G.rnd(-9,9))})],
-        [G.ifElse(G.cmp(G.rnd(1,3),'EQ',G.num(1)),[blk('rig_walk',{PART:bme(),X:G.rnd(-o.area,o.area),Z:G.rnd(-o.area,o.area)})],[G.walkN(bme())]),G.wait(.3)])]))),BV);
+        [G.ifElse(G.cmp(G.rnd(1,3),'EQ',G.num(1)),[blk('rig_walk',{PART:bme(),X:OX(G.rnd(-o.area,o.area)),Z:G.rnd(-o.area,o.area)})],[G.walkN(bme())]),G.wait(.3)])]))),BV);
     G.vars(G.hscript(p,r.id,'Shoot',blk('ev_start'),G.forever(G.wait(G.rnd(1,2)),G.iff(G.AND(G.cmp(G.num(k),'LTE',G.vget(NB)),G.AND(G.cmp({block:{type:'s_rig_health',inputs:{PART:bme()}}},'GT',G.num(0)),G.cmp(G.nearD(bme()),'LT',G.num(40)))),
       blk('p_setpos',{PART:G.pnamed('FBolt'+k),X:G.prop(bme(),'x'),Y:G.arith('ADD',G.prop(bme(),'y'),G.num(1)),Z:G.prop(bme(),'z')}),
       blk('p_glideto',{PART:G.pnamed('FBolt'+k),X:G.nearAx(bme(),'x'),Y:G.arith('ADD',G.nearAx(bme(),'y'),G.num(2.5)),Z:G.nearAx(bme(),'z'),S:bn(.35)}),
       G.iff(G.cmp(G.rnd(1,10),'LTE',G.num(o.acc||5)),G.asP({block:{type:'pl_ref_nearpart',inputs:{PART:bme()}}},blk('pl_damage',{N:bn(o.dmg||14)}))),
       blk('p_setpos',{PART:G.pnamed('FBolt'+k),X:bn(0),Y:bn(-50),Z:bn(0)})))),BV);
-    G.script(p,r.id,'KO',blk('ev_rig_died'),G.sadd(o.stat||'KOs',1));}
+    G.script(p,r.id,'KO',blk('ev_rig_died'),G.sadd(o.stat||'KOs',1));
+    G.vars(G.hscript(p,r.id,'Back to map',blk('ev_rig_died'),G.wait(4.3),blk('p_setpos',{PART:bme(),X:OX(home[0]),Y:bn(2.6+(o.y||0)),Z:bn(home[1])})),BV);}
   G.vars(G.hscript(p,'sss','Fill with bots',G.onMsg(o.msg||'round start'),G.ifElse(G.cmp(G.players(),'GTE',G.num(o.total)),[G.vset(NB,G.num(0))],[G.vset(NB,G.arith('MINUS',G.num(o.total),G.players()))]),
     G.iff(G.cmp(G.vget(NB),'GT',G.num(n)),G.vset(NB,G.num(n))),
-    ...Array.from({length:n},(_,i)=>{const k=i+1,h=o.home[i%o.home.length];return G.ifElse(G.cmp(G.num(k),'LTE',G.vget(NB)),[blk('rig_heal',{PART:G.pnamed('Fighter'+k),N:bn(1000)}),blk('p_visible',{PART:G.pnamed('Fighter'+k)},{B:'TRUE'}),blk('p_setpos',{PART:G.pnamed('Fighter'+k),X:bn(h[0]),Y:bn(2.6+(o.y||0)),Z:bn(h[1])})],
+    ...Array.from({length:n},(_,i)=>{const k=i+1,h=o.home[i%o.home.length];return G.ifElse(G.cmp(G.num(k),'LTE',G.vget(NB)),[blk('rig_heal',{PART:G.pnamed('Fighter'+k),N:bn(1000)}),blk('p_visible',{PART:G.pnamed('Fighter'+k)},{B:'TRUE'}),blk('p_setpos',{PART:G.pnamed('Fighter'+k),X:OX(h[0]),Y:bn(2.6+(o.y||0)),Z:bn(h[1])})],
       [blk('p_visible',{PART:G.pnamed('Fighter'+k)},{B:'FALSE'}),blk('p_setpos',{PART:G.pnamed('Fighter'+k),X:bn(k*6),Y:bn(2.6),Z:bn(300)})]);})),BV);}
 function towerHellDef(){const G=GK;const p=G.proj('towerhell','Tower of Hell',{sky:'#1b1f3b',fog:700,brightness:.95,timer:false,saveStats:false,saveCheckpoint:false,lobby:true,lobbyWait:12,lobbyRound:300,lobbyScore:'Height'});
   const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[90,2,90],color:'#2b2f4a',material:'Slate'});
