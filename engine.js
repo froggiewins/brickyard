@@ -3703,7 +3703,19 @@ function doorsDef(){const G=GK;const p=G.proj('doors','Doors',{sky:'#07080d',fog
       G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:bme()}}},'LT',G.num(3.4)),G.msg('Seek caught you...',3),blk('pl_damage',{N:bn(1000)})),G.wait(.1)),
     blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-60),Z:bn(0)}),blk('g_sky',null,{COLOUR:'#07080d'}),
     G.iff(G.cmp(G.stat('Door'),'GTE',G.num(29)),G.sound('win'),G.msg('You escaped SEEK! +5 coins',3),blk('pl_coins',{N:bn(5)})),G.until(G.cmp(G.stat('Door'),'LT',G.num(25))))),[['seek z','vsz']]);
-  G.welcome(p,G.sset('Door',0),G.vset('vkey',G.num(0)),G.msg('Get through 40 doors. Every 5th door is locked: find its key. When the lights flicker, hide in a wardrobe!',6));
+  // SCREECH lurks in the dark rooms (doors 8 to 20). When it says "Psst!", shine your flashlight at it within 3 seconds!
+  const fl=gkGun(p,'pack','Flashlight',{dmg:0,cool:1,color:'#fffde7',speed:400,body:'#fbc02d',tip:'Shine it at Screech!'});
+  const scr=G.part(p,'workspace',{name:'Screech',shape:'ball',pos:[0,-60,0],size:[2.4,2.4,2.4],color:'#111111',material:'Neon',canCollide:false,unbreakable:true,label:'👁️ Psst!'});
+  const hpn={block:{type:'s_partname',inputs:{PART:{block:{type:'tool_hitpart'},shadow:{type:'p_this'}}}}};
+  G.vars(G.script(p,fl.id,'Shine',blk('ev_tool_hit'),G.iff(G.AND(G.cmp(hpn,'EQ',G.txt('Screech')),G.cmp(G.vget('vscreech'),'EQ',G.num(1))),G.vset('vscreech',G.num(0)),G.sound('check'),G.msg('Screech hates the light! It fled.',2),
+    blk('p_setpos',{PART:G.pnamed('Screech'),X:bn(0),Y:bn(-60),Z:bn(0)}))),[['screech','vscreech']]);
+  G.vars(G.script(p,'sss','Screech',blk('ev_start'),G.wait(15),G.forever(G.wait(G.rnd(25,45)),G.iff(G.AND(G.cmp(G.stat('Door'),'GTE',G.num(8)),G.cmp(G.stat('Door'),'LT',G.num(20))),
+    G.vset('vscreech',G.num(1)),blk('p_setpos',{PART:G.pnamed('Screech'),X:G.arith('ADD',G.ppos('x'),G.rnd(-5,5)),Y:G.arith('ADD',G.ppos('y'),G.num(3)),Z:G.arith('ADD',G.ppos('z'),G.rnd(-6,6))}),G.sound('click'),G.msg('Psst! 👁️ (shine your flashlight at it!)',2),
+    G.wait(3),G.iff(G.cmp(G.vget('vscreech'),'EQ',G.num(1)),G.vset('vscreech',G.num(0)),G.sound('die'),G.msg('SCREECH bit you!',2),blk('pl_damage',{N:bn(40)}),blk('p_setpos',{PART:G.pnamed('Screech'),X:bn(0),Y:bn(-60),Z:bn(0)}))))),[['screech','vscreech']]);
+  // vitamins: a short speed boost
+  for(let i=6;i<N;i+=7){const zc=-i*L-L/2;const v=P({name:'Vitamins',pos:[(i%2?1:-1)*(Wd/2-3),2.9,zc+6],size:[.8,1,.8],color:'#ff6f00',material:'Neon',canCollide:false,label:'💊'});
+    G.script(p,v.id,'Take',blk('ev_touch'),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-70),Z:bn(0)}),G.msg('Vitamins! Speed for 8 seconds',1.5),G.sound('pad'),blk('pl_speed',{V:bn(23)}),G.wait(8),blk('pl_speed',{V:bn(16)}));}
+  G.welcome(p,G.sset('Door',0),G.vset('vkey',G.num(0)),G.msg('Get through 40 doors. Every 5th door is locked: find its key. When the lights flicker, hide in a wardrobe! Your flashlight (1) scares off Screech.',6));
   G.best(p,'Door','doors_best');
   return G.def(p,'doors','Doors');}
 
