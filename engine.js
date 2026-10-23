@@ -3674,8 +3674,20 @@ function hideSeekDef(){const G=GK;const p=G.proj('hideseek','Hide and Seek',{sky
   const JAIL=[0,1,-80];P({name:'Jail',pos:[JAIL[0],.4,JAIL[2]],size:[16,.8,10],color:'#616161',material:'Concrete',label:'FOUND'});
   G.spawnAt(p,0,.5,30,{size:[6,1,6],color:'#ffca28'});
   const SPOTS=[[-37,-55],[9-50,-9-50],[-63,-57],[63,-57],[59,-59],[-6+50,58],[-63,43],[62,59],[59,41],[0,-14],[26,0],[-26,0],[0,26],[0,-26],[-60,-30]];
+  // second map: the Toy Warehouse, 400 studs east, with a crate fort at every hiding spot
+  const HOX='vhox',HV=[['map x',HOX]];const ox=v=>G.arith('ADD',typeof v==='number'?G.num(v):v,G.vget(HOX));
+  {const OX=400,W2=G.folder(p,'Toy Warehouse').id;const Q=o=>G.part(p,W2,o);
+    Q({name:'WarehouseFloor',pos:[OX,-1,0],size:[200,2,200],color:'#8d6e63',material:'Concrete'});
+    [[0,-95,190,2],[0,95,190,2],[-95,0,2,190],[95,0,2,190]].forEach(([x,z2,w,d])=>Q({name:'Wall',pos:[OX+x,8,z2],size:[w,16,d],color:'#78909c',material:'Metal'}));
+    for(let r=0;r<4;r++)Q({name:'Shelf',pos:[OX-70+r*14,4,50],size:[3,8,40],color:'#ffb300',material:'Metal'});
+    [[30,40,'#e53935'],[-10,-70,'#1e88e5'],[70,-10,'#43a047']].forEach(([x,z2,c])=>{Q({name:'ToyBlock',pos:[OX+x,4,z2],size:[8,8,8],color:c,material:'Plastic'});Q({name:'ToyBlock',pos:[OX+x+2,10,z2],size:[5,5,5],color:'#fdd835',material:'Plastic'});});
+    Q({name:'BallPit',pos:[OX-50,.5,-60],size:[20,1,16],color:'#f06292',material:'Plastic'});for(let i=0;i<14;i++)Q({name:'Ball',shape:'ball',pos:[OX-58+(i%7)*2.6,1.6,-64+Math.floor(i/7)*6],size:[2,2,2],color:['#e53935','#fdd835','#1e88e5','#43a047'][i%4],canCollide:false});
+    Q({name:'Jail',pos:[OX+JAIL[0],.4,JAIL[2]],size:[16,.8,10],color:'#616161',material:'Concrete',label:'FOUND'});
+    SPOTS.forEach(([x,z2],i)=>{const c=['#a1764b','#8d6e63','#bcaaa4'][i%3];Q({name:'CrateFort',pos:[OX+x,3,z2-2.6],size:[6,6,.6],color:c,material:'Wood'});Q({name:'CrateFort',pos:[OX+x-2.7,3,z2],size:[.6,6,5],color:c,material:'Wood'});
+      Q({name:'CrateFort',pos:[OX+x,3,z2+2.6],size:[6,6,.6],color:c,material:'Wood'});Q({name:'CrateFort',pos:[OX+x,6.2,z2],size:[6,.4,6],color:c,material:'Wood'});});}
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(HOX,G.num(0))],[G.vset(HOX,G.num(400))])),HV);
   const MV=G.matchFlags(p),SK='vseeker',NB='vhbots',HL='vhidersleft',RD='vhsround',CG='vcaught',FB=k=>'vfound'+k;
-  const VARS=[['seeker',SK],['hider bots',NB],['hiders left',HL],['phase',RD],...[1,2,3,4].map(k=>['found '+k,FB(k)]),...MV];
+  const VARS=[...HV,['seeker',SK],['hider bots',NB],['hiders left',HL],['phase',RD],...[1,2,3,4].map(k=>['found '+k,FB(k)]),...MV];
   const eq=(id,v)=>G.cmp(G.vget(id),'EQ',typeof v==='number'?G.num(v):v);
   const amSeeker=()=>eq(SK,G.myId());
   // bot hiders
@@ -3683,40 +3695,40 @@ function hideSeekDef(){const G=GK;const p=G.proj('hideseek','Hide and Seek',{sky
   for(let k=1;k<=4;k++){const r=rigNode({name:'Hider'+k,pos:[k*6,2.6,200],health:999,respawn:0,walkSpeed:14,colors:{head:'#ffcc80',torso:HC[k-1],arms:'#ffcc80',legs:'#455a64'}});p.nodes.push(r);
     G.vars(G.script(p,r.id,'Found',blk('ev_touch'),G.iff(G.AND(G.AND(amSeeker(),eq(RD,2)),G.AND(eq(FB(k),0),G.cmp(G.num(k),'LTE',G.vget(NB)))),
       G.shSet(FB(k),G.num(1)),G.shChg(HL,-1),G.sadd('Score',10),G.sound('coin'),G.msg('Found a hider!',1.5))),VARS);
-    G.vars(G.hscript(p,r.id,'Caught',blk('ev_start'),G.forever(G.until(eq(FB(k),1)),blk('rig_say',{PART:bme(),TEXT:bt('Aww, you found me!'),S:bn(2)}),blk('p_setpos',{PART:bme(),X:bn(JAIL[0]-6+k*2.4),Y:bn(2.6),Z:bn(JAIL[2])}),G.until(eq(FB(k),0)))),VARS);}
+    G.vars(G.hscript(p,r.id,'Caught',blk('ev_start'),G.forever(G.until(eq(FB(k),1)),blk('rig_say',{PART:bme(),TEXT:bt('Aww, you found me!'),S:bn(2)}),blk('p_setpos',{PART:bme(),X:ox(JAIL[0]-6+k*2.4),Y:bn(2.6),Z:bn(JAIL[2])}),G.until(eq(FB(k),0)))),VARS);}
   // bot seeker (only when you are alone)
   const sk=rigNode({name:'SeekerBot',pos:[0,2.6,220],scale:1.15,health:9999,respawn:0,walkSpeed:15,throughWalls:true,colors:{head:'#ffcc80',torso:'#212121',arms:'#ffcc80',legs:'#b71c1c'}});p.nodes.push(sk);
   G.vars(G.hscript(p,sk.id,'Seek',blk('ev_start'),G.forever(G.ifElse(G.AND(eq(SK,G.txt('bot')),eq(RD,2)),
-    [G.ifElse(G.cmp(G.nearD(bme()),'LT',G.num(22)),[G.walkN(bme()),G.wait(.25)],[G.vset('vbspot',G.rnd(1,SPOTS.length)),...SPOTS.map((s,i)=>G.iff(G.cmp(G.vget('vbspot'),'EQ',G.num(i+1)),blk('rig_walk',{PART:bme(),X:bn(s[0]),Z:bn(s[1])}))),G.wait(G.rnd(1,2))])],[G.wait(.5)]))),[...VARS,['bot spot','vbspot']]);
+    [G.ifElse(G.cmp(G.nearD(bme()),'LT',G.num(22)),[G.walkN(bme()),G.wait(.25)],[G.vset('vbspot',G.rnd(1,SPOTS.length)),...SPOTS.map((s,i)=>G.iff(G.cmp(G.vget('vbspot'),'EQ',G.num(i+1)),blk('rig_walk',{PART:bme(),X:ox(s[0]),Z:bn(s[1])}))),G.wait(G.rnd(1,2))])],[G.wait(.5)]))),[...VARS,['bot spot','vbspot']]);
   G.vars(G.script(p,sk.id,'Tag',blk('ev_touch'),G.iff(G.AND(G.AND(eq(SK,G.txt('bot')),eq(RD,2)),G.AND(G.aliveIn(),G.cmp(G.vget(CG),'EQ',G.num(0)))),
-    G.vset(CG,G.num(1)),G.shChg(HL,-1),G.sound('die'),G.msg('The seeker found you!',2.5),G.tp(JAIL[0],3,JAIL[2]))),[...VARS,['caught',CG]]);
+    G.vset(CG,G.num(1)),G.shChg(HL,-1),G.sound('die'),G.msg('The seeker found you!',2.5),blk('pl_tpxyz',{X:ox(JAIL[0]),Y:bn(3),Z:bn(JAIL[2])}))),[...VARS,['caught',CG]]);
   const d2=(a,b)=>G.arith('ADD',G.arith('MULTIPLY',G.arith('MINUS',G.prop(G.pnamed(a),'x'),G.prop(G.pnamed(b),'x')),G.arith('MINUS',G.prop(G.pnamed(a),'x'),G.prop(G.pnamed(b),'x'))),G.arith('MULTIPLY',G.arith('MINUS',G.prop(G.pnamed(a),'z'),G.prop(G.pnamed(b),'z')),G.arith('MINUS',G.prop(G.pnamed(a),'z'),G.prop(G.pnamed(b),'z'))));
   G.vars(G.hscript(p,'sss','Bot finds bots',G.onMsg('seek'),G.whileDo(G.AND(G.inMatch(),eq(RD,2)),
     ...[1,2,3,4].map(k=>G.iff(G.AND(G.AND(eq(SK,G.txt('bot')),eq(FB(k),0)),G.AND(G.cmp(G.num(k),'LTE',G.vget(NB)),G.cmp(d2('SeekerBot','Hider'+k),'LT',G.num(30)))),
       G.vset(FB(k),G.num(1)),G.vchg(HL,-1),blk('rig_say',{PART:G.pnamed('SeekerBot'),TEXT:bt('Found you!'),S:bn(2)}))),G.wait(.4))),VARS);
   // player seeker tags player hiders by touching them
   G.vars(G.script(p,'player','Tag hider',blk('ev_touch_player'),G.iff(G.AND(amSeeker(),eq(RD,2)),
-    G.asP({block:{type:'pl_touched'}},G.iff(G.cmp(G.vget(CG),'EQ',G.num(0)),G.vset(CG,G.num(1)),G.shChg(HL,-1),G.sound('die'),G.msg('You were found!',2.5),G.tp(JAIL[0],3,JAIL[2]))),
+    G.asP({block:{type:'pl_touched'}},G.iff(G.cmp(G.vget(CG),'EQ',G.num(0)),G.vset(CG,G.num(1)),G.shChg(HL,-1),G.sound('die'),G.msg('You were found!',2.5),blk('pl_tpxyz',{X:ox(JAIL[0]),Y:bn(3),Z:bn(JAIL[2])}))),
     G.sadd('Score',10),G.sound('coin'))),[...VARS,['caught',CG]]);
   // host: choose the seeker, place bots, run the phases
   G.vars(G.hscript(p,'sss','Rounds',G.onMsg('round start'),G.vset(RD,G.num(0)),
     G.ifElse(G.cmp(G.players(),'GTE',G.num(2)),[G.vset(SK,G.idOf(G.pref('randplaying')))],[G.vset(SK,G.txt('bot'))]),
     G.ifElse(G.cmp(G.players(),'GTE',G.num(5)),[G.vset(NB,G.num(0))],[G.vset(NB,G.arith('MINUS',G.num(5),G.players()))]),
     G.iff(eq(SK,G.txt('bot')),G.vset(NB,G.num(3))),
-    ...[1,2,3,4].map(k=>[G.vset(FB(k),G.num(0)),G.ifElse(G.cmp(G.num(k),'LTE',G.vget(NB)),[blk('p_setpos',{PART:G.pnamed('Hider'+k),X:bn(k*4-10),Y:bn(2.6),Z:bn(30)})],[blk('p_setpos',{PART:G.pnamed('Hider'+k),X:bn(k*6),Y:bn(2.6),Z:bn(200)})])]).flat(),
+    ...[1,2,3,4].map(k=>[G.vset(FB(k),G.num(0)),G.ifElse(G.cmp(G.num(k),'LTE',G.vget(NB)),[blk('p_setpos',{PART:G.pnamed('Hider'+k),X:ox(k*4-10),Y:bn(2.6),Z:bn(30)})],[blk('p_setpos',{PART:G.pnamed('Hider'+k),X:bn(k*6),Y:bn(2.6),Z:bn(200)})])]).flat(),
     G.vset(HL,G.arith('ADD',G.vget(NB),G.arith('MINUS',G.players(),G.num(1)))),G.iff(eq(SK,G.txt('bot')),G.vset(HL,G.arith('ADD',G.vget(NB),G.players()))),
     blk('p_setpos',{PART:G.pnamed('SeekerBot'),X:bn(0),Y:bn(2.6),Z:bn(220)}),
     G.bc('hide'),G.vset(RD,G.num(1)),G.wait(1),
-    ...[1,2,3,4].map(k=>G.iff(G.cmp(G.num(k),'LTE',G.vget(NB)),G.vset('vspot',G.rnd(1,SPOTS.length)),...SPOTS.map((s,i)=>G.iff(G.cmp(G.vget('vspot'),'EQ',G.num(i+1)),blk('p_setpos',{PART:G.pnamed('Hider'+k),X:bn(s[0]),Y:bn(2.6),Z:bn(s[1])}))))),
+    ...[1,2,3,4].map(k=>G.iff(G.cmp(G.num(k),'LTE',G.vget(NB)),G.vset('vspot',G.rnd(1,SPOTS.length)),...SPOTS.map((s,i)=>G.iff(G.cmp(G.vget('vspot'),'EQ',G.num(i+1)),blk('p_setpos',{PART:G.pnamed('Hider'+k),X:ox(s[0]),Y:bn(2.6),Z:bn(s[1])}))))),
     G.wait(19),G.vset(RD,G.num(2)),G.bc('seek'),
-    G.iff(eq(SK,G.txt('bot')),blk('p_setpos',{PART:G.pnamed('SeekerBot'),X:bn(0),Y:bn(2.6),Z:bn(30)})),
+    G.iff(eq(SK,G.txt('bot')),blk('p_setpos',{PART:G.pnamed('SeekerBot'),X:ox(0),Y:bn(2.6),Z:bn(30)})),
     blk('controls_whileUntil',{BOOL:G.OR(G.NOT(G.inMatch()),G.cmp(G.vget(HL),'LTE',G.num(0))),DO:doIn(G.wait(.5))},{MODE:'UNTIL'}),
     G.iff(G.cmp(G.vget(HL),'LTE',G.num(0)),G.bc('all found')),G.vset(RD,G.num(3))),[...VARS,['spot','vspot']]);
   G.vars(G.script(p,'sss','Hide phase',G.onMsg('hide'),G.vset(CG,G.num(0)),
-    G.ifElse(amSeeker(),[G.tp(JAIL[0],3,JAIL[2]),blk('pl_freeze',null,{B:'TRUE'}),G.msg('You are the SEEKER! Count to 20 while everyone hides...',5),blk('g_sky',null,{COLOUR:'#000000'})],
-      [G.sound('check'),G.msg('HIDE! The seeker is counting to 20. Bushes, closets and the tube are great spots.',5)])),[...VARS,['caught',CG]]);
+    G.ifElse(amSeeker(),[blk('pl_tpxyz',{X:ox(JAIL[0]),Y:bn(3),Z:bn(JAIL[2])}),blk('pl_freeze',null,{B:'TRUE'}),G.msg('You are the SEEKER! Count to 20 while everyone hides...',5),blk('g_sky',null,{COLOUR:'#000000'})],
+      [blk('pl_tpxyz',{X:ox(G.rnd(-6,6)),Y:bn(3),Z:bn(30)}),G.sound('check'),G.ifElse(G.cmp(G.vget('vhox'),'GT',G.num(0)),[G.msg('HIDE! The seeker is counting to 20. Squeeze into a crate fort or behind the toy blocks!',5)],[G.msg('HIDE! The seeker is counting to 20. Bushes, closets and the tube are great spots.',5)])])),[...VARS,['caught',CG]]);
   G.vars(G.script(p,'sss','Seek phase',G.onMsg('seek'),blk('g_sky',null,{COLOUR:'#a5d6f7'}),
-    G.ifElse(amSeeker(),[blk('pl_freeze',null,{B:'FALSE'}),G.tp(0,3,30),G.sound('check'),G.msg('Ready or not, here I come! Touch hiders to find them.',3)],[G.msg('The seeker is coming!',2)])),VARS);
+    G.ifElse(amSeeker(),[blk('pl_freeze',null,{B:'FALSE'}),blk('pl_tpxyz',{X:ox(0),Y:bn(3),Z:bn(30)}),G.sound('check'),G.msg('Ready or not, here I come! Touch hiders to find them.',3)],[G.msg('The seeker is coming!',2)])),VARS);
   G.vars(G.script(p,'sss','Hiders HUD',G.onMsg('round start'),G.wait(2),G.whileDo(G.inMatch(),G.sset('Hiders left',G.vget(HL)),G.wait(.5))),VARS);
   G.vars(G.script(p,'sss','Survived',G.onMsg('round end'),blk('pl_freeze',null,{B:'FALSE'}),blk('g_sky',null,{COLOUR:'#a5d6f7'}),
     G.iff(G.AND(G.NOT(amSeeker()),G.cmp(G.vget(CG),'EQ',G.num(0))),G.sadd('Score',30),G.sound('win'),G.msg('Nobody found you! +30 points, +10 coins',3),blk('pl_coins',{N:bn(10)}))),[...VARS,['caught',CG]]);
