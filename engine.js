@@ -2623,7 +2623,13 @@ function gemsDef(){const G=GK;const p=G.proj('gems','Gem Hunt',{sky:'#a6e3ff',ti
     [[-50,-40,22,10],[45,-55,26,16],[-55,50,18,8],[40,45,24,12],[0,0,14,18]].forEach(([x,z2,w,h])=>{const n=Math.ceil(h/4);for(let k=0;k<n;k++)Q({name:'Mesa',pos:[OX+x,r3((k+.5)*h/n),z2],size:[r3(w-k*3),r3(h/n),r3(w-k*3)],color:['#8e6cc0','#7a5aa8','#6a4c93','#5a3f80','#4a3370'][k%5],material:'Slate'});});
     for(let i=0;i<22;i++){const a=i*2.1,r=25+((i*41)%70);Q({name:'Crystal',pos:[OX+r3(Math.cos(a)*r),3,r3(Math.sin(a)*r)],size:[1.6,6+(i%3)*2,1.6],rot:[0,i*20,i%2?12:-12],color:['#e1bee7','#80deea','#f48fb1'][i%3],material:'Neon',canCollide:false});}
     [[-38,-40],[30,-55],[-40,50],[25,45]].forEach(([x,z2])=>Q({name:'JumpPad',pos:[OX+x,.3,z2],size:[5,.4,5],color:'#22d3ee',material:'Neon',behavior:'jump',value:110}));}
-  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(GOX,G.num(0)),blk('g_sky',null,{COLOUR:'#a6e3ff'})],[G.vset(GOX,G.num(320)),blk('g_sky',null,{COLOUR:'#2a1b47'}),G.msg('Map: CRYSTAL CANYON',2)]),
+    {const OX=640,C3=G.folder(p,'Pirate Cove').id;const Q=o=>G.part(p,C3,o);
+    Q({name:'Sand',pos:[OX,-1,0],size:[220,2,220],color:'#f2d79b',material:'Sand'});Q({name:'Lagoon',pos:[OX+40,.05,-40],size:[50,.2,40],color:'#4fc3f7',material:'Glass',transparency:.3});
+    for(let i=0;i<4;i++)Q({name:'Shipwreck',pos:[OX-40,3+i*.5,-50+i*8],size:[14,6,8],rot:[0,0,i*6],color:'#5d4037',material:'Wood'});Q({name:'Mast',pos:[OX-40,14,-38],size:[1.2,18,1.2],rot:[0,0,15],color:'#4e342e',material:'Wood'});
+    [[30,40,20,8],[-50,40,16,6],[60,10,14,10]].forEach(([x,z2,w,h])=>{const n=Math.ceil(h/3);for(let k=0;k<n;k++)Q({name:'Dune',pos:[OX+x,r3((k+.5)*h/n),z2],size:[w-k*4,r3(h/n),w-k*4],color:'#e6c27a',material:'Sand'});});
+    for(let i=0;i<12;i++){const x=((i*47)%180)-90,z2=((i*83)%180)-90;Q({name:'PalmTrunk',pos:[OX+x,4,z2],size:[1.2,8,1.2],color:'#8d6e63',material:'Wood'});Q({name:'PalmLeaves',pos:[OX+x,8.3,z2],size:[7,.6,7],color:'#43a047',material:'Grass',canCollide:false});}
+    [[-20,0],[20,-60]].forEach(([x,z2])=>Q({name:'JumpPad',pos:[OX+x,.3,z2],size:[5,.4,5],color:'#22d3ee',material:'Neon',behavior:'jump',value:110}));}
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.vset(GOX,G.arith('MULTIPLY',G.rnd(0,2),G.num(320))),G.ifElse(G.cmp(G.vget(GOX),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#a6e3ff'})],[G.ifElse(G.cmp(G.vget(GOX),'EQ',G.num(320)),[blk('g_sky',null,{COLOUR:'#2a1b47'}),G.msg('Map: CRYSTAL CANYON',2)],[blk('g_sky',null,{COLOUR:'#ffcc80'}),G.msg('Map: PIRATE COVE',2)])]),
     blk('pl_tpxyz',{X:ox(G.rnd(-8,8)),Y:bn(4),Z:G.rnd(-8,8)})),GV2);
   const drop=()=>blk('p_setpos',{PART:bme(),X:ox(G.rnd(-95,95)),Y:bn(45),Z:G.rnd(-95,95)});
   for(let i=0;i<16;i++){const g=P({name:'Gem',shape:'ball',pos:[r3(-90+((i*53)%180)),45,r3(-90+((i*97)%180))],size:[1.8,1.8,1.8],color:'#ffd54f',material:'Neon',canCollide:false,anchored:false});
@@ -2758,7 +2764,14 @@ function sumoDef(){const G=GK;const p=G.proj('sumo','Sumo Smash',{sky:'#ffcf9f',
     const disk=Q({name:'SpinDisk',shape:'cyl',pos:[OX,30.15,0],size:[10,.3,10],color:'#e53935',material:'Plastic'});
     const bar=Q({name:'DojoBar',pos:[OX,31.4,0],size:[40,1,1],color:'#ff9800',material:'Neon'});G.script(p,bar.id,'Spin',...SCR.spin(1.6).blocks.blocks);
     G.script(p,bar.id,'Hit',blk('ev_touch'),blk('pl_launch',{P:bn(30)}),blk('pl_knock',{WHO:bme(),P:bn(45)},{RAG:'TRUE'}),G.wait(1));}
-  G.vars(G.script(p,'sss','Pick arena',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(SOX,G.num(0)),blk('g_sky',null,{COLOUR:'#ffcf9f'})],[G.vset(SOX,G.num(300)),blk('g_sky',null,{COLOUR:'#90a4ae'}),G.msg('Arena: FLOATING DOJO',2)]),
+    {const OX=600,L3=G.folder(p,'Lava Pit').id;const Q=o=>G.part(p,L3,o);
+    Q({name:'LavaPool',pos:[OX,15,0],size:[120,1,120],color:'#ff3d00',material:'Neon',behavior:'kill'});
+    Q({name:'PitRing',shape:'cyl',pos:[OX,29,0],size:[34,2,34],color:'#5d4037',material:'Slate'});
+    for(let i=0;i<8;i++){const a=i/8*Math.PI*2;Q({name:'Stepping',shape:'cyl',pos:[OX+r3(Math.cos(a)*23),29,r3(Math.sin(a)*23)],size:[6,2,6],color:'#6d4c41',material:'Slate'});}
+    [[0,-11],[0,11],[-11,0],[11,0]].forEach(([x,z2])=>Q({name:'Bumper',shape:'cyl',pos:[OX+x,30.3,z2],size:[4,.6,4],color:'#ffd600',material:'Neon',behavior:'jump',value:65}));
+    const gy=Q({name:'Geyser',shape:'cyl',pos:[OX,10,0],size:[5,4,5],color:'#ff6d00',material:'Neon',behavior:'kill',canCollide:false});
+    G.script(p,gy.id,'Erupt',blk('ev_start'),G.forever(G.wait(G.rnd(6,10)),blk('p_setpos',{PART:bme(),X:G.arith('ADD',G.num(OX),G.rnd(-12,12)),Y:bn(10),Z:G.rnd(-12,12)}),blk('p_glide',{PART:bme(),X:bn(0),Y:bn(21),Z:bn(0),S:bn(1.2)}),G.wait(1),blk('p_glide',{PART:bme(),X:bn(0),Y:bn(-21),Z:bn(0),S:bn(1)})));}
+  G.vars(G.script(p,'sss','Pick arena',G.onMsg('round start'),G.vset(SOX,G.arith('MULTIPLY',G.rnd(0,2),G.num(300))),G.ifElse(G.cmp(G.vget(SOX),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#ffcf9f'})],[G.ifElse(G.cmp(G.vget(SOX),'EQ',G.num(300)),[blk('g_sky',null,{COLOUR:'#90a4ae'}),G.msg('Arena: FLOATING DOJO',2)],[blk('g_sky',null,{COLOUR:'#4a0e0e'}),G.msg('Arena: LAVA PIT',2)])]),
     blk('pl_tpxyz',{X:ox(G.rnd(-4,4)),Y:bn(32),Z:G.rnd(-4,4)})),[['map x',SOX]]);
   const mk=(name,parent,pos,spd,k)=>{const r=rigNode({name,parent,pos,scale:1.5,health:999,respawn:3,walkSpeed:spd,colors:{head:'#ffcc80',torso:'#ef5350',arms:'#ffcc80',legs:'#3949ab'}});p.nodes.push(r);
     G.vars(G.hscript(p,r.id,'Chase',blk('ev_start'),G.wait(3),G.forever(G.ifElse(k?G.cmp(G.vget(ON(k)),'EQ',G.num(1)):G.cmp(G.num(1),'EQ',G.num(1)),[G.walkN(bme()),G.wait(.3)],[G.wait(.5)]))),SV);
@@ -2799,7 +2812,8 @@ function colorDropDef(){const G=GK;const p=G.proj('colordrop','Color Drop',{sky:
     G.part(p,M[k].id,{name:names[k]+'Tile',pos:[r3(300+Math.cos(a)*rad),40,r3(Math.sin(a)*rad)],size:[5.6,1,5.6],color:cols[k],material:'Neon'});}});
   G.part(p,'workspace',{name:'Hub',shape:'cyl',pos:[300,40.6,0],size:[3,.4,3],color:'#ffffff',material:'Metal'});
   const COX='vcox';const ox=v=>G.arith('ADD',typeof v==='number'?G.num(v):v,G.vget(COX));
-  G.vars(G.script(p,'sss','Pick arena',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(COX,G.num(0)),blk('g_sky',null,{COLOUR:'#1d2340'})],[G.vset(COX,G.num(300)),blk('g_sky',null,{COLOUR:'#3a1d40'}),G.msg('Arena: COLOR WHEEL',2)]),
+    for(let i=0;i<10;i++)for(let j=0;j<6;j++){const k=Math.floor(i/2+j/3)%4;G.part(p,M[k].id,{name:names[k]+'Tile',pos:[600+(i-4.5)*5,40,(j-2.5)*6],size:[4.8,1,5.8],color:cols[k],material:'Neon'});}
+  G.vars(G.script(p,'sss','Pick arena',G.onMsg('round start'),G.vset(COX,G.arith('MULTIPLY',G.rnd(0,2),G.num(300))),G.ifElse(G.cmp(G.vget(COX),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#1d2340'})],[G.ifElse(G.cmp(G.vget(COX),'EQ',G.num(300)),[blk('g_sky',null,{COLOUR:'#3a1d40'}),G.msg('Arena: COLOR WHEEL',2)],[blk('g_sky',null,{COLOUR:'#0d2a1d'}),G.msg('Arena: STRIPES',2)])]),
     G.iff(G.cmp(G.vget(COX),'GT',G.num(0)),blk('pl_tpxyz',{X:ox(G.rnd(-12,12)),Y:bn(43),Z:G.rnd(-4,12)}))),[['map x',COX]]);
   const V='vpick';const say=k=>G.msg('Stand on '+names[k].toUpperCase()+'!',2.5);
   const branch=k=>G.iff(G.cmp(G.vget(V),'EQ',G.num(k+1)),G.iff(G.AND(G.cmp(G.vget('vcr'),'GTE',G.num(4)),G.cmp(G.rnd(1,4),'EQ',G.num(1))),G.msg('Stand on '+names[(k+1)%4].toUpperCase()+'!',1),G.wait(1),G.sound('click'),G.msg('...NO WAIT!',.7),G.wait(.7)),say(k),G.ifElse(G.cmp(G.vget('vcr'),'LT',G.num(10)),[G.wait(G.arith('MINUS',G.num(3),G.arith('MULTIPLY',G.vget('vcr'),G.num(.18))))],[G.wait(1.2)]),...names.flatMap((nm,o)=>o===k?[]:[blk('p_collide',{PART:G.mnamed(nm)},{B:'FALSE'}),blk('p_transp',{PART:G.mnamed(nm),V:bn(.9)})]));
@@ -2948,7 +2962,14 @@ function freezeTagDef(){const G=GK;const p=G.proj('freezetag','Freeze Tag',{sky:
     [[-30,20,'#e53935'],[30,-20,'#1e88e5'],[0,40,'#fdd835']].forEach(([x,z2,c])=>{Q({name:'Umbrella',shape:'cyl',pos:[OX+x,5,z2],size:[9,.6,9],color:c,material:'Fabric'});Q({name:'Pole',pos:[OX+x,2.5,z2],size:[.4,5,.4],color:'#eeeeee'});});
     [[-45,-30],[45,30],[0,-10]].forEach(([x,z2])=>Q({name:'Sandcastle',pos:[OX+x,2,z2],size:[6,4,6],color:'#ffca28',material:'Sand'}));
     Q({name:'Bench',pos:[OX,1,82],size:[64,2,4],color:'#90a4ae',material:'Metal',label:'WAITING'});}
-  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(FOX,G.num(0)),blk('g_sky',null,{COLOUR:'#d7f0ff'})],[G.vset(FOX,G.num(300)),blk('g_sky',null,{COLOUR:'#81d4fa'}),G.msg('Map: SUNNY BEACH',2)]),
+    {const OX=600,P3=G.folder(p,'Playground Park').id;const Q=o=>G.part(p,P3,o);
+    Q({name:'Grass',pos:[OX,-1,0],size:[180,2,200],color:'#7cb342',material:'Grass'});Q({name:'Fence',pos:[OX,2,70],size:[140,4,1],color:'#a1887f',material:'Wood'});
+    Q({name:'Sandpit',pos:[OX-30,.1,-20],size:[24,.2,24],color:'#ffe082',material:'Sand'});
+    Q({name:'SlideTower',pos:[OX+30,4,-20],size:[8,8,8],color:'#ef5350',material:'Plastic'});Q({name:'Slide',shape:'wedge',pos:[OX+30,4,-8],size:[4,8,16],rot:[0,0,0],color:'#ffca28',material:'Plastic'});
+    [[0,20],[40,30],[-40,30]].forEach(([x,z2])=>{Q({name:'SwingFrame',pos:[OX+x-4,4,z2],size:[.6,8,.6],color:'#1e88e5',material:'Metal'});Q({name:'SwingFrame',pos:[OX+x+4,4,z2],size:[.6,8,.6],color:'#1e88e5',material:'Metal'});Q({name:'SwingBar',pos:[OX+x,8,z2],size:[9,.6,.6],color:'#1e88e5',material:'Metal'});});
+    [[-50,-50],[50,-50],[0,-60]].forEach(([x,z2])=>Q({name:'Tree',pos:[OX+x,4,z2],size:[2,8,2],color:'#6d4c41',material:'Wood'}));
+    Q({name:'Bench',pos:[OX,1,82],size:[64,2,4],color:'#90a4ae',material:'Metal',label:'WAITING'});}
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.vset(FOX,G.arith('MULTIPLY',G.rnd(0,2),G.num(300))),G.ifElse(G.cmp(G.vget(FOX),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#d7f0ff'})],[G.ifElse(G.cmp(G.vget(FOX),'EQ',G.num(300)),[blk('g_sky',null,{COLOUR:'#81d4fa'}),G.msg('Map: SUNNY BEACH',2)],[blk('g_sky',null,{COLOUR:'#a5d6a7'}),G.msg('Map: PLAYGROUND PARK',2)])]),
     blk('pl_tpxyz',{X:ox(G.rnd(-10,10)),Y:bn(3),Z:G.rnd(0,20)})),FV);
   const N=10,ACT='vactive',FZ='vfrozen',RD='vround',LV='vlevel',TL='vtime',FK=k=>'vfz'+k;
   const MV=G.matchFlags(p);
@@ -3385,7 +3406,14 @@ function bombTagDef(){const G=GK;const p=G.proj('bombtag','Bomb Tag',{sky:'#ffd9
     [[0,-26],[0,26],[-26,0],[26,0]].forEach(([x,z2])=>Q({name:'Gumdrop',shape:'ball',pos:[OX+x,2,z2],size:[7,5,7],color:'#7cb342',material:'Plastic'}));
     [[-34,-34],[34,34],[34,-34],[-34,34]].forEach(([x,z2])=>Q({name:'SpeedPad',pos:[OX+x,.3,z2],size:[5,.4,5],color:'#ffd400',material:'Neon',behavior:'speed',value:1.4}));
     Q({name:'Bench',pos:[OX,1,56],size:[40,2,4],color:'#ff80ab',material:'Plastic',label:'OUT'});}
-  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(BOX_,G.num(0)),blk('g_sky',null,{COLOUR:'#ffd9a8'})],[G.vset(BOX_,G.num(300)),blk('g_sky',null,{COLOUR:'#f3c4fb'}),G.msg('Map: CANDY LAND',2)]),
+    {const OX=600,S3=G.folder(p,'Space Station').id;const Q=o=>G.part(p,S3,o);
+    Q({name:'Hull',pos:[OX,-1,0],size:[170,2,170],color:'#263238',material:'Metal'});Q({name:'Floor',pos:[OX,.1,0],size:[84,.2,84],color:'#455a64',material:'Metal'});
+    [[0,-42,86,2],[0,42,86,2],[-42,0,2,86],[42,0,2,86]].forEach(([x,z2,w,d])=>Q({name:'Window',pos:[OX+x,4,z2],size:[w,8,d],color:'#80deea',material:'Glass',transparency:.5}));
+    [[-16,-16],[16,16],[16,-16],[-16,16]].forEach(([x,z2])=>Q({name:'Reactor',shape:'cyl',pos:[OX+x,6,z2],size:[6,12,6],color:'#00e5ff',material:'Neon'}));
+    [[0,-26,14,2],[0,26,14,2],[-26,0,2,14],[26,0,2,14]].forEach(([x,z2,w,d])=>Q({name:'Console',pos:[OX+x,2,z2],size:[w,4,d],color:'#37474f',material:'Metal'}));
+    [[-34,-34],[34,34],[34,-34],[-34,34]].forEach(([x,z2])=>Q({name:'SpeedPad',pos:[OX+x,.3,z2],size:[5,.4,5],color:'#ffd400',material:'Neon',behavior:'speed',value:1.4}));
+    Q({name:'Bench',pos:[OX,1,56],size:[40,2,4],color:'#607d8b',material:'Metal',label:'OUT'});}
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.vset(BOX_,G.arith('MULTIPLY',G.rnd(0,2),G.num(300))),G.ifElse(G.cmp(G.vget(BOX_),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#ffd9a8'})],[G.ifElse(G.cmp(G.vget(BOX_),'EQ',G.num(300)),[blk('g_sky',null,{COLOUR:'#f3c4fb'}),G.msg('Map: CANDY LAND',2)],[blk('g_sky',null,{COLOUR:'#0d1b2a'}),G.msg('Map: SPACE STATION',2)])]),
     blk('pl_tpxyz',{X:ox(G.rnd(-10,10)),Y:bn(3),Z:G.rnd(-10,10)})),BMV);
   const MV=G.matchFlags(p);
   const VH='vholder',VB='vholderbot',VK='vpickbot',VF='vfuse',VLF='vleft',NB='vnbots',VC='vcool',OUT=k=>'vout'+k;
@@ -3481,7 +3509,14 @@ function flagRaidDef(){const G=GK;const p=G.proj('flagraid','Flag Raid',{sky:'#9
     for(let i=0;i<14;i++){const x=((i*41)%100)-50,z2=((i*67)%160)-80;if(Math.abs(z2)<10||Math.abs(z2)>70)continue;Q({name:'PineTrunk',pos:[OX+x,2,z2],size:[1.2,4,1.2],color:'#5d4037',material:'Wood'});[6,4.4,2.6].forEach((w,j)=>Q({name:'Pine',pos:[OX+x,5+j*2.4,z2],size:[w,2.4,w],color:'#1b5e20',material:'Grass'}));}
     [[-35,-40],[35,-40],[0,-55]].forEach(([x,z2])=>Q({name:'SnowWall',pos:[OX+x,2,z2],size:[12,4,2],color:'#ffffff',material:'Snow'}));
     Q({name:'Pole',pos:[OX,4,-84],size:[.5,8,.5],color:'#eeeeee',material:'Metal'});}
-  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(ROX,G.num(0)),blk('g_sky',null,{COLOUR:'#9fd4ff'})],[G.vset(ROX,G.num(300)),blk('g_sky',null,{COLOUR:'#cfd8dc'}),G.msg('Map: FROZEN VALLEY',2)]),
+    {const OX=600,D3=G.folder(p,'Desert Canyon').id;const Q=o=>G.part(p,D3,o);
+    Q({name:'Desert',pos:[OX,-1,0],size:[200,2,240],color:'#e6c27a',material:'Sand'});
+    [[0,-100,120,2],[0,100,120,2],[-60,0,2,200],[60,0,2,200]].forEach(([x,z2,w,d])=>Q({name:'CanyonWall',pos:[OX+x,7,z2],size:[w,14,d],color:'#bf8040',material:'Slate'}));
+    Q({name:'BlueBase',pos:[OX,.15,80],size:[30,.3,24],color:'#90caf9',material:'Concrete'});Q({name:'RedBase',pos:[OX,.15,-80],size:[30,.3,24],color:'#ef9a9a',material:'Concrete'});
+    [[-30,20,14,10],[30,-20,14,12],[0,0,10,8],[-35,-45,12,6],[35,45,12,6]].forEach(([x,z2,w,h])=>Q({name:'Mesa',pos:[OX+x,h/2,z2],size:[w,h,w],color:'#d84315',material:'Slate'}));
+    [[-15,30],[15,-30]].forEach(([x,z2])=>Q({name:'Cactus',pos:[OX+x,3,z2],size:[1.4,6,1.4],color:'#2e7d32',material:'Grass'}));
+    Q({name:'Pole',pos:[OX,4,-84],size:[.5,8,.5],color:'#eeeeee',material:'Metal'});}
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.vset(ROX,G.arith('MULTIPLY',G.rnd(0,2),G.num(300))),G.ifElse(G.cmp(G.vget(ROX),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#9fd4ff'})],[G.ifElse(G.cmp(G.vget(ROX),'EQ',G.num(300)),[blk('g_sky',null,{COLOUR:'#cfd8dc'}),G.msg('Map: FROZEN VALLEY',2)],[blk('g_sky',null,{COLOUR:'#ffab91'}),G.msg('Map: DESERT CANYON',2)])]),
     blk('pl_tpxyz',{X:ox(G.rnd(-6,6)),Y:bn(3),Z:bn(66)})),RV);
   const CARRY='vcarry',CR='vcarriers',RE='vreinforce',RS='vrspawned',VARS=[...RV,['carrying',CARRY],['carriers',CR],['reinforcements',RE],['reinforcements spawned',RS]];const carrying=G.cmp(G.vget(CARRY),'EQ',G.num(1));
   P({name:'Pole',pos:[0,4,-84],size:[.5,8,.5],color:'#eeeeee',material:'Metal'});
