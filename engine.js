@@ -2796,6 +2796,7 @@ function targetsDef(){const G=GK;const p=G.proj('targets','Target Range',{sky:'#
     G.iff(G.cmp({block:{type:'s_partname',inputs:{PART:hp}}},'EQ',{block:{type:'text',fields:{TEXT:'GoldTarget'}}}),G.sadd('Score',3),G.sound('win'),G.msg('Golden target! +3',1),blk('pe_emit',{N:bn(40),PART:hp}),blk('p_setpos',{PART:hp,X:G.rnd(-40,40),Y:G.rnd(6,16),Z:G.rnd(-85,-45)})),
     G.iff(G.cmp({block:{type:'s_partname',inputs:{PART:hp}}},'EQ',{block:{type:'text',fields:{TEXT:'Balloon'}}}),G.sadd('Score',2),G.sound('pad'),blk('pe_emit',{N:bn(20),PART:hp}),blk('p_setpos',{PART:hp,X:G.rnd(-40,40),Y:bn(-6),Z:G.rnd(-70,-30)})),
     G.iff(G.cmp({block:{type:'s_partname',inputs:{PART:hp}}},'EQ',{block:{type:'text',fields:{TEXT:'BombTarget'}}}),G.sadd('Score',-3),G.sound('explode'),G.msg('BOMB! -3. Do not shoot the black targets!',1.5),blk('p_setpos',{PART:hp,X:G.rnd(-40,40),Y:G.rnd(3,14),Z:G.rnd(-80,-30)})),
+    G.iff(G.cmp({block:{type:'s_partname',inputs:{PART:hp}}},'EQ',{block:{type:'text',fields:{TEXT:'UFO'}}}),G.sadd('Score',5),G.sound('win'),G.msg('UFO DOWN! +5',1.5),blk('pe_emit',{N:bn(50),PART:hp}),blk('p_setpos',{PART:hp,X:bn(-90),Y:bn(-30),Z:bn(-70)})),
     G.iff(G.cmp({block:{type:'s_partname',inputs:{PART:hp}}},'EQ',{block:{type:'text',fields:{TEXT:'Clock'}}}),G.sadd('Score',1),G.sound('win'),G.msg('FRENZY! Every target is worth double for 8 seconds',2),G.vset('vfrenzy',G.num(1)),blk('p_setpos',{PART:hp,X:bn(0),Y:bn(-30),Z:bn(-60)}),G.wait(8),G.vset('vfrenzy',G.num(0))),
     G.iff(G.AND(G.cmp(G.vget('vfrenzy'),'EQ',G.num(1)),G.cmp({block:{type:'s_partname',inputs:{PART:hp}}},'EQ',{block:{type:'text',fields:{TEXT:'Target'}}})),G.sadd('Score',1)));
   const gt=G.part(p,R.id,{name:'GoldTarget',shape:'cyl',pos:[0,10,-60],size:[.6,2.6,2.6],rot:[90,0,0],color:'#ffca28',material:'Neon',label:'+3'});
@@ -2812,6 +2813,8 @@ function targetsDef(){const G=GK;const p=G.proj('targets','Target Range',{sky:'#
     G.script(p,bt_.id,'Sway',blk('ev_start'),G.forever(blk('p_glide',{PART:bme(),X:bn(i?-10:10),Y:bn(0),Z:bn(0),S:bn(2)}),blk('p_glide',{PART:bme(),X:bn(i?10:-10),Y:bn(0),Z:bn(0),S:bn(2)})));}
   const clk=G.part(p,R.id,{name:'Clock',shape:'cyl',pos:[0,-30,-60],size:[.6,3,3],rot:[90,0,0],color:'#00e5ff',material:'Neon',label:'⏱ x2'});
   G.script(p,clk.id,'Appear',blk('ev_start'),G.forever(G.wait(G.rnd(12,20)),blk('p_setpos',{PART:bme(),X:G.rnd(-35,35),Y:G.rnd(8,16),Z:G.rnd(-70,-40)}),G.wait(4),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-30),Z:bn(-60)})));
+  const ufo=G.part(p,R.id,{name:'UFO',shape:'ball',pos:[-90,-30,-70],size:[6,1.6,6],color:'#b0bec5',material:'Metal',label:'👽 +5'});p.nodes.push(emitterNode({parent:ufo.id,name:'Beam',enabled:false},'confetti'));
+  G.script(p,ufo.id,'Fly',blk('ev_start'),G.forever(G.wait(G.rnd(14,22)),G.sound('boost'),blk('p_setpos',{PART:bme(),X:bn(-70),Y:G.rnd(18,26),Z:G.rnd(-80,-50)}),blk('p_glide',{PART:bme(),X:bn(140),Y:bn(0),Z:bn(0),S:bn(5)}),blk('p_setpos',{PART:bme(),X:bn(-90),Y:bn(-30),Z:bn(-70)})));
   G.vars(G.script(p,'sss','Frenzy reset',G.onMsg('round start'),G.vset('vfrenzy',G.num(0))),[['frenzy','vfrenzy']]);
   G.welcome(p,G.msg('Equip the blaster (1). Most hits in 60 seconds wins! Gold = 3, balloons = 2, the blue clock starts a FRENZY, and never shoot the black bombs.',5));
   G.script(p,'sss','Time up',G.onMsg('round end'),G.msg(G.join('Time! You scored ',G.stat('Score'),'.'),3));
@@ -2927,6 +2930,19 @@ function bossDef(){const G=GK;const p=G.proj('boss','Boss Battle',{sky:'#2b1d3a'
     [G.msg('Knocked out! Get back in there and help your team.',3)])),VL);
   G.vars(G.script(p,'sss','Show level',blk('ev_start'),G.forever(G.iff(G.cmp(G.vget(LV),'GT',G.num(0)),G.sset('Level',G.vget(LV))),G.wait(.5))),VL);
   G.best(p,'Level','boss_level');
+  // from level 3 the Frost Queen joins the fight: she freezes anyone she touches and throws ice shards
+  const FQ=rigNode({name:'Frost Queen',pos:[68,5.2,68],scale:2,health:350,respawn:8,walkSpeed:10,colors:{head:'#e1f5fe',torso:'#4fc3f7',arms:'#e1f5fe',legs:'#0277bd'}});p.nodes.push(FQ);
+  p.nodes.push(emitterNode({parent:FQ.id,name:'Snow'},'snow'));
+  G.vars(G.hscript(p,FQ.id,'Hunt',blk('ev_start'),G.forever(G.ifElse(G.cmp(G.vget(LV),'LT',G.num(3)),[blk('p_setpos',{PART:bme(),X:bn(68),Y:bn(5.2),Z:bn(68)}),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('rig_walk',{PART:bme(),X:bn(68),Z:bn(68)}),G.until(G.cmp(G.vget(LV),'GTE',G.num(3))),
+      blk('p_visible',{PART:bme()},{B:'TRUE'}),blk('p_setpos',{PART:bme(),X:bn(30),Y:bn(5.2),Z:bn(-50)}),blk('rig_say',{PART:bme(),TEXT:bt('The Frost Queen joins the battle!'),S:bn(3)}),G.bc('queen arrives')],[G.walkN(bme()),G.wait(.3)]))),VL);
+  G.script(p,'sss','Queen msg',G.onMsg('queen arrives'),G.sound('die'),G.msg('❄ The FROST QUEEN joins the battle! Her touch freezes you.',3));
+  G.script(p,FQ.id,'Freeze touch',blk('ev_touch'),blk('pl_damage',{N:bn(12)}),blk('pl_freeze',null,{B:'TRUE'}),G.msg('FROZEN!',1),G.wait(1.5),blk('pl_freeze',null,{B:'FALSE'}),G.wait(1));
+  for(let k=1;k<=3;k++){const sh=G.part(p,'workspace',{name:'IceShard'+k,pos:[0,-60,0],size:[1,1,3],color:'#b3e5fc',material:'Neon',canCollide:false,unbreakable:true});
+    G.vars(G.hscript(p,sh.id,'Throw',blk('ev_start'),G.wait(5+k),G.forever(G.wait(G.rnd(3,5)),G.iff(G.AND(G.cmp(G.vget(LV),'GTE',G.num(3)),G.cmp({block:{type:'s_rig_health',inputs:{PART:G.pnamed('Frost Queen')}}},'GT',G.num(0))),
+      blk('p_setpos',{PART:bme(),X:G.prop(G.pnamed('Frost Queen'),'x'),Y:bn(5),Z:G.prop(G.pnamed('Frost Queen'),'z')}),
+      blk('p_glideto',{PART:bme(),X:G.nearAx(G.pnamed('Frost Queen'),'x'),Y:bn(3),Z:G.nearAx(G.pnamed('Frost Queen'),'z'),S:bn(.6)}),G.bc('shard '+k),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-60),Z:bn(0)})))),VL);
+    G.script(p,'sss','Shard hit '+k,G.onMsg('shard '+k),G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('IceShard'+k)}}},'LT',G.num(4)),blk('pl_damage',{N:bn(15)}),G.sound('click')));}
+  G.script(p,FQ.id,'Queen KO',blk('ev_rig_died'),G.sound('win'),G.msg('The Frost Queen shattered! She will be back...',2.5),blk('pl_coins',{N:bn(3)}));
   // from level 2 the King calls down fireballs: watch for the red circles on the floor
   for(let k=1;k<=5;k++){const fb=G.part(p,'workspace',{name:'Fireball'+k,shape:'ball',pos:[k*4,-60,0],size:[4,4,4],color:'#ff6d00',material:'Neon',canCollide:false,unbreakable:true});
     p.nodes.push(emitterNode({parent:fb.id,name:'Flames',rate:25,speed:4},'fire'));
