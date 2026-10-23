@@ -2670,7 +2670,7 @@ function gemsDef(){const G=GK;const p=G.proj('gems','Gem Hunt',{sky:'#a6e3ff',ti
 /* 5. Turbo Track */
 function turboDef(){const G=GK;const p=G.proj('turbo','Turbo Track',{sky:'#7fb8ff',saveStats:false,saveCheckpoint:false,lobby:true,lobbyWait:15,lobbyRound:150,lobbyScore:'Laps'});G.noBase(p);G.spawnAt(p,0,60,0,{size:[14,1,14]});
   const MOX='vtox',MV2=[['map x',MOX]],LT='vlap',lt=G.vget(LT),LG='vlapgo';
-  const TRACKS=[{ox:0,S:'',road:'#3b4252',sky:'#7fb8ff'},{ox:300,S:'B',road:'#1a1033',sky:'#120b2e'}];
+  const TRACKS=[{ox:0,S:'',road:'#3b4252',sky:'#7fb8ff'},{ox:300,S:'B',road:'#1a1033',sky:'#120b2e'},{ox:600,S:'C',road:'#795548',sky:'#a5d6a7'}];
   TRACKS.forEach(TK=>{const {ox,S,road:rc}=TK;const T=G.folder(p,'Track'+S).id;const P=o=>G.part(p,T,Object.assign({},o,{name:o.name+S,pos:[o.pos[0]+ox,o.pos[1],o.pos[2]]}));let z=-7,y=60;
     const road=(len,o)=>{P(Object.assign({name:'Road',pos:[0,y,z-len/2],size:[12,1,len],color:rc,material:S?'Neon':'Concrete'},o||{}));z-=len;};
     const speed=()=>P({name:'Boost',pos:[0,y+.6,z+4],size:[8,.4,5],color:'#ffd400',material:'Neon',behavior:'speed',value:4});
@@ -2683,6 +2683,14 @@ function turboDef(){const G=GK;const p=G.proj('turbo','Turbo Track',{sky:'#7fb8f
       road(10);speed();road(10);for(let i=0;i<3;i++){const n=P({name:'Sweeper',pos:[0,y+1.5,z-8-i*14],size:[11,1,1],color:'#ff3b30',material:'Neon',behavior:'kill'});G.script(p,n.id,'Spin',...SCR.spin(3+i).blocks.blocks);}road(44);check();
       road(20);speed();road(8);z-=18;
       [[3,-22],[-3,-34]].forEach(([x,oz])=>P({name:'OilSlick',pos:[x,60.55,oz],size:[5,.2,6],color:'#212121',material:'Glass',behavior:'speed',value:.45,label:'OIL'}));}
+    else if(S==='C'){// Jungle Canyon: log bridges, a vine swing gap, river rapids and a waterfall launcher
+      road(30,{color:'#6d4c41'});speed();road(10,{color:'#6d4c41'});
+      for(let i=0;i<6;i++){road(6,{size:[4,1,6],pos:[i%2?3:-3,y,z-3],color:'#8d6e63'});}check();
+      road(12,{color:'#6d4c41'});for(let i=0;i<4;i++){const lg=P({name:'Log',shape:'cyl',pos:[0,y,z-5],size:[12,2,3],rot:[0,0,90],color:'#5d4037'});G.script(p,lg.id,'Roll',...SCR.glide(0,1.2,0,.9).blocks.blocks);z-=8;}road(10,{color:'#6d4c41'});check();
+      road(8,{color:'#6d4c41'});P({name:'Launcher',pos:[0,y+.6,z+4],size:[8,.4,5],color:'#22d3ee',material:'Neon',behavior:'jump',value:115});P({name:'Waterfall',pos:[0,y+10,z-12],size:[14,24,1],color:'#81d4fa',material:'Glass',transparency:.5,canCollide:false});z-=10;y+=22;road(30,{color:'#6d4c41'});check();
+      road(10,{color:'#6d4c41'});for(let i=0;i<3;i++){const n=P({name:'Vine',pos:[0,y+1.5,z-8-i*12],size:[11,1,1],color:'#33691e',material:'Grass',behavior:'kill'});G.script(p,n.id,'Swing',...SCR.spin(2+i*.6).blocks.blocks);}road(40,{color:'#6d4c41'});check();
+      road(16,{color:'#6d4c41'});speed();road(8,{color:'#6d4c41'});z-=18;
+      for(let i=0;i<14;i++){const sd=i%2?1:-1;P({name:'JungleTree',pos:[sd*14,y-10,-i*30],size:[3,40,3],color:'#4e342e',material:'Wood'});P({name:'Canopy',pos:[sd*14,y+12,-i*30],size:[12,4,12],color:'#2e7d32',material:'Grass',canCollide:false});}}
     else{// Neon City: drops, a tunnel of crushers, moving bridges and a double launcher
       road(30);speed();road(10);for(let i=0;i<3;i++){y-=4;road(14,{color:['#e040fb','#00e5ff','#76ff03'][i]});}check();
       road(8);for(let i=0;i<3;i++){const m=P({name:'Bridge',pos:[0,y,z-6],size:[8,1,10],color:'#ff4081',material:'Neon'});G.script(p,m.id,'Slide',...SCR.glide(i%2?7:-7,0,0,1.4).blocks.blocks);z-=14;}road(8);check();
@@ -2696,12 +2704,12 @@ function turboDef(){const G=GK;const p=G.proj('turbo','Turbo Track',{sky:'#7fb8f
     const gh=G.part(p,'workspace',{name:'GhostRacer'+S,pos:[ox,-40,-2],size:[2,4,2],color:'#b388ff',material:'Neon',canCollide:false,transparency:.45,label:'👻 GHOST'});
     G.vars(G.script(p,gh.id,'Race',blk('ev_start'),G.forever(G.vset('vgl'+S,G.vget(LG)),G.until(G.cmp(G.vget(LG),'GT',G.vget('vgl'+S))),
       G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(ox)),[blk('p_setpos',{PART:bme(),X:bn(ox),Y:bn(62.6),Z:bn(-2)}),G.wait(.5),blk('p_glideto',{PART:bme(),X:bn(ox),Y:bn(fin.pos[1]+2.6),Z:bn(fin.pos[2]),S:bn(S?26:24)})],[blk('p_setpos',{PART:bme(),X:bn(ox),Y:bn(-40),Z:bn(-2)})]))),[['lap go',LG],['map x',MOX],['ghost lap'+S,'vgl'+S]]);});
-  G.vars(G.script(p,'sss','Pick track',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(MOX,G.num(0)),blk('g_sky',null,{COLOUR:'#7fb8ff'}),blk('pl_checkpoint',{PART:G.pnamed('StartPad')}),G.tp(0,63,0)],
-    [G.vset(MOX,G.num(300)),blk('g_sky',null,{COLOUR:'#120b2e'}),G.msg('Track: NEON CITY',2),blk('pl_checkpoint',{PART:G.pnamed('StartPadB')}),G.tp(300,63,0)]),G.wait(.2),blk('g_reset_timer'),G.vchg(LG,1)),[...MV2,['lap go',LG]]);
+  G.vars(G.script(p,'sss','Pick track',G.onMsg('round start'),G.vset(MOX,G.arith('MULTIPLY',G.rnd(0,2),G.num(300))),G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#7fb8ff'}),blk('pl_checkpoint',{PART:G.pnamed('StartPad')}),G.tp(0,63,0)],
+    [G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(300)),[blk('g_sky',null,{COLOUR:'#120b2e'}),G.msg('Track: NEON CITY',2),blk('pl_checkpoint',{PART:G.pnamed('StartPadB')}),G.tp(300,63,0)],[blk('g_sky',null,{COLOUR:'#a5d6a7'}),G.msg('Track: JUNGLE CANYON',2),blk('pl_checkpoint',{PART:G.pnamed('StartPadC')}),G.tp(600,63,0)])]),G.wait(.2),blk('g_reset_timer'),G.vchg(LG,1)),[...MV2,['lap go',LG]]);
   G.script(p,'sss','BestLap',blk('ev_data_loaded'),G.sset('Best Lap',G.dget('turbo_best_lap',0)));
   G.vars(G.script(p,'sss','Lap coin',blk('ev_start'),G.forever(G.vset('vlc',G.stat('Laps')),G.until(G.cmp(G.stat('Laps'),'GT',G.vget('vlc'))),G.wait(.1),
     G.ifElse(G.OR(G.AND(G.cmp(G.vget(MOX),'EQ',G.num(0)),G.cmp({block:{type:'s_prop',fields:{PROP:'z'},inputs:{PART:G.pnamed('GhostRacer')}}},'GT',G.num(TRACKS[0].fin.pos[2]+3))),
-        G.AND(G.cmp(G.vget(MOX),'EQ',G.num(300)),G.cmp({block:{type:'s_prop',fields:{PROP:'z'},inputs:{PART:G.pnamed('GhostRacerB')}}},'GT',G.num(TRACKS[1].fin.pos[2]+3)))),
+        G.OR(G.AND(G.cmp(G.vget(MOX),'EQ',G.num(300)),G.cmp({block:{type:'s_prop',fields:{PROP:'z'},inputs:{PART:G.pnamed('GhostRacerB')}}},'GT',G.num(TRACKS[1].fin.pos[2]+3))),G.AND(G.cmp(G.vget(MOX),'EQ',G.num(600)),G.cmp({block:{type:'s_prop',fields:{PROP:'z'},inputs:{PART:G.pnamed('GhostRacerC')}}},'GT',G.num(TRACKS[2].fin.pos[2]+3))))),
       [G.msg('You beat the ghost racer! +2 coins',2),blk('pl_coins',{N:bn(2)})],[G.msg('The ghost beat you this lap...',1.5)]))),MV2);
   G.welcome(p,G.sset('Laps',0),G.msg('Most laps in 2:30 wins! Two tracks take turns. Hit the boost pads and beat the purple ghost racer.',4));
   return G.def(p,'turbo','Turbo Track');}
@@ -4274,7 +4282,7 @@ const GAMES=[
   {id:'murder',cat:'Party',name:'Murder Mystery',tag:'Party · 3 maps',desc:'One murderer with a knife, one sheriff with a gun, everyone else innocent. Bots fill the empty spots.',mode:'project',make:murderDef},
   {id:'doors',cat:'Survival',name:'Doors',tag:'Horror · 40 doors',desc:'Get through 40 rooms of a creepy hotel. Find keys for locked doors, and hide in a wardrobe when the lights flicker.',mode:'project',make:doorsDef},
   {id:'arsenal',cat:'Battle',name:'Arsenal',tag:'Battle · 3 maps',desc:'Every knockout swaps you to the next weapon. Score a knockout with the Golden Knife to win the match.',mode:'project',make:arsenalDef},
-  {id:'deathrun',cat:'Obby',name:'Deathrun',tag:'Obby · 2 courses',desc:'Runners race a trap course while Death springs spikes, lava, sweepers and a boulder from the control room.',mode:'project',make:deathrunDef},
+  {id:'deathrun',cat:'Obby',name:'Deathrun',tag:'Obby · 3 courses',desc:'Runners race a trap course while Death springs spikes, lava, sweepers and a boulder from the control room.',mode:'project',make:deathrunDef},
   {id:'hideseek',cat:'Party',name:'Hide and Seek',tag:'Party · 3 maps',desc:'One seeker counts to 20 while everyone hides in bushes, closets and the playground tube. Bots join when players are short.',mode:'project',make:hideSeekDef},
   {id:'evade',cat:'Survival',name:'Evade',tag:'Survival · 3 maps',desc:'Nextbots chase everyone across the city. Get downed and a teammate can pick you up. A new nextbot joins every 20 seconds.',mode:'project',make:evadeDef},
   {id:'planecrash',cat:'Survival',name:'Plane Crash',tag:'Survival · lobby matches',desc:'Turbulence, an engine fire and a crash landing on an island. Grab a parachute and jump, or brace in your seat, then reach the rescue helicopter.',mode:'project',make:planeCrashDef},
@@ -4287,7 +4295,7 @@ const GAMES=[
   {id:'zombies',cat:'Battle',name:'Zombie Survival',tag:'Survival · endless waves',desc:'Hold off bigger and bigger waves of zombies, fast runners and huge brutes in a fenced town with a sword, a blaster and potions.',mode:'project',make:zombiesDef},
   {id:'rainbow',cat:'Obby',name:'Rainbow Obby',tag:'Obby · 15 stages',desc:'Ten colorful stages: lava beams, jump pads, moving and vanishing platforms, a spinner and a sky elevator.',mode:'project',make:rainbowDef},
   {id:'gems',cat:'Collect',name:'Gem Hunt',tag:'Collect · 3 maps',desc:'Most gems in 90 seconds wins, on a hilly island with jump pads. The super crystal is worth 5.',mode:'project',make:gemsDef},
-  {id:'turbo',cat:'Race',name:'Turbo Track',tag:'Race · 2 tracks',desc:'Most laps in 2:30 wins on a sky racetrack with boost pads, a launcher and spinning sweepers. Beat your best lap too.',mode:'project',make:turboDef},
+  {id:'turbo',cat:'Race',name:'Turbo Track',tag:'Race · 3 tracks',desc:'Most laps in 2:30 wins on a sky racetrack with boost pads, a launcher and spinning sweepers. Beat your best lap too.',mode:'project',make:turboDef},
   {id:'sumo',cat:'Battle',name:'Sumo Smash',tag:'Party · 3 arenas',desc:'Last one on the ring wins! More and more sumos try to shove everyone off. Bonk them, and other players, with your bat.',mode:'project',make:sumoDef},
   {id:'colordrop',cat:'Party',name:'Color Drop',tag:'Party · 3 arenas',desc:'A color is called and every other tile vanishes. Everyone gets the same colors, rounds speed up, and the last one standing wins.',mode:'project',make:colorDropDef},
   {id:'maze',cat:'Puzzle',name:'Maze Escape',tag:'Puzzle · endless',desc:'Escape the maze, and the exit moves to another corner. How many escapes, and how fast?',mode:'project',make:mazeDef},
