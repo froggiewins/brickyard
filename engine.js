@@ -3559,6 +3559,19 @@ function arsenalDef(){const G=GK;const p=G.proj('arsenal','Arsenal',{sky:'#ffb74
   [[-30,-30,14,12,14],[30,30,14,16,14],[30,-34,18,8,10],[-34,30,10,10,18],[0,0,12,6,12],[-50,0,6,14,22],[50,0,6,14,22]].forEach(([x,z,w,h,d])=>{P({name:'Building',pos:[x,h/2,z],size:[w,h,d],color:'#bcaaa4',material:'Brick'});P({name:'Ramp',shape:'wedge',pos:[x,h/2,z+d/2+h/2],size:[4,h,h],rot:[0,180,0],color:'#a1887f',material:'Wood'});});
   [[-15,15],[15,-15],[-55,-55],[55,55],[0,-50],[0,50]].forEach(([x,z])=>P({name:'Crate',pos:[x,2,z],size:[4,4,4],color:'#a1764b',material:'Wood'}));
   G.spawnAt(p,0,6.5,0,{size:[6,1,6],color:'#ff7043'});
+  // second map: Snow Fort, 300 studs east
+  const AOX='vaox',AV=[['map x',AOX]];const ox=v=>G.arith('ADD',typeof v==='number'?G.num(v):v,G.vget(AOX));
+  {const OX=300,S2=G.folder(p,'Snow Fort').id;const Q=o=>G.part(p,S2,o);
+    Q({name:'Snow',pos:[OX,-1,0],size:[150,2,150],color:'#f5f9ff',material:'Snow'});
+    [[0,-72,146,2],[0,72,146,2],[-72,0,2,146],[72,0,2,146]].forEach(([x,z2,w,d])=>Q({name:'IceWall',pos:[OX+x,6,z2],size:[w,12,d],color:'#b3e5fc',material:'Ice',transparency:.2}));
+    [[-28,0],[28,0]].forEach(([x,z2],i)=>{const c=i?'#90caf9':'#ef9a9a';Q({name:'Fort',pos:[OX+x,3,z2-10],size:[16,6,2],color:c,material:'Snow'});Q({name:'Fort',pos:[OX+x,3,z2+10],size:[16,6,2],color:c,material:'Snow'});
+      Q({name:'Fort',pos:[OX+x+(i?8:-8),3,z2],size:[2,6,22],color:c,material:'Snow'});Q({name:'Tower',pos:[OX+x+(i?8:-8),9,z2],size:[6,6,6],color:c,material:'Snow'});
+      Q({name:'Ramp',shape:'wedge',pos:[OX+x+(i?8:-8),6,z2+7],size:[4,6,8],rot:[0,180,0],color:'#e3f2fd',material:'Snow'});});
+    for(let i=0;i<12;i++){const a=i/12*Math.PI*2,r=48;Q({name:'Snowbank',pos:[OX+r3(Math.cos(a)*r),1.5,r3(Math.sin(a)*r)],size:[8,3,4],rot:[0,r3(-a*57.3),0],color:'#ffffff',material:'Snow'});}
+    [[0,-40],[0,40],[0,0]].forEach(([x,z2])=>Q({name:'IceBlock',pos:[OX+x,2.5,z2],size:[5,5,5],color:'#80deea',material:'Ice',transparency:.25}));
+    [[-50,-50],[50,50],[50,-50],[-50,50]].forEach(([x,z2])=>Q({name:'JumpPad',pos:[OX+x,.3,z2],size:[4,.4,4],color:'#22d3ee',material:'Neon',behavior:'jump',value:95}));}
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(AOX,G.num(0)),blk('g_sky',null,{COLOUR:'#ffb74d'})],[G.vset(AOX,G.num(300)),blk('g_sky',null,{COLOUR:'#b3e5fc'}),G.msg('Map: SNOW FORT',2)]),
+    blk('pl_tpxyz',{X:ox(G.rnd(-55,55)),Y:bn(4),Z:G.rnd(-55,55)})),AV);
   const TIERS=[['Blaster',25,.3,'#5cc8ff',230,0],['Rapid Blaster',12,.1,'#69f0ae',260,0],['Scatter Cannon',45,.8,'#ffab40',200,.6],['Flamethrower',9,.07,'#ff9100',95,.3],['Sniper',100,1.4,'#ea80fc',420,1.6],['Railgun',80,1.0,'#18ffff',600,1.8],['Rocket Launcher',70,1.2,'#ff5252',150,1]];
   TIERS.forEach(([nm,dmg,cool,col,spd,len],i)=>gkGun(p,i===0?'pack':'rs',nm,{dmg,cool,color:col,speed:spd,len,tip:'Weapon '+(i+1)+' of '+(TIERS.length+1)}));
   gkMelee(p,'rs','Golden Knife',{dmg:100,cool:.4,color:'#ffd54f',mat:'Neon',tip:'Get one knockout with this to WIN'});
@@ -3574,9 +3587,9 @@ function arsenalDef(){const G=GK;const p=G.proj('arsenal','Arsenal',{sky:'#ffb74
   [[-40,0],[40,0],[0,-40],[0,40]].forEach(([x,z],i)=>{const mk=P({name:'Medkit'+i,pos:[x,1.2,z],size:[2,1.4,2],color:'#ef5350',material:'Neon',canCollide:false,label:'+'});
     G.script(p,mk.id,'Heal',blk('ev_touch'),blk('pl_heal',{N:bn(50)}),G.sound('coin'),blk('p_visible',{PART:bme()},{B:'FALSE'}),G.wait(15),blk('p_visible',{PART:bme()},{B:'TRUE'}));});
   [[-30,-14],[30,14],[-14,30],[14,-30]].forEach(([x,z])=>P({name:'JumpPad',pos:[x,.3,z],size:[4,.4,4],color:'#22d3ee',material:'Neon',behavior:'jump',value:95}));
-  G.script(p,'sss','Respawn spot',blk('ev_spawn'),G.wait(.05),G.ifElse(G.cmp(G.rnd(1,4),'EQ',G.num(1)),[G.tp(-60,4,-60)],[G.ifElse(G.cmp(G.rnd(1,3),'EQ',G.num(1)),[G.tp(60,4,60)],[G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.tp(60,4,-60)],[G.tp(-60,4,60)])])]));
+  G.vars(G.script(p,'sss','Respawn spot',blk('ev_spawn'),G.wait(.05),G.ifElse(G.cmp(G.rnd(1,4),'EQ',G.num(1)),[blk('pl_tpxyz',{X:ox(-60),Y:bn(4),Z:bn(-60)})],[G.ifElse(G.cmp(G.rnd(1,3),'EQ',G.num(1)),[blk('pl_tpxyz',{X:ox(60),Y:bn(4),Z:bn(60)})],[G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[blk('pl_tpxyz',{X:ox(60),Y:bn(4),Z:bn(-60)})],[blk('pl_tpxyz',{X:ox(-60),Y:bn(4),Z:bn(60)})])])])),AV);
   // bots fill up to 6 fighters
-  const NB='vnbots',BV=[['bots',NB]],BCOLS=['#e53935','#1e88e5','#43a047','#8e24aa','#fb8c00'],HOME=[[-60,-60],[60,60],[60,-60],[-60,60],[0,-60]];
+  const NB='vnbots',BV=[['bots',NB],...AV],BCOLS=['#e53935','#1e88e5','#43a047','#8e24aa','#fb8c00'],HOME=[[-60,-60],[60,60],[60,-60],[-60,60],[0,-60]];
   for(let k=1;k<=5;k++){const r=rigNode({name:'Bot'+k,pos:[HOME[k-1][0],2.6,HOME[k-1][1]],health:100,respawn:3,walkSpeed:14,colors:{head:'#ffcc80',torso:BCOLS[k-1],arms:'#ffcc80',legs:'#212121'}});p.nodes.push(r);
     const bolt=G.part(p,'workspace',{name:'BotBolt'+k,shape:'ball',pos:[0,-50,0],size:[.8,.8,.8],color:BCOLS[k-1],material:'Neon',canCollide:false,unbreakable:true});
     G.vars(G.hscript(p,r.id,'Fight',blk('ev_start'),G.forever(G.ifElse(G.cmp(G.num(k),'GT',G.vget(NB)),[G.wait(.5)],
@@ -3587,9 +3600,10 @@ function arsenalDef(){const G=GK;const p=G.proj('arsenal','Arsenal',{sky:'#ffb74
       blk('p_glideto',{PART:G.pnamed('BotBolt'+k),X:G.nearAx(bme(),'x'),Y:G.arith('ADD',G.nearAx(bme(),'y'),G.num(2.5)),Z:G.nearAx(bme(),'z'),S:bn(.35)}),
       G.iff(G.cmp(G.rnd(1,10),'LTE',G.num(6)),G.asP({block:{type:'pl_ref_nearpart',inputs:{PART:bme()}}},blk('pl_damage',{N:bn(14)}))),
       blk('p_setpos',{PART:G.pnamed('BotBolt'+k),X:bn(0),Y:bn(-50),Z:bn(0)})))),BV);
-    G.script(p,r.id,'KO',blk('ev_rig_died'),G.sadd('KOs',1));}
+    G.script(p,r.id,'KO',blk('ev_rig_died'),G.sadd('KOs',1));
+    G.vars(G.hscript(p,r.id,'Back to map',blk('ev_rig_died'),G.wait(3.3),blk('p_setpos',{PART:bme(),X:ox(HOME[k-1][0]),Y:bn(2.6),Z:bn(HOME[k-1][1])})),BV);}
   G.vars(G.hscript(p,'sss','Bots',G.onMsg('round start'),G.ifElse(G.cmp(G.players(),'GTE',G.num(6)),[G.vset(NB,G.num(0))],[G.vset(NB,G.arith('MINUS',G.num(6),G.players()))]),
-    ...[1,2,3,4,5].map(k=>G.ifElse(G.cmp(G.num(k),'LTE',G.vget(NB)),[blk('p_visible',{PART:G.pnamed('Bot'+k)},{B:'TRUE'}),blk('p_setpos',{PART:G.pnamed('Bot'+k),X:bn(HOME[k-1][0]),Y:bn(2.6),Z:bn(HOME[k-1][1])})],
+    ...[1,2,3,4,5].map(k=>G.ifElse(G.cmp(G.num(k),'LTE',G.vget(NB)),[blk('p_visible',{PART:G.pnamed('Bot'+k)},{B:'TRUE'}),blk('p_setpos',{PART:G.pnamed('Bot'+k),X:ox(HOME[k-1][0]),Y:bn(2.6),Z:bn(HOME[k-1][1])})],
       [blk('p_visible',{PART:G.pnamed('Bot'+k)},{B:'FALSE'}),blk('p_setpos',{PART:G.pnamed('Bot'+k),X:bn(k*6),Y:bn(2.6),Z:bn(200)})]))),BV);
   G.welcome(p,G.sset('KOs',0),G.msg('Arsenal: every knockout upgrades your weapon. Get a knockout with the Golden Knife to win!',5));
   return G.def(p,'arsenal','Arsenal');}
