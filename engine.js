@@ -2357,11 +2357,21 @@ function lavaRiseDef(){const G=GK;const p=G.proj('lavarise','Lava Rising',{sky:'
   const speed=G.arith('DIVIDE',G.num(.85),G.arith('ADD',G.num(1),G.arith('MULTIPLY',G.stat('Round'),G.num(.35))));
   G.vars(G.script(p,lava.id,'Rise',blk('ev_start'),G.vset(GR,G.num(10)),G.forever(G.ifElse(G.cmp(G.vget(GR),'GT',G.num(0)),[G.vchg(GR,-1),G.wait(1)],
     [blk('p_glide',{PART:bme(),X:bn(0),Y:bn(1),Z:bn(0),S:speed})]))),VL);
-  const reset=()=>[blk('p_setpos',{PART:G.pnamed('Lava'),X:bn(0),Y:bn(-3),Z:bn(0)}),G.vset(GR,G.num(5))];
-  G.vars(G.script(p,goal.id,'NextRound',blk('ev_touch'),G.sadd('Round',1),G.sound('win'),G.msg(G.join('Round ',G.stat('Round'),'! The lava gets faster...'),3),G.tp(4,4,26),...reset()),VL);
+  // ice crystals on the way up freeze the lava for a few seconds
+  const ICE=G.model(p,'IceCrystals').id;
+  [8,19,29].forEach(i=>{const a=i*.52,r=12+(i%3),y=3+i*3.6;const c=G.part(p,ICE,{name:'IceCrystal',shape:'ball',pos:[r3(Math.cos(a)*r),r3(y+2),r3(Math.sin(a)*r)],size:[1.6,2.2,1.6],color:'#80deea',material:'Neon',canCollide:false,label:'❄'});
+    G.vars(G.script(p,c.id,'Freeze',blk('ev_touch'),G.iff(G.cmp({block:{type:'s_prop',fields:{PROP:'t'},inputs:{PART:bme()}}},'LT',G.num(.5)),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_transp',{PART:bme()},{V:bn(1)}),G.vchg(GR,6),G.sound('check'),
+      G.msg('❄ Lava frozen for 6 seconds!',2),blk('p_color',{PART:G.pnamed('Lava')},{COLOUR:'#4dd0e1'}),G.wait(6),blk('p_color',{PART:G.pnamed('Lava')},{COLOUR:'#ff5a1f'}))),VL);});
+  const reset=()=>[blk('p_setpos',{PART:G.pnamed('Lava'),X:bn(0),Y:bn(-3),Z:bn(0)}),G.vset(GR,G.num(5)),blk('p_visible',{PART:G.mnamed('IceCrystals')},{B:'TRUE'}),blk('p_transp',{PART:G.mnamed('IceCrystals')},{V:bn(0)})];
+  G.vars(G.script(p,goal.id,'NextRound',blk('ev_touch'),G.sadd('Round',1),G.sound('win'),blk('pl_coins',{N:bn(3)}),G.iff(G.cmp(G.stat('Round'),'EQ',G.num(3)),G.msg('Round 3: fire geysers start erupting from the pillar!',3),G.wait(3)),G.msg(G.join('Round ',G.stat('Round'),'! The lava gets faster...'),3),G.tp(4,4,26),...reset()),VL);
   G.vars(G.script(p,'sss','LavaGotYou',blk('ev_died'),G.msg(G.join('The lava got you on round ',G.stat('Round'),'. Back to round 1!'),3),G.sset('Round',1),...reset()),VL);
   G.welcome(p,G.sset('Round',1),G.sset('Height',0),G.msg('Reach the gold top, then climb again. The lava gets faster every round!',4),G.forever(G.sset('Height',G.ppos('y')),G.wait(.25)));
   G.best(p,'Round','lava_round');
+  // from round 3, fireballs burst out of the pillar
+  for(let k=0;k<3;k++){const fb=G.part(p,'workspace',{name:'Geyser'+k,shape:'ball',pos:[0,-50,0],size:[2.4,2.4,2.4],color:'#ff6d00',material:'Neon',canCollide:false,behavior:'kill',unbreakable:true});
+    G.script(p,fb.id,'Erupt',blk('ev_start'),G.wait(4+k*2),G.forever(G.wait(G.rnd(3,6)),G.iff(G.cmp(G.stat('Round'),'GTE',G.num(3)),
+      G.vset('vgy'+k,G.arith('ADD',G.ppos('y'),G.rnd(2,8))),blk('p_setpos',{PART:bme(),X:bn(0),Y:G.vget('vgy'+k),Z:bn(0)}),
+      blk('p_glideto',{PART:bme(),X:G.arith('MULTIPLY',G.ppos('x'),G.num(2.4)),Y:G.vget('vgy'+k),Z:G.arith('MULTIPLY',G.ppos('z'),G.num(2.4)),S:bn(1.4)}),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-50),Z:bn(0)}))));}
   G.hud(p,'LavaGap','#bf360c',G.join('🔥 Lava is ',G.round(G.arith('MINUS',G.ppos('y'),G.arith('ADD',{block:{type:'s_prop',fields:{PROP:'y'},inputs:{PART:G.pnamed('Lava')}}},G.num(1)))),' studs below you · climb!'));
   G.spawnAt(p,4,.5,26);return G.def(p,'lavarise','Lava Rising');}
 
@@ -2448,11 +2458,24 @@ function rainbowDef(){const G=GK;const p=G.proj('rainbow','Rainbow Obby',{sky:'#
   for(let i=0;i<6;i++){P({name:'Zig',pos:[(i%2?4:-4),y,z-3],size:[9,1,1.4],rot:[0,i%2?35:-35,0],color:col()});z-=5;}check();
   // 9 falling-glide elevator
   const el=P({name:'Elevator',pos:[0,y,z-5],size:[6,1,6],color:'#ffd54f'});G.script(p,el.id,'Lift',...SCR.glide(0,14,0,2.5).blocks.blocks);z-=10;y+=14;P({name:'Top',pos:[0,y,z-4],size:[8,1,8],color:col()});z-=8;check();
-  // 10 final sprint with speed pad
+  // 10 rainbow bridge of vanishing glass over lava
+  P({name:'Lava',pos:[0,y-3,z-16],size:[18,1,32],color:'#ff3b30',material:'Neon',behavior:'kill'});
+  for(let i=0;i<8;i++){const n=P({name:'Glass',pos:[(i%3-1)*3,y,z-2-i*4],size:[3,1,3],color:OBBY_COLS[i%OBBY_COLS.length],material:'Glass',transparency:.3});if(i%2)G.script(p,n.id,'Vanish',...SCR.vanish().blocks.blocks);}z-=32;check();
+  // 11 spinning rainbow disk
+  P({name:'Disk',shape:'cyl',pos:[0,y,z-9],size:[16,1,16],color:col()});{const b1=P({name:'DiskBar',pos:[0,y+1.4,z-9],size:[15,1,1],color:'#ff3b30',material:'Neon',behavior:'kill'});G.script(p,b1.id,'Spin',...SCR.spin(3).blocks.blocks);}z-=18;check();
+  // 12 wall hop
+  P({name:'Lava',pos:[0,y-3,z-15],size:[16,1,30],color:'#ff3b30',material:'Neon',behavior:'kill'});for(let i=0;i<5;i++)P({name:'WallHop',pos:[(i%2?3.5:-3.5),y,z-3-i*6],size:[1.2,1,5],color:OBBY_COLS[(i+3)%OBBY_COLS.length]});z-=30;check();
+  // 13 bouncy staircase up through rainbow rings
+  for(let i=0;i<3;i++){P({name:'JumpPad',pos:[0,y,z-3],size:[4,.4,4],color:'#22d3ee',material:'Neon',behavior:'jump',value:80});P({name:'Ring',shape:'cyl',pos:[0,y+7,z-6],size:[7,.6,7],rot:[90,0,0],color:OBBY_COLS[i],material:'Neon',canCollide:false,transparency:.4});z-=8;y+=9;P({name:'Ledge',pos:[0,y,z-3],size:[5,1,5],color:col()});z-=6;}check();
+  // 14 star coins on a crusher hall
+  P({name:'Hall',pos:[0,y,z-14],size:[10,1,28],color:col()});for(let i=0;i<3;i++){const n=P({name:'Crusher',pos:[0,y+1.3,z-5-i*8],size:[10,1,1.2],color:'#ff3b30',material:'Neon',behavior:'kill'});G.script(p,n.id,'Bob',...SCR.glide(0,7,0,1.1).blocks.blocks);}
+  for(let i=0;i<3;i++){const st=P({name:'StarCoin',shape:'ball',pos:[(i-1)*3,y+1.5,z-9-i*6],size:[1.2,1.2,1.2],color:'#ffd740',material:'Neon',canCollide:false});G.script(p,st.id,'Take',blk('ev_touch'),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-80),Z:bn(0)}),G.sadd('Stars',1),G.sound('coin'),blk('pl_coins',{N:bn(2)}));}
+  z-=28;check();
+  // 15 final sprint with speed pad
   P({name:'SpeedPad',pos:[0,y,z-4],size:[6,.4,6],color:'#ffd400',material:'Neon',behavior:'speed',value:2.6});z-=8;
   P({name:'Run',pos:[0,y,z-15],size:[6,1,30],color:col()});z-=30;
   P({name:'Finish',pos:[0,y,z-8],size:[16,1,16],color:'#ffc93c',material:'Metal',behavior:'finish'});
-  G.welcome(p,G.msg('10 rainbow stages. Checkpoints save your progress!',3));
+  G.welcome(p,G.msg('15 rainbow stages. Checkpoints save your progress! Grab the star coins on stage 14.',4));
   return G.def(p,'rainbow','Rainbow Obby');}
 
 /* 4. Gem Hunt */
@@ -2648,6 +2671,14 @@ function cloudHopDef(){const G=GK;const p=G.proj('cloudhop','Cloud Hop',{sky:'#8
   G.vars(G.script(p,up.id,'Triple',blk('ev_touch'),G.iff(G.cmp(G.vget('vtriple'),'EQ',G.num(0)),G.vset('vtriple',G.num(1)),blk('pl_airjumps',{N:bn(2)}),G.msg('Triple jump unlocked!',2),G.sound('win'),blk('p_visible',{PART:bme()},{B:'FALSE'}))),[['triple','vtriple']]);
   for(let i=0;i<4;i++)cloud(4,14,3,i%2?5:-5);check();
   for(let i=0;i<4;i++){const n=P({name:'DriftCloud',pos:[x,y,z-12],size:[6,1.6,6]});G.script(p,n.id,'Drift',...SCR.glide(i%2?12:-12,0,0,2).blocks.blocks);z-=18;}check();
+  // bouncy cumulus clouds launch you up to the next layer
+  for(let i=0;i<3;i++){z-=10;P({name:'BounceCloud',pos:[x,y,z-3],size:[6,1.6,6],color:'#b3e5fc',behavior:'jump',value:90,transparency:0});z-=8;y+=10;P({name:'Cloud',pos:[x+(i%2?5:-5),y,z-4],size:[6,1.6,6]});x+=i%2?5:-5;z-=8;}check();
+  // a storm: lightning strikes the dark clouds, so keep moving
+  for(let i=0;i<5;i++){const n=P({name:'StormCloud',pos:[x+(i%2?3:-3),y,z-6],size:[5,1.6,5],color:'#78909c'});const bolt=G.part(p,C.id,{name:'Lightning',pos:[x+(i%2?3:-3),y+8,z-6],size:[.8,14,.8],color:'#fff59d',material:'Neon',canCollide:false,transparency:1});
+    G.script(p,bolt.id,'Strike',blk('ev_start'),G.wait(i*.7),G.forever(G.wait(G.rnd(2,4)),blk('p_transp',{PART:bme()},{V:bn(.6)}),G.wait(.5),blk('p_transp',{PART:bme()},{V:bn(0)}),G.sound('explode'),
+      G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:bme()}}},'LT',G.num(8)),blk('pl_damage',{N:bn(1000)})),G.wait(.25),blk('p_transp',{PART:bme()},{V:bn(1)})));z-=12;}check();
+  // rainbow stars to collect
+  for(let i=0;i<3;i++){const st=P({name:'Star',shape:'ball',pos:[x+(i-1)*4,y+2.5,z+20+i*6],size:[1.3,1.3,1.3],color:'#ffd740',material:'Neon',canCollide:false,transparency:0});G.script(p,st.id,'Take',blk('ev_touch'),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-90),Z:bn(0)}),G.sadd('Stars',1),G.sound('coin'),blk('pl_coins',{N:bn(2)}));}
   cloud(3,13,4);cloud(3,13,4);cloud(3,14,-3);z-=12;P({name:'Rainbow',pos:[x,y,z-8],size:[16,1.6,16],color:'#ffc93c',behavior:'finish',transparency:0});
   G.vars(G.welcome(p,G.vset('vtriple',G.num(0)),blk('pl_airjumps',{N:bn(1)}),G.msg('You can double jump! Press jump again in the air.',3)),[['triple','vtriple']]);
   return G.def(p,'cloudhop','Cloud Hop');}
@@ -2946,11 +2977,28 @@ function megaObbyDef(){const G=GK;const p=G.proj('megaobby','Mega Obby',{sky:'#a
     d=>{for(let i=0;i<6;i++){P({name:'Zig',pos:[x+(i%2?4:-4),y,z-3],size:[9,1,1.6-d*.3],rot:[0,i%2?35:-35,0],color:col()});z-=5;}},
     d=>{for(let i=0;i<4;i++){P({name:'Step',pos:[x,y+2+i*3,z-3],size:[4,1,3],color:col()});z-=5+d*2;}y+=12;},
     d=>{P({name:'Boost',pos:[x,y,z-3],size:[6,.4,6],color:'#ffd400',material:'Neon',behavior:'speed',value:2.4});z-=6;z-=10+d*6;P({name:'Landing',pos:[x,y,z-4],size:[8,1,8],color:col()});z-=8;},
-    d=>{P({name:'Hall',pos:[x,y,z-15],size:[10,1,32],color:col()});for(let i=0;i<4;i++){const n=P({name:'Crusher',pos:[x,y+1.3,z-5-i*7],size:[10,1,1.2],color:'#ff3b30',material:'Neon',behavior:'kill'});G.script(p,n.id,'Bob',...SCR.glide(0,7,0,1.2-d*.4).blocks.blocks);}z-=32;}
+    d=>{P({name:'Hall',pos:[x,y,z-15],size:[10,1,32],color:col()});for(let i=0;i<4;i++){const n=P({name:'Crusher',pos:[x,y+1.3,z-5-i*7],size:[10,1,1.2],color:'#ff3b30',material:'Neon',behavior:'kill'});G.script(p,n.id,'Bob',...SCR.glide(0,7,0,1.2-d*.4).blocks.blocks);}z-=32;},
+    // wall hop: thin walls on alternating sides over a kill floor
+    d=>{const L=30;P({name:'Lava',pos:[x,y-3,z-L/2],size:[16,1,L],color:'#ff3b30',material:'Neon',behavior:'kill'});for(let i=0;i<5;i++)P({name:'WallHop',pos:[x+(i%2?3.5:-3.5),y,z-3-i*6],size:[1.2-d*.4,1,5],color:col()});z-=L;},
+    // spinning disk with a sweeping bar
+    d=>{const dk=P({name:'Disk',shape:'cyl',pos:[x,y,z-9],size:[16,1,16],color:col()});const bar=P({name:'DiskBar',pos:[x,y+1.4,z-9],size:[15,1,1],color:'#ff3b30',material:'Neon',behavior:'kill'});G.script(p,bar.id,'Spin',...SCR.spin(2.5+d*3).blocks.blocks);z-=18;},
+    // ghost path: almost invisible tiles
+    d=>{for(let i=0;i<6;i++){P({name:'GhostTile',pos:[x+[-3,0,3,0,-3,0][i],y,z-3],size:[3.4-d,1,3.4-d],color:'#e3f2fd',transparency:.82});z-=6;}},
+    // tiny tiles over lava
+    d=>{P({name:'Lava',pos:[x,y-2,z-14],size:[16,1,28],color:'#ff3b30',material:'Neon',behavior:'kill'});for(let i=0;i<7;i++)P({name:'Tiny',pos:[x+((i*37)%7-3)*1.3,y,z-2-i*4],size:[1.8-d*.6,1,1.8-d*.6],color:col()});z-=28;}
   ];
-  for(let s=0;s<30;s++){const d=Math.min(1,s/29);T[(s*7)%T.length](d);check();if(s%10===9){x+=0;}}
+  const NS=50;for(let s=0;s<NS;s++){const d=Math.min(1,s/(NS-1));T[(s*5)%T.length](d);check();
+    if(s%10===9){const zone=(s+1)/10;const sky=['#a5d8ff','#b2ebf2','#ffe0b2','#e1bee7','#ffcdd2','#263238'][zone];
+      const ms=P({name:'Milestone'+(s+1),pos:[x,y+3,z+5],size:[10,5,1],color:'#ffd740',material:'Neon',canCollide:false,transparency:.6,label:'⭐ '+(s+1)+' STAGES ⭐'});
+      G.vars(G.script(p,ms.id,'Reward',blk('ev_touch'),G.iff(G.cmp(G.vget('vms'+(s+1)),'EQ',G.num(0)),G.vset('vms'+(s+1),G.num(1)),G.sound('win'),G.msg('⭐ '+(s+1)+' stages! +5 coins',2.5),blk('pl_coins',{N:bn(5)}),blk('g_sky',null,{COLOUR:sky}))),[['milestone '+(s+1),'vms'+(s+1)]]);}}
+  // a secret room hidden under stage 7
+  const sx=x+12;P({name:'SecretPlatform',pos:[sx,40-12,-160],size:[10,1,10],color:'#7e57c2',label:'SECRET!'});
+  const sc=P({name:'SecretChest',pos:[sx,40-10.5,-160],size:[3,2,2],color:'#ffb300',material:'Wood',label:'💰'});
+  G.vars(G.script(p,sc.id,'Open',blk('ev_touch'),G.iff(G.cmp(G.vget('vsecret'),'EQ',G.num(0)),G.vset('vsecret',G.num(1)),G.sound('win'),G.msg('You found the SECRET ROOM! +10 coins',3),blk('pl_coins',{N:bn(10)}))),[['secret','vsecret']]);
+  P({name:'SecretHint',pos:[sx,40-6,-145],size:[1,1,1],color:'#7e57c2',material:'Neon',transparency:.3});
+  P({name:'SecretBounce',pos:[sx+3,40-11.3,-163],size:[3,.4,3],color:'#22d3ee',material:'Neon',behavior:'jump',value:95});
   P({name:'Finish',pos:[x,y,z-8],size:[16,1,16],color:'#ffc93c',material:'Metal',behavior:'finish',label:'FINISH'});
-  G.welcome(p,G.msg('30 stages that get harder as you go. Every checkpoint saves your stage!',4));
+  G.welcome(p,G.msg('50 stages that get harder as you go. Every 10 stages pays coins, and there is a secret room somewhere...',5));
   G.hud(p,'Progress','#1565c0',G.join('🏁 ',G.round(G.arith('MINUS',G.num(0),G.ppos('z'))),' of '+Math.round(-z)+' studs climbed'),.5);
   return G.def(p,'megaobby','Mega Obby');}
 
