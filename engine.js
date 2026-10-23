@@ -3030,6 +3030,17 @@ function bossDef(){const G=GK;const p=G.proj('boss','Boss Battle',{sky:'#2b1d3a'
       blk('p_setpos',{PART:bme(),X:G.prop(G.pnamed('Frost Queen'),'x'),Y:bn(5),Z:G.prop(G.pnamed('Frost Queen'),'z')}),
       blk('p_glideto',{PART:bme(),X:G.nearAx(G.pnamed('Frost Queen'),'x'),Y:bn(3),Z:G.nearAx(G.pnamed('Frost Queen'),'z'),S:bn(.6)}),G.bc('shard '+k),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-60),Z:bn(0)})))),VL);
     G.script(p,'sss','Shard hit '+k,G.onMsg('shard '+k),G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('IceShard'+k)}}},'LT',G.num(4)),blk('pl_damage',{N:bn(15)}),G.sound('click')));}
+  // level 5: the Shadow Dragon. It plunges the arena into darkness and calls minions
+  const SD=rigNode({name:'Shadow Dragon',pos:[-68,6.5,68],scale:3,health:600,respawn:10,walkSpeed:8,colors:{head:'#311b92',torso:'#1a0033',arms:'#4527a0',legs:'#1a0033'}});p.nodes.push(SD);
+  p.nodes.push(emitterNode({parent:SD.id,name:'Shadows',rate:20,speed:4},'smoke'));
+  G.vars(G.hscript(p,SD.id,'Hunt',blk('ev_start'),G.forever(G.ifElse(G.cmp(G.vget(LV),'LT',G.num(5)),[blk('p_setpos',{PART:bme(),X:bn(-68),Y:bn(6.5),Z:bn(68)}),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('rig_walk',{PART:bme(),X:bn(-68),Z:bn(68)}),G.until(G.cmp(G.vget(LV),'GTE',G.num(5))),
+      blk('p_visible',{PART:bme()},{B:'TRUE'}),blk('p_setpos',{PART:bme(),X:bn(-30),Y:bn(6.5),Z:bn(-50)}),G.bc('dragon arrives')],[G.walkN(bme()),G.wait(.3)]))),VL);
+  G.vars(G.hscript(p,SD.id,'Darkness',blk('ev_start'),G.forever(G.wait(G.rnd(12,18)),G.iff(G.AND(G.cmp(G.vget(LV),'GTE',G.num(5)),G.cmp({block:{type:'s_rig_health',inputs:{PART:bme()}}},'GT',G.num(0))),
+    G.bc('darkness'),blk('rig_say',{PART:bme(),TEXT:bt('DARKNESS!'),S:bn(2)}),blk('rs_copy',{X:G.prop(bme(),'x'),Y:bn(2.6),Z:G.prop(bme(),'z')},{NAME:'Minion'}),blk('rs_copy',{X:G.prop(bme(),'x'),Y:bn(2.6),Z:G.prop(bme(),'z')},{NAME:'Minion'})))),VL);
+  G.script(p,'sss','Dragon msg',G.onMsg('dragon arrives'),G.sound('die'),G.msg('🐉 The SHADOW DRAGON has awoken! Level 5 gets serious.',3));
+  G.script(p,'sss','Dark',G.onMsg('darkness'),blk('g_sky',null,{COLOUR:'#000000'}),G.msg('The lights go out...',1.5),G.wait(3.5),blk('g_sky',null,{COLOUR:'#2b1d3a'}));
+  G.script(p,SD.id,'Bite',blk('ev_touch'),blk('pl_damage',{N:bn(30)}),blk('pl_knock',{WHO:bme(),P:bn(100)},{RAG:'TRUE'}),G.sound('explode'),G.wait(1.5));
+  G.script(p,SD.id,'Dragon KO',blk('ev_rig_died'),G.sound('win'),G.msg('The Shadow Dragon fades away... for now. +5 coins',3),blk('pl_coins',{N:bn(5)}));
   G.script(p,FQ.id,'Queen KO',blk('ev_rig_died'),G.sound('win'),G.msg('The Frost Queen shattered! She will be back...',2.5),blk('pl_coins',{N:bn(3)}));
   // from level 2 the King calls down fireballs: watch for the red circles on the floor
   for(let k=1;k<=5;k++){const fb=G.part(p,'workspace',{name:'Fireball'+k,shape:'ball',pos:[k*4,-60,0],size:[4,4,4],color:'#ff6d00',material:'Neon',canCollide:false,unbreakable:true});
@@ -3824,6 +3835,13 @@ function arsenalDef(){const G=GK;const p=G.proj('arsenal','Arsenal',{sky:'#ffb74
   G.vars(G.hscript(p,'sss','Bots',G.onMsg('round start'),G.ifElse(G.cmp(G.players(),'GTE',G.num(6)),[G.vset(NB,G.num(0))],[G.vset(NB,G.arith('MINUS',G.num(6),G.players()))]),
     ...[1,2,3,4,5].map(k=>G.ifElse(G.cmp(G.num(k),'LTE',G.vget(NB)),[blk('p_visible',{PART:G.pnamed('Bot'+k)},{B:'TRUE'}),blk('p_setpos',{PART:G.pnamed('Bot'+k),X:ox(HOME[k-1][0]),Y:bn(2.6),Z:bn(HOME[k-1][1])})],
       [blk('p_visible',{PART:G.pnamed('Bot'+k)},{B:'FALSE'}),blk('p_setpos',{PART:G.pnamed('Bot'+k),X:bn(k*6),Y:bn(2.6),Z:bn(200)})]))),BV);
+  // knockout streak rewards
+  G.vars(G.script(p,'sss','Streaks',G.onMsg('round start'),G.vset('vlk',G.num(0)),G.vset('vstk',G.num(0)),G.whileDo(G.inMatch(),
+    G.iff(G.AND(G.cmp(G.stat('KOs'),'GT',G.vget('vlk')),G.cmp(G.stat('KOs'),'LT',G.num(50))),G.vchg('vstk',G.arith('MINUS',G.stat('KOs'),G.vget('vlk'))),G.vset('vlk',G.stat('KOs')),
+      G.iff(G.cmp(G.vget('vstk'),'EQ',G.num(2)),G.sound('check'),G.msg('🔥 2 streak: +50 health!',1.5),blk('pl_heal',{N:bn(50)})),
+      G.iff(G.cmp(G.vget('vstk'),'EQ',G.num(3)),G.sound('win'),G.msg('⚡ 3 streak: SPEED!',1.5),blk('pl_speed',{V:bn(22)})),
+      G.iff(G.cmp(G.vget('vstk'),'EQ',G.num(5)),G.sound('win'),G.msg('🛡️ 5 streak: 8 second SHIELD!',1.5),blk('pl_shield',{S:bn(8)}))),G.wait(.3))),[['last kos','vlk'],['streak','vstk'],...G.MV]);
+  G.vars(G.script(p,'sss','Streak lost',blk('ev_died'),G.vset('vstk',G.num(0)),blk('pl_speed',{V:bn(16)})),[['streak','vstk']]);
   G.welcome(p,G.sset('KOs',0),G.msg('Arsenal: every knockout upgrades your weapon. Get a knockout with the Golden Knife to win!',5));
   return G.def(p,'arsenal','Arsenal');}
 
@@ -4100,6 +4118,8 @@ function planeCrashDef(){const G=GK;const p=G.proj('planecrash','Plane Crash',{s
   // sometimes the plane ditches in the sea instead: hop across the floating wreckage to the beach
   const WS=G.model(p,'WreckSea').id;[[0,0,0,12,4,26,'#cfd8dc'],[-9,0,-12,16,2,6,'#b0bec5']].forEach(([x,y,z2,w,h,d,c],i)=>G.part(p,WS,{name:'SeaWreck',pos:[x-30,y-300,z2-130],size:[w,h,d],rot:[0,i*30,i*10],color:c,material:'Metal'}));
   for(let i=0;i<6;i++)I({name:'Debris',pos:[-30+((i%2)?3:-3),-1.6,-113+i*8.5],size:[5,1,5],color:['#8d6e63','#b0bec5','#a1887f'][i%3],material:'Wood'});
+  G.vars(G.script(p,'sss','Pick weather',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,3),'EQ',G.num(1)),[G.vset('vstorm',G.num(1))],[G.vset('vstorm',G.num(0))])),[['storm','vstorm']]);
+  G.vars(G.script(p,'sss','Lightning',G.onMsg('turbulence'),G.iff(G.cmp(G.vget('vstorm'),'EQ',G.num(1)),blk('controls_repeat_ext',{TIMES:bn(8),DO:doIn(G.wait(G.rnd(1,3)),blk('g_sky',null,{COLOUR:'#e1f5fe'}),G.sound('explode'),G.wait(.15),blk('g_sky',null,{COLOUR:'#263238'}))}))),[['storm','vstorm']]);
   G.vars(G.script(p,'sss','Pick crash',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset('vsea',G.num(0))],[G.vset('vsea',G.num(1))])),[['sea crash','vsea']]);
   G.vars(G.hscript(p,'sss','Wreck appears',G.onMsg('crash'),G.ifElse(G.cmp(G.vget('vsea'),'EQ',G.num(1)),[blk('p_glide',{PART:G.mnamed('WreckSea'),X:bn(0),Y:bn(300),Z:bn(0),S:bn(0)})],
     [blk('p_glide',{PART:G.mnamed('Wreck'),X:bn(0),Y:bn(300),Z:bn(0),S:bn(0)}),G.wait(1),blk('p_break',{X:bn(-30),Y:bn(2),Z:bn(10),R:bn(18),P:bn(60)})])),[...VARS,['sea crash','vsea']]);
@@ -4108,7 +4128,7 @@ function planeCrashDef(){const G=GK;const p=G.proj('planecrash','Plane Crash',{s
   // everyone: phases on your own screen
   G.vars(G.script(p,'sss','Board',G.onMsg('round start'),G.sset('Parachute',0),G.sset('Rescued',0),blk('pl_chute',null,{B:'FALSE'}),G.vset('vjumped',G.num(0)),
     G.tp(0,PY+3,G.rnd(-20,20)),G.sound('check'),blk('g_sky',null,{COLOUR:'#90caf9'}),G.msg('Welcome aboard Flight 404! Find a seat... and check the overhead bins.',5)),[...VARS,['jumped','vjumped']]);
-  G.vars(G.script(p,'sss','Turbulence',G.onMsg('turbulence'),G.msg('⚠ TURBULENCE! Sit in a seat to hold on!',3),G.sound('die'),
+  G.vars(G.script(p,'sss','Turbulence',G.onMsg('turbulence'),G.msg('⚠ TURBULENCE! Sit in a seat to hold on!',3),G.sound('die'),G.iff(G.cmp(G.vget('vstorm'),'EQ',G.num(1)),blk('g_sky',null,{COLOUR:'#263238'}),G.msg('⛈ We are flying into a STORM!',2)),
     blk('controls_repeat_ext',{TIMES:bn(10),DO:doIn(G.wait(G.rnd(1,2)),G.iff(G.AND(G.aliveIn(),G.NOT({block:{type:'s_touching',inputs:{PART:G.mnamed('Seats')}}})),
       G.iff(G.cmp(G.ppos('y'),'GT',G.num(PY-5)),blk('pl_launch',{P:bn(30)}),blk('pl_damage',{N:bn(6)}))))})),VARS);
   G.vars(G.script(p,'sss','Fire',G.onMsg('engine fire'),blk('g_sky',null,{COLOUR:'#ff8a65'}),G.sound('explode'),G.msg('🔥 The left engine is on FIRE! We are going down!',4)),VARS);
