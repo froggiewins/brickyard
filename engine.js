@@ -3928,16 +3928,17 @@ function deathrunDef(){const G=GK;const p=G.proj('deathrun','Deathrun',{sky:'#26
   const TR=[1,2,3,4,5,6,7,8];G.noBase(p);const Y=20;
   G.spawnAt(p,0,20.5,10,{size:[12,1,10],color:'#43a047'});
   const MOX='vdox',MV2=[['map x',MOX]];
-  const ROLE='vdeath',RQ=k=>'vtrap'+k,DONE=(k,S)=>'vtrapdone'+k+S,KV=[['death',ROLE],['map x',MOX],...TR.map(k=>['trap request '+k,RQ(k)]),...TR.map(k=>['trap done '+k,DONE(k,'')]),...TR.map(k=>['trap done B'+k,DONE(k,'B')])];
+  const ROLE='vdeath',RQ=k=>'vtrap'+k,DONE=(k,S)=>'vtrapdone'+k+S,KV=[['death',ROLE],['map x',MOX],...TR.map(k=>['trap request '+k,RQ(k)]),...TR.map(k=>['trap done '+k,DONE(k,'')]),...TR.map(k=>['trap done B'+k,DONE(k,'B')]),...TR.map(k=>['trap done C'+k,DONE(k,'C')])];
   // two courses: the Dungeon and the Haunted Woods (300 studs east, traps in a different order)
-  const COURSES=[{ox:0,S:'',path:'#546e7a',mat:'Concrete',order:[1,2,3,4,5,6,7,8],name:'DUNGEON'},{ox:300,S:'B',path:'#5d4037',mat:'Wood',order:[3,1,7,4,2,8,5,6],name:'HAUNTED WOODS'}];
-  const pick=(S)=>G.cmp(G.vget(MOX),'EQ',G.num(S?300:0));
-  G.vars(G.script(p,'sss','Pick course',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(MOX,G.num(0)),blk('g_sky',null,{COLOUR:'#263238'})],[G.vset(MOX,G.num(300)),blk('g_sky',null,{COLOUR:'#1b2a1b'}),G.msg('Course: HAUNTED WOODS',2)]),
-    G.tp(0,23,8),G.iff(G.cmp(G.vget(MOX),'GT',G.num(0)),G.tp(300,23,8))),MV2);
+  const COURSES=[{ox:0,S:'',path:'#546e7a',mat:'Concrete',order:[1,2,3,4,5,6,7,8],name:'DUNGEON'},{ox:300,S:'B',path:'#5d4037',mat:'Wood',order:[3,1,7,4,2,8,5,6],name:'HAUNTED WOODS'},{ox:600,S:'C',path:'#b3e5fc',mat:'Ice',order:[2,4,6,8,1,3,5,7],name:'ICE CAVERNS'}];
+  const pick=(S)=>G.cmp(G.vget(MOX),'EQ',G.num(S==='C'?600:S?300:0));
+  G.vars(G.script(p,'sss','Pick course',G.onMsg('round start'),G.vset(MOX,G.arith('MULTIPLY',G.rnd(0,2),G.num(300))),G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#263238'})],[G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(300)),[blk('g_sky',null,{COLOUR:'#1b2a1b'}),G.msg('Course: HAUNTED WOODS',2)],[blk('g_sky',null,{COLOUR:'#4f6d8a'}),G.msg('Course: ICE CAVERNS',2)])]),
+    blk('pl_tpxyz',{X:G.vget(MOX),Y:bn(23),Z:bn(8)})),MV2);
   COURSES.forEach(({ox,S,path,mat,order})=>{const C=G.folder(p,'Course'+S).id;const P=o=>G.part(p,C,Object.assign({},o,{name:o.name+S,pos:[o.pos[0]+ox,o.pos[1],o.pos[2]]}));
     let z=4;const seg=len=>{P({name:'Path',pos:[0,Y,z-len/2],size:[12,1,len],color:path,material:mat});z-=len;};
     if(S)P({name:'Start',pos:[0,Y,8],size:[12,1,10],color:'#43a047'});
-    if(S)for(let i=0;i<20;i++){const sd=i%2?1:-1;P({name:'Tree',pos:[sd*(14+(i*7)%9),Y-6,-i*15],size:[2,22,2],color:'#3e2723',material:'Wood'});P({name:'Leaves',pos:[sd*(14+(i*7)%9),Y+6,-i*15],size:[8,6,8],color:'#1b5e20',material:'Grass',canCollide:false});}
+    if(S==='C')for(let i=0;i<24;i++){const sd=i%2?1:-1;P({name:'Icicle',pos:[sd*(10+(i*5)%6),Y+8,-i*12],size:[1.5,6,1.5],color:'#e1f5fe',material:'Ice',canCollide:false});}
+    if(S==='B')for(let i=0;i<20;i++){const sd=i%2?1:-1;P({name:'Tree',pos:[sd*(14+(i*7)%9),Y-6,-i*15],size:[2,22,2],color:'#3e2723',material:'Wood'});P({name:'Leaves',pos:[sd*(14+(i*7)%9),Y+6,-i*15],size:[8,6,8],color:'#1b5e20',material:'Grass',canCollide:false});}
     const Z={};
     const build={
       1:()=>{seg(8);Z[1]=z-6;P({name:'TrapDrop',pos:[0,Y,z-6],size:[12,1,12],color:'#8d6e63',material:'Wood',label:'1'});z-=12;},
@@ -3973,10 +3974,10 @@ function deathrunDef(){const G=GK;const p=G.proj('deathrun','Deathrun',{sky:'#26
     G.vars(G.script(p,fin.id,'Finish',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.cmp(G.stat('Finished'),'EQ',G.num(0))),G.sset('Finished',1),G.sadd('Score',10),G.sound('win'),G.msg('You beat Deathrun! +10 coins',3),blk('pl_coins',{N:bn(10)}))),[...KV,...G.MV]);
     COURSES.find(c=>c.S===S).roomZ=roomZ;});
   const MV=G.matchFlags(p);
-  const R0=COURSES[0].roomZ,R1=COURSES[1].roomZ;
-  G.vars(G.hscript(p,'sss','Pick Death',G.onMsg('round start'),...TR.map(k=>[G.vset(RQ(k),G.num(0)),G.vset(DONE(k,''),G.num(0)),G.vset(DONE(k,'B'),G.num(0))]).flat(),
-    G.ifElse(G.cmp(G.players(),'GTE',G.num(3)),[G.vset(ROLE,G.idOf(G.pref('randplaying'))),G.asP(G.byId(G.vget(ROLE)),G.wait(.2),G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(0)),[G.tp(22,Y+16,R0)],[G.tp(322,Y+16,R1)]),G.msg('You are DEATH! Step on the red buttons to spring traps on the runners.',5)),
-      blk('p_visible',{PART:G.pnamed('Death')},{B:'FALSE'}),blk('p_visible',{PART:G.pnamed('DeathB')},{B:'FALSE'})],[G.vset(ROLE,G.txt('bot')),blk('p_visible',{PART:G.pnamed('Death')},{B:'TRUE'}),blk('p_visible',{PART:G.pnamed('DeathB')},{B:'TRUE'}),G.msg('Death is watching... run!',3)])),[...KV,...MV]);
+  const R0=COURSES[0].roomZ,R1=COURSES[1].roomZ,R2=COURSES[2].roomZ;
+  G.vars(G.hscript(p,'sss','Pick Death',G.onMsg('round start'),...TR.map(k=>[G.vset(RQ(k),G.num(0)),G.vset(DONE(k,''),G.num(0)),G.vset(DONE(k,'B'),G.num(0)),G.vset(DONE(k,'C'),G.num(0))]).flat(),
+    G.ifElse(G.cmp(G.players(),'GTE',G.num(3)),[G.vset(ROLE,G.idOf(G.pref('randplaying'))),G.asP(G.byId(G.vget(ROLE)),G.wait(.2),G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(0)),[G.tp(22,Y+16,R0)],[G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(300)),[G.tp(322,Y+16,R1)],[G.tp(622,Y+16,R2)])]),G.msg('You are DEATH! Step on the red buttons to spring traps on the runners.',5)),
+      blk('p_visible',{PART:G.pnamed('Death')},{B:'FALSE'}),blk('p_visible',{PART:G.pnamed('DeathB')},{B:'FALSE'}),blk('p_visible',{PART:G.pnamed('DeathC')},{B:'FALSE'})],[G.vset(ROLE,G.txt('bot')),blk('p_visible',{PART:G.pnamed('Death')},{B:'TRUE'}),blk('p_visible',{PART:G.pnamed('DeathB')},{B:'TRUE'}),blk('p_visible',{PART:G.pnamed('DeathC')},{B:'TRUE'}),G.msg('Death is watching... run!',3)])),[...KV,...MV]);
   G.vars(G.script(p,'sss','Reset',G.onMsg('round start'),G.sset('Finished',0)),MV);
   G.vars(G.script(p,'sss','Runner down',blk('ev_died'),G.iff(G.NOT(G.cmp(G.vget(ROLE),'EQ',G.myId())),G.shChg('vdeathkills',1))),[['death kills','vdeathkills'],...KV]);
   G.vars(G.script(p,'sss','Death score',G.onMsg('round end'),G.iff(G.cmp(G.vget(ROLE),'EQ',G.myId()),G.sset('Score',G.arith('MULTIPLY',G.vget('vdeathkills'),G.num(4))))),[['death kills','vdeathkills'],...KV]);
