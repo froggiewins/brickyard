@@ -3068,6 +3068,15 @@ function disastersDef(){const G=GK;const p=G.proj('disasters','Disaster Survival
     G.part(p,F,{name:'Carousel',shape:'cyl',pos:[24,1,24],size:[16,2,16],color:'#f8bbd0',material:'Wood'});G.part(p,F,{name:'CarouselRoof',shape:'cyl',pos:[24,9,24],size:[18,1,18],color:'#ec407a',material:'Fabric'});
     for(let i=0;i<6;i++){const a=i/6*Math.PI*2;G.part(p,F,{name:'Pole',pos:[r3(24+Math.cos(a)*6),5,r3(24+Math.sin(a)*6)],size:[.5,7,.5],color:'#ffd54f',material:'Metal'});}
     [[-40,30,'#ffcc80'],[-24,44,'#b39ddb'],[-50,10,'#80cbc4']].forEach(([x,z,c])=>house(F,x,z,9,7,8,c,'Wood','#f44336'));}
+  // 6. Desert Oasis
+  {const F=mapModel('Desert Oasis');
+    G.part(p,F,Object.assign({name:'Ground',pos:[0,-1,0],size:[124,2,124],color:'#e6c27a',material:'Sand'},U));
+    G.part(p,F,Object.assign({name:'Oasis',shape:'cyl',pos:[10,.05,10],size:[22,.2,22],color:'#29b6f6',material:'Glass'},U));
+    for(let k=0;k<5;k++)G.part(p,F,Object.assign({name:'Pyramid',pos:[-36,1.5+k*3,-30],size:[30-k*6,3,30-k*6],color:['#d7b56d','#cfa95a','#c49c4c','#b98e3f','#ad8133'][k],material:'Sand'},U));
+    [[30,-30,'#d7ccc8'],[-30,30,'#bcaaa4'],[36,30,'#efebe9']].forEach(([x,z,c])=>house(F,x,z,10,7,10,c,'Sand','#8d6e63'));
+    tower(F,46,0,7,26,'#d7ccc8','Sand',4,'#8d6e63');
+    [[0,-40],[-48,0],[18,40],[50,-50]].forEach(([x,z])=>{G.part(p,F,{name:'PalmTrunk',pos:[x,4,z],size:[1.2,8,1.2],color:'#8d6e63',material:'Wood'});G.part(p,F,{name:'PalmLeaves',pos:[x,8.3,z],size:[7,.6,7],color:'#43a047',material:'Grass'});});
+    G.part(p,F,{name:'Camel',pos:[-10,2,40],size:[6,3,2],color:'#c49c4c',material:'Plastic'});}
   const centers=MAPS.map(m=>{const list=[p.nodes.find(n=>n.id===m.id),...p.nodes.filter(n=>n.parent===m.id)];const c=nodesBounds(list).getCenter(new V3());return [r3(c.x),r3(c.y),r3(c.z)];});
   /* ---------- disasters ---------- */
   const D='vdis',D2='vdis2',MP_='vmap';const VARS=[['disaster',D],['second disaster',D2],['map',MP_]];
@@ -3146,16 +3155,22 @@ function disastersDef(){const G=GK;const p=G.proj('disasters','Disaster Survival
   dscript(dust.id,'Blow',9,[blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(15),Z:bn(0)}),G.until(notOn(9))],[park(bme())]);
   G.vars(G.script(p,'sss','Gusts',blk('ev_start'),G.forever(G.ifElse(on(9),[blk('pl_knock',{WHO:G.pnamed('WindSource'),P:G.rnd(6,16)},{RAG:'FALSE'}),G.wait(.4)],[G.wait(.4)]))),VARS);
   dscript('sss','Sand blast',9,[G.wait(G.rnd(1,3)),brk(G.rnd(-50,0),G.rnd(2,12),G.rnd(-55,55),6,30)]);
+  // 10 alien invasion: UFOs hover over the map and beam people (and buildings) up
+  for(let k=1;k<=3;k++){const u=PP({name:'UFO'+k,shape:'ball',pos:[0,-80,0],size:[14,3,14],color:'#90a4ae',material:'Metal'});const bm=PP({name:'Beam'+k,shape:'cyl',pos:[0,-80,0],size:[8,30,8],color:'#76ff03',material:'Neon',transparency:.7});
+    dscript(u.id,'Hover',10,[G.iff(G.cmp(prop(bme(),'y'),'LT',G.num(0)),blk('p_setpos',{PART:bme(),X:bn(-80+k*40),Y:bn(70),Z:bn(-70)})),G.vset('vux'+k,G.rnd(-50,50)),G.vset('vuz'+k,G.rnd(-50,50)),blk('p_glideto',{PART:bme(),X:G.vget('vux'+k),Y:bn(34),Z:G.vget('vuz'+k),S:bn(2.5)}),G.sound('boost'),
+      blk('p_setpos',{PART:G.pnamed('Beam'+k),X:G.vget('vux'+k),Y:bn(17),Z:G.vget('vuz'+k)}),G.bc('beam '+k),brk(G.vget('vux'+k),4,G.vget('vuz'+k),5,-60),G.wait(2.5),park(G.pnamed('Beam'+k))],
+      [park(bme()),park(G.pnamed('Beam'+k))],[['ufo x'+k,'vux'+k],['ufo z'+k,'vuz'+k]]);
+    G.vars(G.script(p,'sss','Abduct '+k,G.onMsg('beam '+k),G.iff(G.AND(on(10),near('Beam'+k,5)),G.msg('👽 You are being ABDUCTED! Jump out of the beam!',2),blk('pl_launch',{P:bn(55)}),G.wait(.5),blk('pl_launch',{P:bn(45)}),G.wait(.5),blk('pl_damage',{N:bn(20)}))),VARS);}
   /* ---------- matches ---------- */
   const NAMES=['','FLOOD! The water is rising. Get to high ground!','TSUNAMI! Giant waves are coming. Climb something tall!','METEOR SHOWER! Watch for red circles!',
-    'TORNADO! Stay away from the funnel!','VOLCANO! Dark cracks turn into lava!','EARTHQUAKE! Buildings are crumbling!','LIGHTNING STORM! Move away from the glowing rings!','BLIZZARD! Freezing wind slows you down. Watch for hail!','SANDSTORM! The wind pushes you east. Hide behind a wall!'];
-  const SKY=['#8ec9ff','#6f8fb0','#6aa5d8','#ff9e80','#9e9e9e','#bf360c','#a1887f','#2b2f45','#eceff1','#c8a165'];
-  const say=v=>[1,2,3,4,5,6,7,8,9].map(k=>G.iff(G.cmp(G.vget(v),'EQ',G.num(k)),G.msg('⚠ '+NAMES[k],3.5),blk('g_sky',null,{COLOUR:SKY[k]})));
+    'TORNADO! Stay away from the funnel!','VOLCANO! Dark cracks turn into lava!','EARTHQUAKE! Buildings are crumbling!','LIGHTNING STORM! Move away from the glowing rings!','BLIZZARD! Freezing wind slows you down. Watch for hail!','SANDSTORM! The wind pushes you east. Hide behind a wall!','ALIEN INVASION! Stay out of the green tractor beams!'];
+  const SKY=['#8ec9ff','#6f8fb0','#6aa5d8','#ff9e80','#9e9e9e','#bf360c','#a1887f','#2b2f45','#eceff1','#c8a165','#1a237e'];
+  const say=v=>[1,2,3,4,5,6,7,8,9,10].map(k=>G.iff(G.cmp(G.vget(v),'EQ',G.num(k)),G.msg('⚠ '+NAMES[k],3.5),blk('g_sky',null,{COLOUR:SKY[k]})));
   G.vars(G.script(p,'sss','Match',blk('ev_msg',null,{MSG:'round start'}),G.vset(D,G.num(0)),G.vset(D2,G.num(0)),G.sset('Survived',1),G.vset(MP_,G.rnd(1,MAPS.length)),
     ...MAPS.map((m,i)=>G.iff(G.cmp(G.vget(MP_),'EQ',G.num(i+1)),blk('rs_copy',{X:bn(centers[i][0]),Y:bn(centers[i][1]),Z:bn(centers[i][2])},{NAME:m.name}),G.msg('Map: '+m.name,3))),
-    G.wait(5),G.vset(D,G.rnd(1,9)),G.sound('check'),...say(D),
-    G.iff(G.cmp(G.rnd(1,3),'EQ',G.num(1)),G.wait(3),G.vset(D2,G.rnd(1,9)),
-      blk('controls_whileUntil',{BOOL:G.cmp(G.vget(D2),'NEQ',G.vget(D)),DO:doIn(G.vset(D2,G.rnd(1,9)))},{MODE:'UNTIL'}),G.msg('DOUBLE DISASTER!',2),G.wait(2),...say(D2))),VARS);
+    G.wait(5),G.vset(D,G.rnd(1,10)),G.sound('check'),...say(D),
+    G.iff(G.cmp(G.rnd(1,3),'EQ',G.num(1)),G.wait(3),G.vset(D2,G.rnd(1,10)),
+      blk('controls_whileUntil',{BOOL:G.cmp(G.vget(D2),'NEQ',G.vget(D)),DO:doIn(G.vset(D2,G.rnd(1,10)))},{MODE:'UNTIL'}),G.msg('DOUBLE DISASTER!',2),G.wait(2),...say(D2))),VARS);
   G.vars(G.script(p,'sss','MatchOver',blk('ev_msg',null,{MSG:'round end'}),G.vset(D,G.num(0)),G.vset(D2,G.num(0)),blk('g_sky',null,{COLOUR:SKY[0]}),
     G.iff(G.cmp(G.stat('Survived'),'EQ',G.num(1)),G.sadd('Streak',1),blk('data_change',{KEY:bt('nds_total'),N:bn(1)}),G.sadd('Total Survived',1),G.msg(G.join('You survived! Streak: ',G.stat('Streak'),' (+3 coins)'),3),blk('pl_coins',{N:bn(3)})),blk('pl_speed',{V:bn(16)}),blk('pl_jump',{V:bn(50)}),
     ...MAPS.map((m,i)=>G.iff(G.cmp(G.vget(MP_),'EQ',G.num(i+1)),blk('controls_repeat_ext',{TIMES:bn(3),DO:doIn(blk('p_destroy',{PART:G.mnamed(m.name)}))})))),VARS);
