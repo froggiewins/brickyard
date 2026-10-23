@@ -374,7 +374,7 @@ function rigHpSprite(r){
   const g=r.hpCanvas.getContext('2d'),f=Math.max(0,r.health/r.maxHealth);g.clearRect(0,0,128,18);g.fillStyle='rgba(10,16,28,.8)';g.fillRect(0,0,128,18);
   g.fillStyle=f>.5?'#3ddc84':f>.25?'#ffd75e':'#ff4d5e';g.fillRect(3,3,122*f,12);r.hpTex.needsUpdate=true;r.hpSprite.visible=f<1&&!r.dead;}
 function damageRig(r,n){
-  if(!r||!r.rig||r.dead||r.destroyed||!(n>0))return;r.health=Math.max(0,r.health-n);r.flashT=.12;
+  if(!r||!r.rig||r.dead||r.destroyed||!(n>0))return;const _hb=r.health;r.health=Math.max(0,r.health-n);r.flashT=.12;juiceRigHit(r,Math.min(n,_hb));
   r.mesh.traverse(o=>{if(o.isMesh&&o.userData.rigPart!==false&&o.material!==faceDecal&&o.material!==FLASHMAT){o.userData.orig=o.material;o.material=FLASHMAT;}});
   rigHpSprite(r);if(r.health<=0)rigDie(r);
 }
@@ -434,7 +434,7 @@ function rigDie(r){
     if(r.hpSprite)r.hpSprite.visible=false;rigDiedHandlers(r);
     if(r.respawn>0)r.respawnAt=t+Math.max(r.respawn,1);else r.ragDestroyAt=t+4;return;}
   _rigDieBreak(r);}
-function rigDiedHandlers(r){const remote=r.lastHitBy&&r.lastHitBy!==MP.peerMe&&MP.remotes.has(r.lastHitBy);
+function rigDiedHandlers(r){if(!(r.lastHitBy&&r.lastHitBy!==MP.peerMe))juiceKO(r);const remote=r.lastHitBy&&r.lastHitBy!==MP.peerMe&&MP.remotes.has(r.lastHitBy);
   (r.diedHandlers||[]).forEach(h=>{if(h.host||!remote)spawnRun(h.body,h);});if(remote)mpEmit('bot',{t:'kd',k:rigKey(r),to:r.lastHitBy,h:W.projHash});}
 function _rigDieBreak(r){
   r.dead=true;r.walk&&r.walk.done();r.walk=null;SFX.explode();
@@ -592,15 +592,15 @@ function coinTick(dt){if(!running||paused||!game||game.fromEditor||game.mode==='
   const today=new Date().toISOString().slice(0,10);if(WALLET.day!==today&&PLAYED.t>10){WALLET.day=today;earnCoins(50,'daily bonus');}}
 /* ---------- daily quests: three a day, the same for everybody, paid in coins ---------- */
 const QUESTS=[
-  {id:'doors15',g:'doors',k:'stat',st:'Door',n:15,r:120,t:'Get through 15 doors in Doors'},
-  {id:'tower40',g:'towerhell',k:'stat',st:'Height',n:40,r:100,t:'Climb 40 studs up the Tower of Hell'},
+  {id:'doors15',g:'doors',k:'stat',st:'Door',n:15,r:120,t:'Get through 15 doors in the Haunted Hotel'},
+  {id:'tower40',g:'towerhell',k:'stat',st:'Height',n:40,r:100,t:'Climb 40 studs up the Tower of Chaos'},
   {id:'rescued',g:'planecrash',k:'stat',st:'Rescued',n:1,r:150,t:'Get rescued after the Plane Crash'},
   {id:'chute',g:'planecrash',k:'stat',st:'Points',n:20,r:90,t:'Score 20 points in Plane Crash'},
-  {id:'evade60',g:'evade',k:'stat',st:'Score',n:60,r:100,t:'Score 60 in one round of Evade'},
-  {id:'arsenal3',g:'arsenal',k:'stat',st:'KOs',n:3,r:100,t:'Get 3 knockouts in Arsenal'},
-  {id:'murder',g:'murder',k:'match',n:2,r:80,t:'Play 2 rounds of Murder Mystery'},
+  {id:'evade60',g:'evade',k:'stat',st:'Score',n:60,r:100,t:'Score 60 in one round of Panic Run'},
+  {id:'arsenal3',g:'arsenal',k:'stat',st:'KOs',n:3,r:100,t:'Get 3 knockouts in Weapon Ladder'},
+  {id:'murder',g:'murder',k:'match',n:2,r:80,t:'Play 2 rounds of Whodunit'},
   {id:'hide30',g:'hideseek',k:'stat',st:'Score',n:30,r:100,t:'Stay hidden for a whole round of Hide and Seek'},
-  {id:'deathrun',g:'deathrun',k:'stat',st:'Finished',n:1,r:120,t:'Beat the Deathrun course'},
+  {id:'deathrun',g:'deathrun',k:'stat',st:'Finished',n:1,r:120,t:'Beat the Trap Run course'},
   {id:'zombie3',g:'zombies',k:'stat',st:'Wave',n:3,r:100,t:'Reach wave 3 in Zombie Survival'},
   {id:'disaster2',g:'disasters',k:'stat',st:'Streak',n:2,r:110,t:'Survive 2 disasters in a row'},
   {id:'bomb2',g:'bombtag',k:'match',n:2,r:80,t:'Play 2 matches of Bomb Tag'},
@@ -610,12 +610,12 @@ const QUESTS=[
   {id:'rainbow',g:'rainbow',k:'finish',n:1,r:120,t:'Finish the Rainbow Obby'},
   {id:'boss3',g:'boss',k:'stat',st:'Level',n:3,r:120,t:'Reach level 3 in Boss Battle'},
   {id:'flag1',g:'flagraid',k:'stat',st:'Captures',n:1,r:100,t:'Capture a flag in Flag Raid'},
-  {id:'seek',g:'doors',k:'stat',st:'Door',n:29,r:200,t:'Escape Seek in Doors (reach door 29)'},
-  {id:'gold',g:'doors',k:'stat',st:'Gold',n:30,r:90,t:'Collect 30 gold in Doors'},
+  {id:'seek',g:'doors',k:'stat',st:'Door',n:29,r:200,t:'Escape the Watcher in the Haunted Hotel (reach door 29)'},
+  {id:'gold',g:'doors',k:'stat',st:'Gold',n:30,r:90,t:'Collect 30 gold in the Haunted Hotel'},
   {id:'stars',g:'rainbow',k:'stat',st:'Stars',n:3,r:100,t:'Grab all 3 star coins in Rainbow Obby'},
   {id:'souls',g:'ghost',k:'stat',st:'Souls',n:4,r:100,t:'Collect 4 soul orbs in Escape the Ghost'},
   {id:'cash',g:'zombies',k:'stat',st:'Cash',n:200,r:110,t:'Earn 200 cash in Zombie Survival'},
-  {id:'mmcoins',g:'murder',k:'stat',st:'Coins',n:8,r:90,t:'Pick up 8 coins in Murder Mystery'},
+  {id:'mmcoins',g:'murder',k:'stat',st:'Coins',n:8,r:90,t:'Pick up 8 coins in Whodunit'},
   {id:'sumo60',g:'sumo',k:'stat',st:'Time',n:60,r:100,t:'Stay on the Sumo ring for 60 seconds'},
   {id:'laps3',g:'turbo',k:'stat',st:'Laps',n:3,r:100,t:'Finish 3 laps of Turbo Track'},
   {id:'targets25',g:'targets',k:'stat',st:'Score',n:25,r:90,t:'Score 25 in Target Range'},
@@ -627,15 +627,15 @@ const QBONUS=100;
 /* ---------- badges: one-time achievements that pay coins ---------- */
 const BADGES=[
   ['first','👟','First Steps','Play any game for a minute',()=>PLAYED.total>=60,25],
-  ['seek','👁️','Seek Survivor','Escape Seek in Doors',()=>gid()==='doors'&&st('Door')>=29,150],
+  ['seek','👁️','Watcher Survivor','Escape the Watcher in the Haunted Hotel',()=>gid()==='doors'&&st('Door')>=29,150],
   ['hotel','🏨','Checked Out','Get through all 40 doors',()=>gid()==='doors'&&st('Escaped')>=1,400],
-  ['tower','🗼','Tower Conqueror','Reach the top of the Tower of Hell',()=>gid()==='towerhell'&&st('Height')>=999,300],
+  ['tower','🗼','Tower Conqueror','Reach the top of the Tower of Chaos',()=>gid()==='towerhell'&&st('Height')>=999,300],
   ['mega','🏁','Mega Finisher','Finish the 50-stage Mega Obby',()=>gid()==='megaobby'&&state.over,300],
   ['rescue','🚁','Rescued','Get rescued after a plane crash',()=>gid()==='planecrash'&&st('Rescued')>=1,150],
   ['zombie10','🧟','Zombie Slayer','Reach wave 10 in Zombie Survival',()=>gid()==='zombies'&&st('Wave')>=10,300],
   ['boss5','🐉','Dragon Tamer','Reach level 5 in Boss Battle',()=>gid()==='boss'&&st('Level')>=5,300],
   ['ghost3','👻','Night Owl','Survive to night 3 in Escape the Ghost',()=>gid()==='ghost'&&st('Night')>=3,200],
-  ['knife','🔪','Golden Knife','Win a game of Arsenal',()=>gid()==='arsenal'&&st('KOs')>=99,250],
+  ['knife','🔪','Golden Knife','Win a game of Weapon Ladder',()=>gid()==='arsenal'&&st('KOs')>=99,250],
   ['lava5','🌋','Lava Proof','Reach round 5 of Lava Rising',()=>gid()==='lavarise'&&st('Round')>=5,200],
   ['gems25','💎','Gem Hoarder','Collect 25 gems in one round',()=>gid()==='gems'&&st('Gems')>=25,150],
   ['win1','🏆','Winner','Win a match against another player',()=>(WALLET.wins||0)>=1,100],
@@ -926,7 +926,7 @@ function physics(dt,ix,iy,sprint){
   const preVy=P.vel.y;const was=P.onGround;P.onGround=false;P.ground=null;
   moveAxis(0,P.vel.x*dt,was);moveAxis(2,P.vel.z*dt,was);moveAxis(1,P.vel.y*dt,false);
   if(W.obbs.length)resolveOBB();
-  if(P.onGround){if(!was){P.landSpeed=Math.max(0,-preVy);if(P.chute)setChute(false);}if(!was&&P.airT>.25&&RT.land&&RT.land.length)rtFire('land');P.airT=0;}else P.airT=(P.airT||0)+dt;
+  if(P.onGround){if(!was){P.landSpeed=Math.max(0,-preVy);if(P.landSpeed>75)juiceShake(Math.min(.6,(P.landSpeed-75)/120));if(P.chute)setChute(false);}if(!was&&P.airT>.25&&RT.land&&RT.land.length)rtFire('land');P.airT=0;}else P.airT=(P.airT||0)+dt;
 }
 function respawn(){
   P.debris.forEach(d=>scene.remove(d.m));P.debris=[];P.rag=null;
@@ -938,6 +938,7 @@ function respawn(){
 }
 function die(kind){
   if(P.dead||state.over)return;
+  JU.deaths.push(t);JU.streak=0;juiceShake(.8);
   if(LOBBY.on&&LOBBY.inRound&&LOBBY.cfg.elim&&!LOBBY.out){LOBBY.out=true;W.checkpoint=LOBBY.spot.clone();setTimeout(()=>toast('You are out! Watch from the lobby.','#ffb4b4',2.5),900);MP.lastSent='';}
   if(P.equipped)unequipTool();
   P.dead=true;P.health=0;
@@ -951,7 +952,7 @@ function die(kind){
   scene.remove(P.model);
 }
 
-function damagePlayer(n){if(P.dead||state.over||!(n>0))return;if(P.shieldUntil>t)return;P.health=Math.max(0,P.health-n);if(RT.hurt&&RT.hurt.length)setTimeout(()=>rtFire('hurt'),0);const d=$('#dmg');d.classList.add('on');requestAnimationFrame(()=>requestAnimationFrame(()=>d.classList.remove('on')));
+function damagePlayer(n){if(P.dead||state.over||!(n>0))return;if(P.shieldUntil>t)return;n=juiceAssist(n);juiceShake(Math.min(.9,.15+n/60));P.health=Math.max(0,P.health-n);if(RT.hurt&&RT.hurt.length)setTimeout(()=>rtFire('hurt'),0);const d=$('#dmg');d.classList.add('on');requestAnimationFrame(()=>requestAnimationFrame(()=>d.classList.remove('on')));
   if(P.health<=0)die('kill');}
 function setShirt(c,rebuild){if(!rebuild&&!/^#[0-9a-f]{6}$/i.test(c||''))return;if(c)P.shirtOverride=c;if(!P.model||P.dead)return;
   const old=P.model;const nm=makeAvatar(P.shirtOverride||undefined);nm.position.copy(old.position);nm.rotation.copy(old.rotation);
@@ -1575,7 +1576,7 @@ function activateTool(){
   e.handlers.act.forEach(h=>spawnRun(h.body,h));
 }
 function swingTool(e){e.swingT0=t;e.swingUntil=t+.35;e.hitSet=new Set();SFX.click();MP.swWall=Date.now();}
-function fireToolHit(e,p){if(!p||p.destroyed)return;e.handlers.hit.forEach(h=>spawnRun(h.body,Object.assign({},h,{hit:p})));}
+function fireToolHit(e,p){if(!p||p.destroyed)return;if(p.rig){JU.lastLocal=t;JU.lastPart=p;}e.handlers.hit.forEach(h=>spawnRun(h.body,Object.assign({},h,{hit:p})));}
 /* aiming: shots go toward the tapped/clicked point (or the mouse, or the screen centre for the Use button),
    with gentle aim assist toward characters near that line, and bolts that curve a little toward them */
 const AIM={x:0,y:0,at:-1};
@@ -1703,7 +1704,7 @@ function onBot(msg){const d=msg.data;if(msg.isMe||!d||!running||!game||!game.pro
   const r=typeof d.k==='string'?W.rigs.find(x=>!x.destroyed&&rigKey(x)===d.k):null;
   if(d.t==='dmg'&&HOST.am&&r){r.lastHitBy=msg.peer;damageRig(r,Math.max(0,Math.min(1000,num(d.n,0))));return;}
   if(d.t==='fling'&&HOST.am&&r&&Array.isArray(d.v)){r.lastHitBy=msg.peer;ragdollRig(r,Math.max(.3,Math.min(10,num(d.s,2.5))),new V3(num(d.v[0],0),num(d.v[1],0),num(d.v[2],0)).clampLength(0,400));return;}
-  if(d.t==='kd'&&d.to===MP.peerMe&&r){(r.diedHandlers||[]).forEach(h=>{if(!h.host)spawnRun(h.body,h);});return;}}
+  if(d.t==='kd'&&d.to===MP.peerMe&&r){juiceKO(r,true);(r.diedHandlers||[]).forEach(h=>{if(!h.host)spawnRun(h.body,h);});return;}}
 function applySnap(d){
   const seen=new Set();
   for(const e of d.r){if(!Array.isArray(e)||typeof e[0]!=='string')continue;const k=e[0];seen.add(k);
@@ -1730,7 +1731,7 @@ function puppetStep(r,dt){const n=r.net;if(!n)return false;const k=Math.min(1,dt
   const dead=!!(n.f&2);if(dead!==r.dead){r.dead=dead;r.active=!dead;if(r.hpSprite)r.hpSprite.visible=!dead&&r.health<r.maxHealth;}
   r.mesh.visible=!(n.f&4)&&!dead;return !!(n.f&1);}
 /* send a player's hit on a bot to the host */
-function hitPuppet(r,kind,o){mpEmit('bot',Object.assign({t:kind,k:rigKey(r),h:W.projHash},o));r.flashT=.12;
+function hitPuppet(r,kind,o){if(kind==='dmg'&&o&&o.n>0)juiceRigHit(r,o.n);mpEmit('bot',Object.assign({t:kind,k:rigKey(r),h:W.projHash},o));r.flashT=.12;
   r.mesh.traverse(x=>{if(x.isMesh&&x.userData.rigPart!==false&&x.material!==faceDecal&&x.material!==FLASHMAT){x.userData.orig=x.material;x.material=FLASHMAT;}});}
 function hostShareVar(k,v){if(!MP.gr||!MP.remotes.size)return;if(!(typeof v==='number'||typeof v==='boolean'||typeof v==='string'))return;
   if(HOST.last[k]===v)return;HOST.last[k]=v;mpEmit('gvar',{n:String(k).slice(0,60),v:typeof v==='string'?v.slice(0,1000):v,h:W.projHash});}
@@ -3154,8 +3155,8 @@ function bossDef(){const G=GK;const p=G.proj('boss','Boss Battle',{sky:'#2b1d3a'
   G.spawnAt(p,0,.5,24);return G.def(p,'boss','Boss Battle');}
 
 /* ---------- bigger games ---------- */
-/* 14. Disaster Survival: shared lobby and matches, the same map and disaster for every player, buildings that break apart */
-function disastersDef(){const G=GK;const p=G.proj('disasters','Disaster Survival',{sky:'#8ec9ff',fog:700,timer:false,saveStats:false,saveCheckpoint:false,deathStyle:'ragdoll',
+/* 14. Disaster Zone: shared lobby and matches, the same map and disaster for every player, buildings that break apart */
+function disastersDef(){const G=GK;const p=G.proj('disasters','Disaster Zone',{sky:'#8ec9ff',fog:700,timer:false,saveStats:false,saveCheckpoint:false,deathStyle:'ragdoll',
     lobby:true,lobbyWait:15,lobbyRound:48,lobbyScore:'Survived',lobbyElim:true});
   G.noBase(p);
   G.spawnAt(p,0,32,0,{size:[6,1,6],transparency:1,canCollide:false});
@@ -3350,7 +3351,7 @@ function disastersDef(){const G=GK;const p=G.proj('disasters','Disaster Survival
   G.script(p,'sss','Out',blk('ev_died'),G.sset('Survived',0),G.sset('Streak',0));
   G.welcome(p,G.sset('Streak',0),G.msg('Survive natural disasters with everyone in this game! Every match picks a map and a disaster.',5));
   G.best(p,'Streak','nds_streak');
-  return G.def(p,'disasters','Disaster Survival');}
+  return G.def(p,'disasters','Disaster Zone');}
 
 /* 15. Escape the Ghost: everyone is hunted by the same ghosts */
 function ghostDef(){const G=GK;const p=G.proj('ghost','Escape the Ghost',{sky:'#0b0f1a',fog:150,brightness:.5,timer:false,saveStats:false,saveCheckpoint:false,deathStyle:'ragdoll'});
@@ -3641,7 +3642,7 @@ function gkMelee(p,parent,name,o){const T={id:uid(),cls:'Tool',name,parent,toolt
   p.nodes.push(T,h,partNode({parent:T.id,name:'Blade',pos:[0,3,-1.8],size:[.18,.4,2.4],color:o.color||'#dfe6f5',material:o.mat||'Metal'}));
   if(o.script!==false)p.nodes.push(scriptNode({parent:T.id,name:name+' Script',blocks:scriptOf(chain(blk('ev_tool_hit'),hitBranch(o.dmg,doIn(blk('g_sound',null,{SND:'explode'})))))}));return T;}
 
-/* 20. Tower of Hell: a random tower, the same for everyone, rebuilt every match */
+/* 20. Tower of Chaos: a random tower, the same for everyone, rebuilt every match */
 /* bots that fill a lobby up to `total` fighters: they chase, shoot and can be knocked out. Host-run so everyone sees the same bots */
 function gkFighterBots(p,o){const G=GK;const NB='vfbots',BV=[['fighter bots',NB],...(o.ox?[['map x',o.ox]]:[])],OX=v=>o.ox?G.arith('ADD',typeof v==='number'?G.num(v):v,G.vget(o.ox)):(typeof v==='number'?bn(v):v),n=o.max||5,cols=o.cols||['#e53935','#1e88e5','#43a047','#8e24aa','#fb8c00'];
   for(let k=1;k<=n;k++){const home=o.home[(k-1)%o.home.length];const r=rigNode({name:'Fighter'+k,pos:[home[0],2.6+(o.y||0),home[1]],health:o.hp||100,respawn:4,walkSpeed:o.speed||14,colors:{head:'#ffcc80',torso:cols[(k-1)%cols.length],arms:'#ffcc80',legs:'#212121'}});p.nodes.push(r);
@@ -3652,7 +3653,7 @@ function gkFighterBots(p,o){const G=GK;const NB='vfbots',BV=[['fighter bots',NB]
     G.vars(G.hscript(p,r.id,'Shoot',blk('ev_start'),G.forever(G.wait(G.rnd(1,2)),G.iff(G.AND(G.cmp(G.num(k),'LTE',G.vget(NB)),G.AND(G.cmp({block:{type:'s_rig_health',inputs:{PART:bme()}}},'GT',G.num(0)),G.cmp(G.nearD(bme()),'LT',G.num(40)))),
       blk('p_setpos',{PART:G.pnamed('FBolt'+k),X:G.prop(bme(),'x'),Y:G.arith('ADD',G.prop(bme(),'y'),G.num(1)),Z:G.prop(bme(),'z')}),
       blk('p_glideto',{PART:G.pnamed('FBolt'+k),X:G.nearAx(bme(),'x'),Y:G.arith('ADD',G.nearAx(bme(),'y'),G.num(2.5)),Z:G.nearAx(bme(),'z'),S:bn(.35)}),
-      G.iff(G.cmp(G.rnd(1,10),'LTE',G.num(o.acc||5)),G.asP({block:{type:'pl_ref_nearpart',inputs:{PART:bme()}}},blk('pl_damage',{N:bn(o.dmg||14)}))),
+      G.iff(G.AND(G.cmp(G.nearD(G.pnamed('FBolt'+k)),'LT',G.num(4.8)),G.cmp(G.rnd(1,10),'LTE',G.num(Math.min(10,(o.acc||5)+3)))),G.asP({block:{type:'pl_ref_nearpart',inputs:{PART:G.pnamed('FBolt'+k)}}},blk('pl_damage',{N:bn(o.dmg||14)}))),
       blk('p_setpos',{PART:G.pnamed('FBolt'+k),X:bn(0),Y:bn(-50),Z:bn(0)})))),BV);
     G.script(p,r.id,'KO',blk('ev_rig_died'),G.sadd(o.stat||'KOs',1));
     G.vars(G.hscript(p,r.id,'Back to map',blk('ev_rig_died'),G.wait(4.3),blk('p_setpos',{PART:bme(),X:OX(home[0]),Y:bn(2.6+(o.y||0)),Z:bn(home[1])})),BV);}
@@ -3670,7 +3671,7 @@ function gkPowerups(p,spots,o){const G=GK;o=o||{};const y=o.y||1.5;
         [G.ifElse(G.cmp(G.vget('vpwr'),'EQ',G.num(3)),[G.msg('🛡️ SHIELD for 6 seconds!',1.5),blk('pl_shield',{S:bn(6)}),G.wait(6)],
          [G.ifElse(G.cmp(G.vget('vpwr'),'EQ',G.num(4)),[G.msg('❤️ Full heal!',1.5),blk('pl_heal',{N:bn(200)}),G.wait(1)],[G.msg('🪶 FEATHER: low gravity for 8 seconds!',1.5),blk('pl_gravity',{V:bn(80)}),G.wait(8),blk('pl_gravity',{V:bn(196.2)})])])])]),
       G.wait(9),blk('p_visible',{PART:bme()},{B:'TRUE'})),[['power','vpwr']]);});}
-function towerHellDef(){const G=GK;const p=G.proj('towerhell','Tower of Hell',{sky:'#1b1f3b',fog:700,brightness:.95,timer:false,saveStats:false,saveCheckpoint:false,lobby:true,lobbyWait:12,lobbyRound:300,lobbyScore:'Height'});
+function towerHellDef(){const G=GK;const p=G.proj('towerhell','Tower of Chaos',{sky:'#1b1f3b',fog:700,brightness:.95,timer:false,saveStats:false,saveCheckpoint:false,lobby:true,lobbyWait:12,lobbyRound:300,lobbyScore:'Height'});
   const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[90,2,90],color:'#2b2f4a',material:'Slate'});
   G.spawnAt(p,0,.5,0,{size:[5,1,5],color:'#ffc93c'});
   const H=14,COLS=['#ff5252','#ffab40','#ffd740','#69f0ae','#40c4ff','#7c4dff','#ff4081','#b2ff59','#ff6e40','#e0e0e0','#64ffda','#ea80fc','#ffd180','#ff8a80'];
@@ -3708,14 +3709,14 @@ function towerHellDef(){const G=GK;const p=G.proj('towerhell','Tower of Hell',{s
        [G.ifElse(G.cmp(G.vget('vmod'),'EQ',G.num(5)),[blk('pl_jump',{V:bn(62)}),G.msg('A new tower! Modifier: HIGH JUMP 🚀',4)],
         [G.msg('A new tower! No modifier this time. Climb as high as you can!',3)])])])])),VARS);
   G.matchFlags(p);
-  G.script(p,FIN.id,'Top',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.cmp(G.stat('Height'),'LT',G.num(999))),G.sset('Height',999),G.sound('win'),G.msg('YOU BEAT THE TOWER OF HELL!',4),blk('pe_emit',{N:bn(60),PART:bme()})));
+  G.script(p,FIN.id,'Top',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.cmp(G.stat('Height'),'LT',G.num(999))),G.sset('Height',999),G.sound('win'),G.msg('YOU BEAT THE TOWER OF CHAOS!',4),blk('pe_emit',{N:bn(60),PART:bme()})));
   p.nodes.push(emitterNode({parent:FIN.id,name:'Party',enabled:false},'confetti'));
   G.vars(G.script(p,'sss','Height',blk('ev_start'),G.forever(G.iff(G.AND(G.aliveIn(),G.cmp(G.round(G.ppos('y')),'GT',G.stat('Height'))),G.sset('Height',G.round(G.ppos('y')))),G.wait(.3))),G.MV);
-  G.welcome(p,G.msg('Tower of Hell: no checkpoints! Climb the random tower before time runs out. Highest climber wins.',5));
-  return G.def(p,'towerhell','Tower of Hell');}
+  G.welcome(p,G.msg('Tower of Chaos: no checkpoints! Climb the random tower before time runs out. Highest climber wins.',5));
+  return G.def(p,'towerhell','Tower of Chaos');}
 
-/* 21. Murder Mystery: one murderer, one sheriff, everyone else innocent; bots fill empty spots */
-function murderDef(){const G=GK;const p=G.proj('murder','Murder Mystery',{sky:'#22253a',fog:300,brightness:.8,timer:false,saveStats:false,saveCheckpoint:false,deathStyle:'ragdoll',lobby:true,lobbyWait:15,lobbyRound:150,lobbyScore:'Score',lobbyElim:true});
+/* 21. Whodunit: one murderer, one sheriff, everyone else innocent; bots fill empty spots */
+function murderDef(){const G=GK;const p=G.proj('murder','Whodunit',{sky:'#22253a',fog:300,brightness:.8,timer:false,saveStats:false,saveCheckpoint:false,deathStyle:'ragdoll',lobby:true,lobbyWait:15,lobbyRound:150,lobbyScore:'Score',lobbyElim:true});
   const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[140,2,120],color:'#3a2f2a',material:'Wood'});
   const M=G.folder(p,'Mansion').id;const P=o=>G.part(p,M,o);
   P({name:'Floor',pos:[0,.1,0],size:[96,.2,72],color:'#8d6e63',material:'Wood'});
@@ -3836,12 +3837,12 @@ function murderDef(){const G=GK;const p=G.proj('murder','Murder Mystery',{sky:'#
     G.iff(G.AND(G.cmp(G.stat('Coins'),'GTE',G.num(8)),G.cmp(G.vget('vbag'),'EQ',G.num(0))),G.vset('vbag',G.num(1)),G.sound('win'),
       G.ifElse(eq(MU,G.myId()),[G.msg('Coin bag full! You turn INVISIBLE for 6 seconds...',3),blk('pl_visible',null,{B:'FALSE'}),G.wait(6),blk('pl_visible',null,{B:'TRUE'})],
         [G.msg('Coin bag full! SPEED BOOST for 10 seconds!',3),blk('pl_speed',{V:bn(24)}),G.wait(10),blk('pl_speed',{V:bn(16)})])),G.wait(.5))),[...VARS,['bag','vbag']]);
-  G.welcome(p,G.msg('Murder Mystery: find out who the murderer is before it is too late. Bots fill the empty spots.',5));
+  G.welcome(p,G.msg('Whodunit: find out who the murderer is before it is too late. Bots fill the empty spots.',5));
   G.best(p,'Score','murder_score');
-  return G.def(p,'murder','Murder Mystery');}
+  return G.def(p,'murder','Whodunit');}
 
-/* 22. Doors: 40 rooms, locked doors with keys, and Rush (hide in a wardrobe!) */
-function doorsDef(){const G=GK;const p=G.proj('doors','Doors',{sky:'#07080d',fog:120,brightness:.55,timer:true,saveStats:false,saveCheckpoint:false,deathStyle:'ragdoll'});
+/* 22. Haunted Hotel: 40 rooms, locked doors with keys, and Dasher (hide in a wardrobe!) */
+function doorsDef(){const G=GK;const p=G.proj('doors','Haunted Hotel',{sky:'#07080d',fog:120,brightness:.55,timer:true,saveStats:false,saveCheckpoint:false,deathStyle:'ragdoll'});
   G.noBase(p);const N=40,L=30,Wd=24;let seed=4242;const rr=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
   const R=G.folder(p,'Hotel').id,DM=G.model(p,'Doors').id,HM=G.model(p,'HidingSpots').id,KM=G.model(p,'Keys').id;const P=o=>G.part(p,R,o);
   P({name:'Lobby',pos:[0,-.5,12],size:[Wd,1,24],color:'#5d4037',material:'Wood'});
@@ -3872,52 +3873,52 @@ function doorsDef(){const G=GK;const p=G.proj('doors','Doors',{sky:'#07080d',fog
   for(let i=0;i<N;i++){if(rr()<.45)continue;const zc=-i*L-L/2,gx=r3((rr()<.5?-1:1)*(Wd/2-3)),gz=r3(zc+(rr()-.5)*(L-8));
     const gp=G.part(p,R,{name:'Gold',shape:'cylinder',pos:[gx,2.75,gz],size:[1.6,.5,1.6],color:'#ffca28',material:'Neon',canCollide:false});
     G.script(p,gp.id,'Pick up',blk('ev_touch'),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_collide',{PART:bme()},{B:'FALSE'}),G.sadd('Gold',5),G.sound('coin'),blk('pl_coins',{N:bn(1)}),blk('p_setpos',{PART:bme(),X:bn(gx),Y:bn(-50),Z:bn(gz)}));}
-  G.script(p,'sss','Ambush',G.onMsg('ambush'),G.msg('It is turning around... STAY HIDDEN!',2.5),blk('g_sky',null,{COLOUR:'#003000'}),G.wait(.3),blk('g_sky',null,{COLOUR:'#07080d'}));
+  G.script(p,'sss','Rebound',G.onMsg('ambush'),G.msg('It is turning around... STAY HIDDEN!',2.5),blk('g_sky',null,{COLOUR:'#003000'}),G.wait(.3),blk('g_sky',null,{COLOUR:'#07080d'}));
   P({name:'Exit',pos:[0,-.5,-N*L-10],size:[Wd,1,20],color:'#2e7d32',material:'Grass',label:'FREEDOM'});
-  // Rush: the lights flicker, then it tears down the hall. Hide in a wardrobe!
-  const rush=G.part(p,'workspace',{name:'Rush',shape:'ball',pos:[0,-60,40],size:[6,6,6],color:'#111111',material:'Neon',canCollide:false,unbreakable:true});
+  // Dasher: the lights flicker, then it tears down the hall. Hide in a wardrobe!
+  const rush=G.part(p,'workspace',{name:'Dasher',shape:'ball',pos:[0,-60,40],size:[6,6,6],color:'#111111',material:'Neon',canCollide:false,unbreakable:true});
   p.nodes.push(emitterNode({parent:rush.id,name:'Shadow',rate:40,speed:6},'smoke'));
-  G.hscript(p,rush.id,'Rush',blk('ev_start'),G.wait(20),G.forever(G.wait(G.rnd(25,45)),G.bc('rush warning'),G.wait(3.2),G.bc('rush'),
+  G.hscript(p,rush.id,'Dasher',blk('ev_start'),G.wait(20),G.forever(G.wait(G.rnd(25,45)),G.bc('rush warning'),G.wait(3.2),G.bc('rush'),
     blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(4),Z:bn(30)}),blk('p_glide',{PART:bme(),X:bn(0),Y:bn(0),Z:bn(-N*L-60),S:bn(7)}),G.iff(G.cmp(G.rnd(1,3),'EQ',G.num(1)),G.bc('ambush'),G.wait(2.5),G.bc('rush'),blk('p_glide',{PART:bme(),X:bn(0),Y:bn(0),Z:bn(N*L+60),S:bn(6)})),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-60),Z:bn(40)})));
   G.script(p,'sss','Flicker',G.onMsg('rush warning'),G.sound('die'),G.msg('The lights flicker... HIDE!',2.5),blk('g_sky',null,{COLOUR:'#300000'}),G.wait(.2),blk('g_sky',null,{COLOUR:'#07080d'}),G.wait(.3),blk('g_sky',null,{COLOUR:'#300000'}),G.wait(.4),blk('g_sky',null,{COLOUR:'#07080d'}));
-  G.script(p,'sss','Rush passes',G.onMsg('rush'),G.sound('explode'),blk('controls_repeat_ext',{TIMES:bn(40),DO:doIn(
-    G.iff(G.AND(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('Rush')}}},'LT',G.num(16)),G.NOT({block:{type:'s_touching',inputs:{PART:G.mnamed('HidingSpots')}}})),G.msg('RUSH got you!',3),blk('pl_damage',{N:bn(1000)})),G.wait(.2))}));
+  G.script(p,'sss','Dasher passes',G.onMsg('rush'),G.sound('explode'),blk('controls_repeat_ext',{TIMES:bn(40),DO:doIn(
+    G.iff(G.AND(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('Dasher')}}},'LT',G.num(16)),G.NOT({block:{type:'s_touching',inputs:{PART:G.mnamed('HidingSpots')}}})),G.msg('THE DASHER got you!',3),blk('pl_damage',{N:bn(1000)})),G.wait(.2))}));
   G.script(p,'sss','Died',blk('ev_died'),G.msg(G.join('You reached door ',G.stat('Door'),'. Back to the lobby!'),3),G.sset('Door',0),G.vset('vkey',G.num(0)),
     blk('p_collide',{PART:G.mnamed('Doors')},{B:'TRUE'}),blk('p_transp',{PART:G.mnamed('Doors')},{V:bn(0)}),blk('p_visible',{PART:G.mnamed('Keys')},{B:'TRUE'}));
-  // SEEK: eyes appear on the walls from room 20, then at door 25 it chases you through four rooms
+  // THE WATCHER: eyes appear on the walls from room 20, then at door 25 it chases you through four rooms
   for(let i=19;i<29;i++){const zc=-i*L-L/2;for(let e=0;e<(i-17)*2;e++){const sd=e%2?1:-1;P({name:'Eye',shape:'ball',pos:[sd*(Wd/2-.1),r3(2+((e*37+i*11)%60)/10),r3(zc+((e*53)%(L-4))-L/2+2)],size:[.4,1,1.4],color:'#eceff1',material:'Neon',canCollide:false});}}
   for(let i=25;i<29;i++){const zc=-i*L-L/2;P({name:'FallenShelf',pos:[i%2?-4:4,.8,zc],size:[14,1.6,1.6],color:'#4e342e',material:'Wood'});P({name:'FallenShelf',pos:[i%2?7:-7,.8,zc-9],size:[8,1.6,1.6],color:'#4e342e',material:'Wood'});}
-  const seek=G.part(p,'workspace',{name:'Seek',pos:[0,-60,0],size:[3,9,3],color:'#0a0a0a',material:'Neon',canCollide:false,unbreakable:true,label:'👁'});
+  const seek=G.part(p,'workspace',{name:'Watcher',pos:[0,-60,0],size:[3,9,3],color:'#0a0a0a',material:'Neon',canCollide:false,unbreakable:true,label:'👁'});
   p.nodes.push(emitterNode({parent:seek.id,name:'Ooze',rate:30,speed:3},'smoke'));
-  G.vars(G.script(p,seek.id,'Chase',blk('ev_start'),G.forever(G.until(G.cmp(G.stat('Door'),'EQ',G.num(25))),G.sound('die'),G.msg('👁 SEEK is coming. RUN! Jump over the fallen shelves!',3),blk('g_sky',null,{COLOUR:'#1a0000'}),
+  G.vars(G.script(p,seek.id,'Chase',blk('ev_start'),G.forever(G.until(G.cmp(G.stat('Door'),'EQ',G.num(25))),G.sound('die'),G.msg('👁 THE WATCHER is coming. RUN! Jump over the fallen shelves!',3),blk('g_sky',null,{COLOUR:'#1a0000'}),
     G.vset('vsz',G.num(-25*L+22)),G.whileDo(G.AND(G.cmp(G.stat('Door'),'GTE',G.num(25)),G.cmp(G.stat('Door'),'LT',G.num(29))),
       G.vchg('vsz',-1.45),blk('p_setpos',{PART:bme(),X:G.ppos('x'),Y:bn(4.5),Z:G.vget('vsz')}),
-      G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:bme()}}},'LT',G.num(3.4)),G.msg('Seek caught you...',3),blk('pl_damage',{N:bn(1000)})),G.wait(.1)),
+      G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:bme()}}},'LT',G.num(3.4)),G.msg('Watcher caught you...',3),blk('pl_damage',{N:bn(1000)})),G.wait(.1)),
     blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-60),Z:bn(0)}),blk('g_sky',null,{COLOUR:'#07080d'}),
-    G.iff(G.cmp(G.stat('Door'),'GTE',G.num(29)),G.sound('win'),G.msg('You escaped SEEK! +5 coins',3),blk('pl_coins',{N:bn(5)})),G.until(G.cmp(G.stat('Door'),'LT',G.num(25))))),[['seek z','vsz']]);
-  // SCREECH lurks in the dark rooms (doors 8 to 20). When it says "Psst!", shine your flashlight at it within 3 seconds!
-  const fl=gkGun(p,'pack','Flashlight',{dmg:0,cool:1,color:'#fffde7',speed:400,body:'#fbc02d',tip:'Shine it at Screech!'});
-  const scr=G.part(p,'workspace',{name:'Screech',shape:'ball',pos:[0,-60,0],size:[2.4,2.4,2.4],color:'#111111',material:'Neon',canCollide:false,unbreakable:true,label:'👁️ Psst!'});
+    G.iff(G.cmp(G.stat('Door'),'GTE',G.num(29)),G.sound('win'),G.msg('You escaped THE WATCHER! +5 coins',3),blk('pl_coins',{N:bn(5)})),G.until(G.cmp(G.stat('Door'),'LT',G.num(25))))),[['seek z','vsz']]);
+  // WHISPER lurks in the dark rooms (doors 8 to 20). When it says "Psst!", shine your flashlight at it within 3 seconds!
+  const fl=gkGun(p,'pack','Flashlight',{dmg:0,cool:1,color:'#fffde7',speed:400,body:'#fbc02d',tip:'Shine it at Whisper!'});
+  const scr=G.part(p,'workspace',{name:'Whisper',shape:'ball',pos:[0,-60,0],size:[2.4,2.4,2.4],color:'#111111',material:'Neon',canCollide:false,unbreakable:true,label:'👁️ Psst!'});
   const hpn={block:{type:'s_partname',inputs:{PART:{block:{type:'tool_hitpart'},shadow:{type:'p_this'}}}}};
-  G.vars(G.script(p,fl.id,'Shine',blk('ev_tool_hit'),G.iff(G.AND(G.cmp(hpn,'EQ',G.txt('Screech')),G.cmp(G.vget('vscreech'),'EQ',G.num(1))),G.vset('vscreech',G.num(0)),G.sound('check'),G.msg('Screech hates the light! It fled.',2),
-    blk('p_setpos',{PART:G.pnamed('Screech'),X:bn(0),Y:bn(-60),Z:bn(0)}))),[['screech','vscreech']]);
-  G.vars(G.script(p,'sss','Screech',blk('ev_start'),G.wait(15),G.forever(G.wait(G.rnd(25,45)),G.iff(G.AND(G.cmp(G.stat('Door'),'GTE',G.num(8)),G.cmp(G.stat('Door'),'LT',G.num(20))),
-    G.vset('vscreech',G.num(1)),blk('p_setpos',{PART:G.pnamed('Screech'),X:G.arith('ADD',G.ppos('x'),G.rnd(-5,5)),Y:G.arith('ADD',G.ppos('y'),G.num(3)),Z:G.arith('ADD',G.ppos('z'),G.rnd(-6,6))}),G.sound('click'),G.msg('Psst! 👁️ (shine your flashlight at it!)',2),
-    G.wait(3),G.iff(G.cmp(G.vget('vscreech'),'EQ',G.num(1)),G.vset('vscreech',G.num(0)),G.sound('die'),G.msg('SCREECH bit you!',2),blk('pl_damage',{N:bn(40)}),blk('p_setpos',{PART:G.pnamed('Screech'),X:bn(0),Y:bn(-60),Z:bn(0)}))))),[['screech','vscreech']]);
-  // HALT haunts room 33: when the hallway turns blue and it says TURN AROUND, walk backwards or get hurt
+  G.vars(G.script(p,fl.id,'Shine',blk('ev_tool_hit'),G.iff(G.AND(G.cmp(hpn,'EQ',G.txt('Whisper')),G.cmp(G.vget('vscreech'),'EQ',G.num(1))),G.vset('vscreech',G.num(0)),G.sound('check'),G.msg('Whisper hates the light! It fled.',2),
+    blk('p_setpos',{PART:G.pnamed('Whisper'),X:bn(0),Y:bn(-60),Z:bn(0)}))),[['screech','vscreech']]);
+  G.vars(G.script(p,'sss','Whisper',blk('ev_start'),G.wait(15),G.forever(G.wait(G.rnd(25,45)),G.iff(G.AND(G.cmp(G.stat('Door'),'GTE',G.num(8)),G.cmp(G.stat('Door'),'LT',G.num(20))),
+    G.vset('vscreech',G.num(1)),blk('p_setpos',{PART:G.pnamed('Whisper'),X:G.arith('ADD',G.ppos('x'),G.rnd(-5,5)),Y:G.arith('ADD',G.ppos('y'),G.num(3)),Z:G.arith('ADD',G.ppos('z'),G.rnd(-6,6))}),G.sound('click'),G.msg('Psst! 👁️ (shine your flashlight at it!)',2),
+    G.wait(3),G.iff(G.cmp(G.vget('vscreech'),'EQ',G.num(1)),G.vset('vscreech',G.num(0)),G.sound('die'),G.msg('WHISPER bit you!',2),blk('pl_damage',{N:bn(40)}),blk('p_setpos',{PART:G.pnamed('Whisper'),X:bn(0),Y:bn(-60),Z:bn(0)}))))),[['screech','vscreech']]);
+  // STOPPER haunts room 33: when the hallway turns blue and it says TURN AROUND, walk backwards or get hurt
   {const zc=-32*L-L/2;P({name:'HaltGlow',pos:[0,9.2,zc],size:[Wd-2,.3,L-2],color:'#1e88e5',material:'Neon',transparency:.5});}
-  G.vars(G.script(p,'sss','Halt',blk('ev_start'),G.forever(G.until(G.cmp(G.stat('Door'),'EQ',G.num(32))),G.msg('Something is in this hallway... listen for HALT',2.5),G.wait(2),
+  G.vars(G.script(p,'sss','Stopper',blk('ev_start'),G.forever(G.until(G.cmp(G.stat('Door'),'EQ',G.num(32))),G.msg('Something is in this hallway... listen for STOPPER',2.5),G.wait(2),
     G.whileDo(G.cmp(G.stat('Door'),'EQ',G.num(32)),G.wait(G.rnd(2,4)),G.iff(G.cmp(G.stat('Door'),'EQ',G.num(32)),blk('g_sky',null,{COLOUR:'#0d47a1'}),G.sound('click'),G.msg('🛑 TURN AROUND!',1.2),G.vset('vhz',G.ppos('z')),G.wait(1.2),
-      G.ifElse(G.cmp(G.ppos('z'),'LT',G.arith('MINUS',G.vget('vhz'),G.num(1))),[G.sound('die'),G.msg('Halt hit you! Walk BACK when it says turn around.',2),blk('pl_damage',{N:bn(30)})],[G.msg('...go on.',.8)]),blk('g_sky',null,{COLOUR:'#07080d'}))))),[['halt z','vhz']]);
+      G.ifElse(G.cmp(G.ppos('z'),'LT',G.arith('MINUS',G.vget('vhz'),G.num(1))),[G.sound('die'),G.msg('Stopper hit you! Walk BACK when it says turn around.',2),blk('pl_damage',{N:bn(30)})],[G.msg('...go on.',.8)]),blk('g_sky',null,{COLOUR:'#07080d'}))))),[['halt z','vhz']]);
   // vitamins: a short speed boost
   for(let i=6;i<N;i+=7){const zc=-i*L-L/2;const v=P({name:'Vitamins',pos:[(i%2?1:-1)*(Wd/2-3),2.9,zc+6],size:[.8,1,.8],color:'#ff6f00',material:'Neon',canCollide:false,label:'💊'});
     G.script(p,v.id,'Take',blk('ev_touch'),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-70),Z:bn(0)}),G.msg('Vitamins! Speed for 8 seconds',1.5),G.sound('pad'),blk('pl_speed',{V:bn(23)}),G.wait(8),blk('pl_speed',{V:bn(16)}));}
-  G.welcome(p,G.sset('Door',0),G.vset('vkey',G.num(0)),G.msg('Get through 40 doors. Every 5th door is locked: find its key. When the lights flicker, hide in a wardrobe! Your flashlight (1) scares off Screech.',6));
+  G.welcome(p,G.sset('Door',0),G.vset('vkey',G.num(0)),G.msg('Get through 40 doors. Every 5th door is locked: find its key. When the lights flicker, hide in a wardrobe! Your flashlight (1) scares off Whisper.',6));
   G.best(p,'Door','doors_best');
-  return G.def(p,'doors','Doors');}
+  return G.def(p,'doors','Haunted Hotel');}
 
-/* 23. Arsenal: every knockout gives you the next weapon; the golden knife wins */
-function arsenalDef(){const G=GK;const p=G.proj('arsenal','Arsenal',{sky:'#ffb74d',fog:500,timer:false,saveStats:false,saveCheckpoint:false,deathStyle:'ragdoll',lobby:true,lobbyWait:12,lobbyRound:180,lobbyScore:'KOs'});
+/* 23. Weapon Ladder: every knockout gives you the next weapon; the golden knife wins */
+function arsenalDef(){const G=GK;const p=G.proj('arsenal','Weapon Ladder',{sky:'#ffb74d',fog:500,timer:false,saveStats:false,saveCheckpoint:false,deathStyle:'ragdoll',lobby:true,lobbyWait:12,lobbyRound:180,lobbyScore:'KOs'});
   const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[150,2,150],color:'#c2b280',material:'Sand'});
   const A=G.folder(p,'Map').id;const P=o=>G.part(p,A,o);
   [[0,-72,146,2],[0,72,146,2],[-72,0,2,146],[72,0,2,146]].forEach(([x,z,w,d])=>P({name:'Wall',pos:[x,6,z],size:[w,12,d],color:'#8d6e63',material:'Brick'}));
@@ -3984,11 +3985,11 @@ function arsenalDef(){const G=GK;const p=G.proj('arsenal','Arsenal',{sky:'#ffb74
       G.iff(G.cmp(G.vget('vstk'),'EQ',G.num(3)),G.sound('win'),G.msg('⚡ 3 streak: SPEED!',1.5),blk('pl_speed',{V:bn(22)})),
       G.iff(G.cmp(G.vget('vstk'),'EQ',G.num(5)),G.sound('win'),G.msg('🛡️ 5 streak: 8 second SHIELD!',1.5),blk('pl_shield',{S:bn(8)}))),G.wait(.3))),[['last kos','vlk'],['streak','vstk'],...G.MV]);
   G.vars(G.script(p,'sss','Streak lost',blk('ev_died'),G.vset('vstk',G.num(0)),blk('pl_speed',{V:bn(16)})),[['streak','vstk']]);
-  G.welcome(p,G.sset('KOs',0),G.msg('Arsenal: every knockout upgrades your weapon. Get a knockout with the Golden Knife to win!',5));
-  return G.def(p,'arsenal','Arsenal');}
+  G.welcome(p,G.sset('KOs',0),G.msg('Weapon Ladder: every knockout upgrades your weapon. Get a knockout with the Golden Knife to win!',5));
+  return G.def(p,'arsenal','Weapon Ladder');}
 
-/* 24. Deathrun: run the trap course; Death (a player, or a bot if there are few players) springs the traps */
-function deathrunDef(){const G=GK;const p=G.proj('deathrun','Deathrun',{sky:'#263238',fog:500,brightness:.9,timer:false,saveStats:false,saveCheckpoint:false,deathStyle:'ragdoll',lobby:true,lobbyWait:12,lobbyRound:120,lobbyScore:'Score',lobbyElim:true});
+/* 24. Trap Run: run the trap course; Death (a player, or a bot if there are few players) springs the traps */
+function deathrunDef(){const G=GK;const p=G.proj('deathrun','Trap Run',{sky:'#263238',fog:500,brightness:.9,timer:false,saveStats:false,saveCheckpoint:false,deathStyle:'ragdoll',lobby:true,lobbyWait:12,lobbyRound:120,lobbyScore:'Score',lobbyElim:true});
   const TR=[1,2,3,4,5,6,7,8];G.noBase(p);const Y=20;
   G.spawnAt(p,0,20.5,10,{size:[12,1,10],color:'#43a047'});
   const MOX='vdox',MV2=[['map x',MOX]];
@@ -4035,7 +4036,7 @@ function deathrunDef(){const G=GK;const p=G.proj('deathrun','Deathrun',{sky:'#26
     G.vars(G.hscript(p,'sss','Death bot'+S,blk('ev_start'),G.forever(G.wait(.25),G.iff(G.AND(pick(S),G.cmp(G.vget(ROLE),'EQ',G.txt('bot'))),
       ...TR.map((k,i)=>G.iff(G.AND(G.cmp(G.vget(RQ(k)),'EQ',G.vget(DONE(k,S))),G.cmp({block:{type:'s_near_dist',inputs:{PART:n('Mark'+k)}}},'LT',G.num(k===5?24:9))),
         G.iff(G.cmp(G.rnd(1,3),'LTE',G.num(2)),G.vchg(RQ(k),1),blk('rig_say',{PART:n('Death'),TEXT:bt(['Bye!','Spikes!','Swing!','Hot!','Rolling!','Zap!','BONK!','Crumble!'][i]),S:bn(1)})),G.wait(.6)))))),KV);
-    G.vars(G.script(p,fin.id,'Finish',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.cmp(G.stat('Finished'),'EQ',G.num(0))),G.sset('Finished',1),G.sadd('Score',10),G.sound('win'),G.msg('You beat Deathrun! +10 coins',3),blk('pl_coins',{N:bn(10)}))),[...KV,...G.MV]);
+    G.vars(G.script(p,fin.id,'Finish',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.cmp(G.stat('Finished'),'EQ',G.num(0))),G.sset('Finished',1),G.sadd('Score',10),G.sound('win'),G.msg('You beat Trap Run! +10 coins',3),blk('pl_coins',{N:bn(10)}))),[...KV,...G.MV]);
     COURSES.find(c=>c.S===S).roomZ=roomZ;});
   const MV=G.matchFlags(p);
   const R0=COURSES[0].roomZ,R1=COURSES[1].roomZ,R2=COURSES[2].roomZ;
@@ -4046,8 +4047,8 @@ function deathrunDef(){const G=GK;const p=G.proj('deathrun','Deathrun',{sky:'#26
   G.vars(G.script(p,'sss','Runner down',blk('ev_died'),G.iff(G.NOT(G.cmp(G.vget(ROLE),'EQ',G.myId())),G.shChg('vdeathkills',1))),[['death kills','vdeathkills'],...KV]);
   G.vars(G.script(p,'sss','Death score',G.onMsg('round end'),G.iff(G.cmp(G.vget(ROLE),'EQ',G.myId()),G.sset('Score',G.arith('MULTIPLY',G.vget('vdeathkills'),G.num(4))))),[['death kills','vdeathkills'],...KV]);
   G.vars(G.hscript(p,'sss','Reset kills',G.onMsg('round start'),G.vset('vdeathkills',G.num(0))),[['death kills','vdeathkills']]);
-  G.welcome(p,G.sset('Score',0),G.sset('Finished',0),G.msg('Deathrun: reach the end of the course while Death springs the traps! Two courses take turns.',5));
-  return G.def(p,'deathrun','Deathrun');}
+  G.welcome(p,G.sset('Score',0),G.sset('Finished',0),G.msg('Trap Run: reach the end of the course while Death springs the traps! Two courses take turns.',5));
+  return G.def(p,'deathrun','Trap Run');}
 
 /* 25. Hide and Seek: one seeker, everyone else hides. Bots hide (or seek) when players are short */
 function hideSeekDef(){const G=GK;const p=G.proj('hideseek','Hide and Seek',{sky:'#a5d6f7',fog:600,timer:false,saveStats:false,saveCheckpoint:false,lobby:true,lobbyWait:12,lobbyRound:130,lobbyScore:'Score'});
@@ -4157,8 +4158,8 @@ function hideSeekDef(){const G=GK;const p=G.proj('hideseek','Hide and Seek',{sky
   G.welcome(p,G.sset('Score',0),G.msg('Hide and Seek: one seeker, everyone else hides. Bots join when players are short.',5));
   return G.def(p,'hideseek','Hide and Seek');}
 
-/* 26. Evade: nextbots chase everyone. Get downed, and a teammate can pick you up */
-function evadeDef(){const G=GK;const p=G.proj('evade','Evade',{sky:'#4a148c',fog:360,brightness:.85,timer:false,saveStats:false,saveCheckpoint:false,lobby:true,lobbyWait:12,lobbyRound:150,lobbyScore:'Score',lobbyElim:true});
+/* 26. Panic Run: chasers chase everyone. Get downed, and a teammate can pick you up */
+function evadeDef(){const G=GK;const p=G.proj('evade','Panic Run',{sky:'#4a148c',fog:360,brightness:.85,timer:false,saveStats:false,saveCheckpoint:false,lobby:true,lobbyWait:12,lobbyRound:150,lobbyScore:'Score',lobbyElim:true});
   const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[220,2,220],color:'#424242',material:'Concrete'});
   const C=G.folder(p,'City').id;const P=o=>G.part(p,C,o);let seed=99;const rr=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
   [[0,-108,220,2],[0,108,220,2],[-108,0,2,220],[108,0,2,220]].forEach(([x,z,w,d])=>P({name:'Wall',pos:[x,10,z],size:[w,20,d],color:'#311b92',material:'Brick'}));
@@ -4174,9 +4175,9 @@ function evadeDef(){const G=GK;const p=G.proj('evade','Evade',{sky:'#4a148c',fog
   [[-45,-20],[45,20],[-20,-80],[20,80],[-85,40],[85,-40]].forEach(([x,z])=>{const c=P({name:'Cola',shape:'cylinder',pos:[x,1.2,z],size:[1.2,2,1.2],color:'#d50000',material:'Neon',canCollide:false,label:'🥤'});
     G.script(p,c.id,'Drink',blk('ev_touch'),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_collide',{PART:bme()},{B:'FALSE'}),G.sound('pad'),G.msg('Cola! Super speed for 6 seconds',1.5),blk('pl_speed',{V:bn(27)}),
       G.wait(6),blk('pl_speed',{V:bn(16)}),G.wait(14),blk('p_visible',{PART:bme()},{B:'TRUE'}));});
-  // second map: the Backrooms, 400 studs east. Endless yellow rooms with low walls to juke around
+  // second map: the Yellow Maze, 400 studs east. Endless yellow rooms with low walls to juke around
   const EOX='veox',EV=[['map x',EOX]];const ox=v=>G.arith('ADD',typeof v==='number'?G.num(v):v,G.vget(EOX));
-  {const OX=400,B2=G.folder(p,'Backrooms').id;const Q=o=>G.part(p,B2,o);let sd=31;const r2=()=>{sd=(sd*16807)%2147483647;return sd/2147483647;};
+  {const OX=400,B2=G.folder(p,'Yellow Maze').id;const Q=o=>G.part(p,B2,o);let sd=31;const r2=()=>{sd=(sd*16807)%2147483647;return sd/2147483647;};
     Q({name:'Carpet',pos:[OX,-1,0],size:[220,2,220],color:'#c8b560',material:'Fabric'});Q({name:'Ceiling',pos:[OX,14,0],size:[220,1,220],color:'#e6dc9a',material:'Plastic',transparency:.35});
     [[0,-108,220,2],[0,108,220,2],[-108,0,2,220],[108,0,2,220]].forEach(([x,z2,w,d])=>Q({name:'Wall',pos:[OX+x,7,z2],size:[w,14,d],color:'#d4c66a',material:'Plastic'}));
     for(let i=0;i<46;i++){const x=r3((r2()-.5)*190),z2=r3((r2()-.5)*190);if(Math.hypot(x,z2-40)<14)continue;const along=r2()<.5;Q({name:'Wall',pos:[OX+x,5,z2],size:along?[18,10,1.2]:[1.2,10,18],color:'#d4c66a',material:'Plastic'});}
@@ -4192,10 +4193,10 @@ function evadeDef(){const G=GK;const p=G.proj('evade','Evade',{sky:'#4a148c',fog
     Q({name:'Fountain',shape:'cyl',pos:[OX,1,0],size:[16,2,16],color:'#4fc3f7',material:'Glass',transparency:.3});
     [[0,-50],[0,50],[-20,0],[20,0]].forEach(([x,z2])=>Q({name:'Planter',pos:[OX+x,1.5,z2],size:[8,3,4],color:'#558b2f',material:'Grass'}));
     [[0,-80],[0,80]].forEach(([x,z2])=>Q({name:'JumpPad',pos:[OX+x,.3,z2],size:[5,.4,5],color:'#00e5ff',material:'Neon',behavior:'jump',value:100}));}
-  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.vset(EOX,G.arith('MULTIPLY',G.rnd(0,2),G.num(400))),G.ifElse(G.cmp(G.vget(EOX),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#4a148c'})],[G.ifElse(G.cmp(G.vget(EOX),'EQ',G.num(400)),[blk('g_sky',null,{COLOUR:'#bfae5a'}),G.msg('Map: THE BACKROOMS',2)],[blk('g_sky',null,{COLOUR:'#90a4ae'}),G.msg('Map: SHOPPING MALL',2)])]),
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.vset(EOX,G.arith('MULTIPLY',G.rnd(0,2),G.num(400))),G.ifElse(G.cmp(G.vget(EOX),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#4a148c'})],[G.ifElse(G.cmp(G.vget(EOX),'EQ',G.num(400)),[blk('g_sky',null,{COLOUR:'#bfae5a'}),G.msg('Map: THE YELLOW MAZE',2)],[blk('g_sky',null,{COLOUR:'#90a4ae'}),G.msg('Map: SHOPPING MALL',2)])]),
     blk('pl_tpxyz',{X:ox(G.rnd(-5,5)),Y:bn(3),Z:bn(40)})),EV);
-  const MV=G.matchFlags(p),NA='vnextbots',DN='vdowned',RV='vrevives';
-  const VARS=[['active nextbots',NA],...MV,...EV];
+  const MV=G.matchFlags(p),NA='vchasers',DN='vdowned',RV='vrevives';
+  const VARS=[['active chasers',NA],...MV,...EV];
   const NBS=[['Grinner','😁','#ffeb3b'],['Screamer','😱','#ff5252'],['Stare','😐','#b0bec5'],['Jester','🤡','#e040fb'],['Ghast','👻','#eeeeee'],['Toothy','😬','#ff9800']];
   NBS.forEach(([nm,face,col],k)=>{const r=rigNode({name:nm,pos:[-80+k*30,4,-90],scale:1.9,health:99999,respawn:0,walkSpeed:15+k*.8,throughWalls:false,colors:{head:col,torso:col,arms:col,legs:col}});p.nodes.push(r);
     G.vars(G.hscript(p,r.id,'Chase',blk('ev_start'),blk('rig_say',{PART:bme(),TEXT:bt(face+face+face),S:bn(99999)}),G.forever(G.ifElse(G.cmp(G.num(k+1),'GT',G.vget(NA)),[blk('p_setpos',{PART:bme(),X:bn(-80+k*30),Y:bn(4),Z:bn(-300)}),G.until(G.cmp(G.num(k+1),'LTE',G.vget(NA))),
@@ -4212,8 +4213,8 @@ function evadeDef(){const G=GK;const p=G.proj('evade','Evade',{sky:'#4a148c',fog
   G.vars(G.script(p,'sss','Picked',G.onMsg('round start'),G.vset(DN,G.num(0)),blk('pl_freeze',null,{B:'FALSE'})),[['downed',DN]]);
   // survival points every second you are up
   G.vars(G.script(p,'sss','Points',G.onMsg('round start'),G.wait(1),G.whileDo(G.aliveIn(),G.iff(G.cmp(G.vget(DN),'EQ',G.num(0)),G.sadd('Score',1)),G.wait(1))),[...VARS,['downed',DN]]);
-  G.vars(G.hscript(p,'sss','Waves',G.onMsg('round start'),G.vset(NA,G.num(0)),...NBS.flatMap(([nm],k)=>[blk('p_setpos',{PART:G.pnamed(nm),X:ox(-80+k*30),Y:bn(4),Z:bn(-90)}),blk('rig_walk',{PART:G.pnamed(nm),X:ox(-80+k*30),Z:bn(-90)})]),G.msg('Nextbots are coming. Keep moving, use jump pads and pick up downed friends!',4),G.wait(5),
-    G.whileDo(G.AND(G.inMatch(),G.cmp(G.vget(NA),'LT',G.num(6))),G.vchg(NA,1),G.msg(G.join('A nextbot has appeared! (',G.vget(NA),')'),2),G.wait(20))),VARS);
+  G.vars(G.hscript(p,'sss','Waves',G.onMsg('round start'),G.vset(NA,G.num(0)),...NBS.flatMap(([nm],k)=>[blk('p_setpos',{PART:G.pnamed(nm),X:ox(-80+k*30),Y:bn(4),Z:bn(-90)}),blk('rig_walk',{PART:G.pnamed(nm),X:ox(-80+k*30),Z:bn(-90)})]),G.msg('Chasers are coming. Keep moving, use jump pads and pick up downed friends!',4),G.wait(5),
+    G.whileDo(G.AND(G.inMatch(),G.cmp(G.vget(NA),'LT',G.num(6))),G.vchg(NA,1),G.msg(G.join('A chaser has appeared! (',G.vget(NA),')'),2),G.wait(20))),VARS);
   G.vars(G.hscript(p,'sss','Clear',G.onMsg('round end'),G.vset(NA,G.num(0))),VARS);
   // the Ghast blinks next to a random runner every 15 seconds; the Screamer gets a burst of speed
   G.vars(G.hscript(p,'sss','Ghast blink',G.onMsg('round start'),G.wait(30),G.whileDo(G.inMatch(),G.wait(15),G.iff(G.cmp(G.vget(NA),'GTE',G.num(5)),
@@ -4221,9 +4222,9 @@ function evadeDef(){const G=GK;const p=G.proj('evade','Evade',{sky:'#4a148c',fog
   G.script(p,'sss','Blink msg',G.onMsg('ghast blink'),G.sound('die'),G.msg('👻 The Ghast blinked somewhere nearby...',2));
   G.vars(G.hscript(p,'sss','Screamer burst',G.onMsg('round start'),G.whileDo(G.inMatch(),G.wait(G.rnd(8,14)),G.iff(G.cmp(G.vget(NA),'GTE',G.num(2)),blk('rig_speed',{PART:G.pnamed('Screamer'),N:bn(24)}),blk('rig_say',{PART:G.pnamed('Screamer'),TEXT:bt('AAAAAAAAA!'),S:bn(2)}),G.wait(2.5),blk('rig_speed',{PART:G.pnamed('Screamer'),N:bn(15.8)})))),VARS);
   gkPowerups(p,[[-45,45],[45,-45],[0,-80],[355,45],[445,-45],[400,-80],[770,30],[830,-30]]);
-  G.welcome(p,G.sset('Score',0),G.msg('Evade: run from the nextbots! Downed players can be picked up by teammates.',5));
+  G.welcome(p,G.sset('Score',0),G.msg('Panic Run: run from the chasers! Downed players can be picked up by teammates.',5));
   G.best(p,'Score','evade_best');
-  return G.def(p,'evade','Evade');}
+  return G.def(p,'evade','Panic Run');}
 
 /* 27. Plane Crash: survive turbulence, an engine fire and the crash. Parachute out, or brace in your seat */
 function planeCrashDef(){const G=GK;const p=G.proj('planecrash','Plane Crash',{sky:'#90caf9',fog:900,timer:false,saveStats:false,saveCheckpoint:false,deathStyle:'ragdoll',lobby:true,lobbyWait:14,lobbyRound:150,lobbyScore:'Points',lobbyElim:true});
@@ -4334,15 +4335,15 @@ const GAMES=[
     build:buildSky,mode:'race',stageWord:'Checkpoint',scene:{sky:0x7fb8ff,fogNear:150,fogFar:560,ground:0x9fb4d6},seed:3,objective:'Cross the finish line'},
   {id:'sandbox',name:'Free Build',tag:'Sandbox',desc:'Place, paint and delete bricks on a studded baseplate. Your build is saved in this browser for next time.',
     build:buildSandbox,mode:'build',scene:{sky:0xa7d8ff,fogNear:220,fogFar:800},seed:1,objective:'Tap or click to build'},
-  {id:'towerhell',cat:'Obby',name:'Tower of Hell',tag:'Obby · 14 random sections',desc:'A new random tower every round, the same for everyone. No checkpoints! Climb the highest before time runs out.',mode:'project',make:towerHellDef},
-  {id:'murder',cat:'Party',name:'Murder Mystery',tag:'Party · 3 maps',desc:'One murderer with a knife, one sheriff with a gun, everyone else innocent. Bots fill the empty spots.',mode:'project',make:murderDef},
-  {id:'doors',cat:'Survival',name:'Doors',tag:'Horror · 40 doors',desc:'Get through 40 rooms of a creepy hotel. Find keys for locked doors, and hide in a wardrobe when the lights flicker.',mode:'project',make:doorsDef},
-  {id:'arsenal',cat:'Battle',name:'Arsenal',tag:'Battle · 3 maps',desc:'Every knockout swaps you to the next weapon. Score a knockout with the Golden Knife to win the match.',mode:'project',make:arsenalDef},
-  {id:'deathrun',cat:'Obby',name:'Deathrun',tag:'Obby · 3 courses',desc:'Runners race a trap course while Death springs spikes, lava, sweepers and a boulder from the control room.',mode:'project',make:deathrunDef},
+  {id:'towerhell',cat:'Obby',name:'Tower of Chaos',tag:'Obby · 14 random sections',desc:'A new random tower every round, the same for everyone. No checkpoints! Climb the highest before time runs out.',mode:'project',make:towerHellDef},
+  {id:'murder',cat:'Party',name:'Whodunit',tag:'Party · 3 maps',desc:'One murderer with a knife, one sheriff with a gun, everyone else innocent. Bots fill the empty spots.',mode:'project',make:murderDef},
+  {id:'doors',cat:'Survival',name:'Haunted Hotel',tag:'Horror · 40 doors',desc:'Get through 40 rooms of a creepy hotel. Find keys for locked doors, and hide in a wardrobe when the lights flicker.',mode:'project',make:doorsDef},
+  {id:'arsenal',cat:'Battle',name:'Weapon Ladder',tag:'Battle · 3 maps',desc:'Every knockout swaps you to the next weapon. Score a knockout with the Golden Knife to win the match.',mode:'project',make:arsenalDef},
+  {id:'deathrun',cat:'Obby',name:'Trap Run',tag:'Obby · 3 courses',desc:'Runners race a trap course while Death springs spikes, lava, sweepers and a boulder from the control room.',mode:'project',make:deathrunDef},
   {id:'hideseek',cat:'Party',name:'Hide and Seek',tag:'Party · 3 maps',desc:'One seeker counts to 20 while everyone hides in bushes, closets and the playground tube. Bots join when players are short.',mode:'project',make:hideSeekDef},
-  {id:'evade',cat:'Survival',name:'Evade',tag:'Survival · 3 maps',desc:'Nextbots chase everyone across the city. Get downed and a teammate can pick you up. A new nextbot joins every 20 seconds.',mode:'project',make:evadeDef},
+  {id:'evade',cat:'Survival',name:'Panic Run',tag:'Survival · 3 maps',desc:'Shadow chasers hunt everyone across the city. Get downed and a teammate can pick you up. A new chaser joins every 20 seconds.',mode:'project',make:evadeDef},
   {id:'planecrash',cat:'Survival',name:'Plane Crash',tag:'Survival · lobby matches',desc:'Turbulence, an engine fire and a crash landing on an island. Grab a parachute and jump, or brace in your seat, then reach the rescue helicopter.',mode:'project',make:planeCrashDef},
-  {id:'disasters',cat:'Survival',name:'Disaster Survival',tag:'Survival · 7 maps, 10 disasters',desc:'Everyone in the game gets the same map and disaster. Buildings smash apart in floods, tsunamis, meteors, tornadoes, volcanoes, earthquakes and lightning.',mode:'project',make:disastersDef},
+  {id:'disasters',cat:'Survival',name:'Disaster Zone',tag:'Survival · 7 maps, 10 disasters',desc:'Everyone in the game gets the same map and disaster. Buildings smash apart in floods, tsunamis, meteors, tornadoes, volcanoes, earthquakes and lightning.',mode:'project',make:disastersDef},
   {id:'bombtag',cat:'Party',name:'Bomb Tag',tag:'Party · 3 maps',desc:'Hot potato with a ticking bomb. Tag a bot to pass it on, then run! Survive the most bomb rounds to win the match.',mode:'project',make:bombTagDef},
   {id:'flagraid',cat:'Battle',name:'Flag Raid',tag:'Battle · 3 maps',desc:'Sneak past the red guards, steal their flag and race it home. Most captures in 3 minutes wins, and every capture adds a guard.',mode:'project',make:flagRaidDef},
   {id:'ghost',cat:'Survival',name:'Escape the Ghost',tag:'Horror · endless nights',desc:'Find 5 glowing keys in a dark hedge maze and reach the gate before the ghost catches you. Each night adds a ghost.',mode:'project',make:ghostDef},
@@ -4610,7 +4611,7 @@ function projectDef(proj,fromEditor){
 
 /* ---------- start / stop ---------- */
 function startGame(def){
-  mpLeave();
+  mpLeave();try{juiceReset();}catch(e){}
   if(def.room===undefined)def.room=def.id;
   game=def;t=0;GAMECOINS.left=150;
   PHYS.gravity=196.2;PHYS.walk=16;PHYS.jump=50;
@@ -4688,6 +4689,7 @@ function lobbyTick(){
     if(sb){const t2=SPEC.on?'👁 Next player':'👁 Spectate';if(sb.textContent!==t2)sb.textContent=t2;}}
   if(key!==LOBBY.txt){LOBBY.txt=key;$('#lobbyTxt').textContent=txt;$('#lobbyGo').hidden=!canGo;$('#lobbyBar').classList.toggle('play',phase==='play'&&LOBBY.inRound&&!LOBBY.out);
     if(LOBBY.sign)setPartLabel(LOBBY.sign,phase==='lobby'?'NEXT MATCH IN '+left:LOBBY.inRound&&!LOBBY.out?'MATCH ON':'NEXT MATCH IN '+(left+c.wait));}
+  if(phase==='lobby'&&left<=3&&left>=1&&LOBBY.cd!==LOBBY.idx+':'+left){LOBBY.cd=LOBBY.idx+':'+left;juiceCall(String(left));}
   if(LOBBY.resUntil&&t>LOBBY.resUntil){LOBBY.resUntil=0;$('#lobbyRes').hidden=true;}}
 function lobbySkip(){if(!LOBBY.on)return;const c=LOBBY.cfg,{per,ph}=lobbyPhase();LOBBY.off+=ph<c.wait?(c.wait-ph+.02):(per-ph+c.wait+.02);lobbyTick();}
 $('#lobbyGo').addEventListener('click',()=>{lobbySkip();cv.focus({preventScroll:true});});
@@ -4698,13 +4700,14 @@ function lobbyStart(idx){const c=LOBBY.cfg;LOBBY.inRound=true;LOBBY.out=false;LO
   W.checkpoint=null;state.stage=0;$('#lobbyRes').hidden=true;LOBBY.resUntil=0;
   if(!P.dead){if(P.rag)ragEndPlayer();P.pos.copy(W.spawn).add(new V3((Math.random()-.5)*4,0,(Math.random()-.5)*4));P.vel.set(0,0,0);P.boost=0;}
   P.health=P.maxHealth;if(c.score)RT.stats.set(c.score,0);RT.t0=state.time;
-  toast('GO!','#7dffa8',1.4);SFX.win();rtFire('msg','round start');MP.lastSent='';}
+  juiceCall('GO!');SFX.win();rtFire('msg','round start');MP.lastSent='';}
 function lobbyEnd(){const c=LOBBY.cfg;LOBBY.inRound=false;rtFire('msg','round end');
   if(c.score){const rows=[{n:myName(),s:+(RT.stats.get(c.score)||0),me:true}];
     for(const r of MP.remotes.values())if(r.lb&&r.lb.r===LOBBY.idx)rows.push({n:nameOf(r.by),s:num(r.lb.s,0)});
+    const myS=rows[0].s,bk='lbBest:'+game.id,pb=store.get(bk,null),newPB=myS>0&&(pb==null||(c.low?myS<pb:myS>pb));if(newPB)store.set(bk,myS);
     rows.sort((a,b)=>c.low?a.s-b.s:b.s-a.s);const best=rows[0].s,won=rows.length>0&&rows.find(r=>r.me).s===best&&(c.low||best>0);
-    if(won&&rows.length>1){changeStat('Wins',1);questBump('win',game.id,1);gainXP(40);WALLET.wins=(WALLET.wins||0)+1;}questBump('match',game.id,1);gainXP(20);earnCoins(won&&rows.length>1?40:10,won&&rows.length>1?'you won!':'match played');
-    $('#lobbyRes').innerHTML=`<h3>${won?(rows.length>1?'You win!':'Match over'):'Match over'}</h3><ol>${rows.slice(0,8).map((r,i)=>`<li class="${r.me?'me':''}"><span>${['🥇','🥈','🥉'][i]||(i+1)+'.'} ${esc(r.n)}</span><span>${r3(r.s)}</span></li>`).join('')}</ol><p class="sub">${esc(c.score)} · next match soon</p>`;
+    if(won&&rows.length>1){changeStat('Wins',1);questBump('win',game.id,1);gainXP(40);WALLET.wins=(WALLET.wins||0)+1;}questBump('match',game.id,1);gainXP(20);earnCoins(won&&rows.length>1?40:newPB?25:10,won&&rows.length>1?'you won!':newPB?'new personal best!':'match played');if(newPB&&pb!=null)setTimeout(()=>juiceCall('NEW BEST!'),400);
+    $('#lobbyRes').innerHTML=`<h3>${won?(rows.length>1?'You win!':'Match over'):'Match over'}</h3><ol>${rows.slice(0,8).map((r,i)=>`<li class="${r.me?'me':''}"><span>${['🥇','🥈','🥉'][i]||(i+1)+'.'} ${esc(r.n)}</span><span>${r3(r.s)}</span></li>`).join('')}</ol><p class="sub">${newPB?'⭐ New personal best! ':pb!=null?'Your best: '+r3(pb)+' · ':''}${esc(c.score)} · next match soon</p>`;
     $('#lobbyRes').hidden=false;LOBBY.resUntil=t+6;SFX[won?'win':'check']();}
   else{toast('Match over!','#ffd75e',2);questBump('match',game.id,1);earnCoins(10,'match played');}
   lobbyToLobby();MP.lastSent='';}
@@ -4911,16 +4914,56 @@ function updateCamera(dt){
     cam.cur=d<cam.cur?d:cam.cur+(d-cam.cur)*Math.min(1,dt*6);
     camera.position.copy(target).addScaledVector(dir,cam.cur);camera.lookAt(target);
   }
+  if(JU.shake>0&&!paused){const a=JU.shake*JU.shake*.35;camera.position.x+=(Math.random()-.5)*a;camera.position.y+=(Math.random()-.5)*a;camera.position.z+=(Math.random()-.5)*a;}
   const fovT=P.boost>0?84:70;if(Math.abs(camera.fov-fovT)>.1){camera.fov+=(fovT-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix();}
   sun.position.set(P.pos.x+50,P.pos.y+110,P.pos.z+35);sun.target.position.copy(P.pos);
 }
 const clock=new THREE.Clock();
+/* ---------- game feel: hit numbers, hitmarkers, KO callouts, kill feed, screen shake, comeback assist ---------- */
+const JU={lastLocal:-9,lastPart:null,nums:[],shake:0,kos:[],streak:0,deaths:[],callT:0};
+const _jv=new V3();
+function juiceTick(dt){
+  const box=$('#juice');if(!box)return;const w=innerWidth,h=innerHeight;
+  for(let i=JU.nums.length-1;i>=0;i--){const n=JU.nums[i];n.age+=dt;
+    if(n.age>n.life){n.el.remove();JU.nums.splice(i,1);continue;}
+    _jv.copy(n.p);_jv.y+=n.age*3.2;_jv.project(camera);
+    if(_jv.z>1){n.el.style.opacity=0;continue;}
+    const k=n.age/n.life,sc=n.age<.1?1+(.1-n.age)*6:1;
+    n.el.style.left=((_jv.x*.5+.5)*w+n.dx*n.age*30)+'px';n.el.style.top=((-_jv.y*.5+.5)*h)+'px';
+    n.el.style.opacity=String(Math.min(1,(1-k)*2.2));n.el.style.transform='translate(-50%,-50%) scale('+sc.toFixed(2)+')';}
+  JU.shake=Math.max(0,JU.shake-dt*2.4);
+}
+function juicePop(p,txt,cls,life){if(!p)return;const box=$('#juice');if(!box||JU.nums.length>40)return;
+  const el=document.createElement('div');el.className='jnum'+(cls?' '+cls:'');el.textContent=txt;box.appendChild(el);
+  JU.nums.push({el,p:p.clone().add(new V3(0,3.4,0)),age:0,life:life||.9,dx:(Math.random()-.5)*2});}
+function juiceHitmark(kill){const e=$('#jhit');if(!e)return;e.classList.toggle('kill',!!kill);e.classList.add('on');requestAnimationFrame(()=>requestAnimationFrame(()=>e.classList.remove('on')));
+  beep(kill?1500:1900,kill?600:1700,kill?.12:.035,'square',kill?.05:.03);}
+function juiceShake(a){JU.shake=Math.min(1.2,Math.max(JU.shake,a));}
+function juiceLocal(){return t-JU.lastLocal<.25;}
+function juiceRigHit(r,n){if(!r||!(n>0))return;const local=juiceLocal();
+  if(!local&&P.pos.distanceTo(r.pos)>60)return;
+  const big=n>=40;juicePop(r.pos,String(Math.round(n)),big?'big':'',big?1.1:.85);
+  if(local){juiceHitmark(false);if(big)juiceShake(.25);}}
+function juiceKO(r,force){if(!r)return;if(!force&&!juiceLocal())return;
+  juiceHitmark(true);juiceShake(.45);juicePop(r.pos,'KO!','ko',1.2);
+  const now=t;JU.kos=JU.kos.filter(x=>now-x<4);JU.kos.push(now);JU.streak++;
+  const m=JU.kos.length;const call=m>=4?'RAMPAGE!':m===3?'TRIPLE KO!':m===2?'DOUBLE KO!':JU.streak===5?'ON FIRE! 5 in a row':JU.streak===10?'UNSTOPPABLE! 10 in a row':JU.streak===15?'LEGENDARY! 15':'';
+  if(call)juiceCall(call);
+  juiceFeed('<b>You</b> knocked out '+escH(r.name||'a bot'));}
+function juiceCall(txt){const e=$('#jcall');if(!e)return;e.textContent=txt;e.classList.remove('on');void e.offsetWidth;e.classList.add('on');JU.callT=t;
+  [880,1175,1568].forEach((f,i)=>setTimeout(()=>beep(f,f*1.01,.09,'square',.04),i*70));
+  clearTimeout(JU.callTO);JU.callTO=setTimeout(()=>e.classList.remove('on'),1300);}
+function juiceFeed(html){const f=$('#jfeed');if(!f)return;const d=document.createElement('div');d.innerHTML=html;f.appendChild(d);while(f.children.length>4)f.firstChild.remove();setTimeout(()=>d.remove(),4100);}
+function escH(x){return String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);}
+function juiceAssist(n){const now=t;JU.deaths=JU.deaths.filter(x=>now-x<180);const d=JU.deaths.length;
+  if(n>=100)return n;return n*(d>=6?.7:d>=4?.8:d>=2?.9:1);}
+function juiceReset(){JU.nums.forEach(n=>n.el.remove());JU.nums=[];JU.kos=[];JU.streak=0;JU.deaths=[];JU.shake=0;const f=$('#jfeed');if(f)f.textContent='';}
 function loop(){
   requestAnimationFrame(loop);
   const dt=Math.min(clock.getDelta(),.05);
   if(running){
     if(!paused)update(dt);
-    updateCamera(dt);
+    updateCamera(dt);juiceTick(dt);
     setParticleScale(renderer,camera);
     renderer.render(scene,camera);
   }else if(ED.open)studioFrame(dt);
@@ -7108,5 +7151,5 @@ loop();
 if(TESTCLIENT){muted=true;MP.me={name:'Player 2',id:null};document.documentElement.classList.add('testclient');$('#menu').hidden=true;
   window.parent.postMessage({by2:1,k:'ready'},'*');}
 else{initMP();bootShared();}
-window.__by={makeRag,ragStep,SB,SAVE,findAnim,playAnim,BD,openAnim,AE,ACC,renderGuiEditor,showAccountModal,MP,arenaDef,packProject,unpackProject,standaloneHtml,get SHARED(){return SHARED},IDB,MESHCACHE,uploadMesh,finalizeMesh,get ecam(){return ecam},get tc(){return tc},cam,ED,W,RT,P,state:()=>state,startGame,openStudio,newProjectObj,saveProject,insert,select,doAct,openScript,playtest,stopGame,exportRbxlx,luaForScript,parseRbxlx,listProjects,GAMES,projectDef,running:()=>running,_t:{WALLET,earnCoins,LOBBY,lobbySkip,breakAt,OUT,equipTool,activateTool,AIM,aimRay,physics,keys,PH,PHYS,setPaused:v=>{paused=v;},handleTouch,get t(){return t}}};
+window.__by={JU,juiceKO,juiceRigHit,damageRig,makeRag,ragStep,SB,SAVE,findAnim,playAnim,BD,openAnim,AE,ACC,renderGuiEditor,showAccountModal,MP,arenaDef,packProject,unpackProject,standaloneHtml,get SHARED(){return SHARED},IDB,MESHCACHE,uploadMesh,finalizeMesh,get ecam(){return ecam},get tc(){return tc},cam,ED,W,RT,P,state:()=>state,startGame,openStudio,newProjectObj,saveProject,insert,select,doAct,openScript,playtest,stopGame,exportRbxlx,luaForScript,parseRbxlx,listProjects,GAMES,projectDef,running:()=>running,_t:{WALLET,earnCoins,LOBBY,lobbySkip,breakAt,OUT,equipTool,activateTool,AIM,aimRay,physics,keys,PH,PHYS,setPaused:v=>{paused=v;},handleTouch,get t(){return t}}};
 })();

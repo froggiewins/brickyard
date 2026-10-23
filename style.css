@@ -280,6 +280,20 @@ kbd{font-family:var(--body);font-weight:800;font-size:12px;background:var(--pane
 #chatForm{width:100%}
 #chatIn{width:100%;background:rgba(10,16,28,.9);border:1px solid var(--sky);border-radius:9px;padding:8px 10px;font-size:14px}
 #chatBtn{height:32px;font-size:12px}
+#juice{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:6}
+.jnum{position:absolute;font:900 20px/1 system-ui,sans-serif;color:#fff;text-shadow:0 2px 0 #000,0 0 6px rgba(0,0,0,.6);transform:translate(-50%,-50%);will-change:transform,opacity;white-space:nowrap}
+.jnum.big{font-size:28px;color:#ffd54f}.jnum.ko{font-size:26px;color:#ff5252}
+#jhit{position:absolute;left:50%;top:45%;width:30px;height:30px;margin:-15px 0 0 -15px;opacity:0;transition:opacity .18s}
+#jhit:before,#jhit:after{content:"";position:absolute;left:50%;top:0;width:3px;height:100%;margin-left:-1.5px;background:linear-gradient(#fff 0 35%,transparent 35% 65%,#fff 65%);border-radius:2px}
+#jhit:before{transform:rotate(45deg)}#jhit:after{transform:rotate(-45deg)}
+#jhit.on{opacity:1;transition:none}#jhit.kill:before,#jhit.kill:after{background:linear-gradient(#ff3d3d 0 35%,transparent 35% 65%,#ff3d3d 65%)}
+#jcall{position:absolute;left:50%;top:33%;transform:translate(-50%,-50%) scale(.6);font:900 38px/1 system-ui,sans-serif;color:#fff;letter-spacing:.04em;text-shadow:0 3px 0 #b71c1c,0 0 18px rgba(255,80,40,.7);opacity:0;transition:opacity .4s,transform .4s;white-space:nowrap}
+#jcall.on{opacity:1;transform:translate(-50%,-50%) scale(1);transition:transform .12s cubic-bezier(.3,1.8,.5,1)}
+#jfeed{position:absolute;right:12px;top:calc(env(safe-area-inset-top,0px) + 120px);display:flex;flex-direction:column;gap:4px;align-items:flex-end}
+#jfeed div{background:rgba(0,0,0,.55);color:#fff;font:700 13px system-ui,sans-serif;padding:4px 9px;border-radius:7px;animation:jf 4s forwards}
+#jfeed b{color:#ffd54f}
+@keyframes jf{0%{opacity:0;transform:translateX(20px)}8%{opacity:1;transform:none}85%{opacity:1}100%{opacity:0}}
+@media (max-width:600px){#jcall{font-size:28px}.jnum{font-size:16px}}
 #dmg{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 55%,rgba(255,40,60,.55));opacity:0;transition:opacity .35s}
 #dmg.on{opacity:1;transition:none}
 #jumpBtn{right:max(28px,env(safe-area-inset-right,0px));width:84px;height:84px;border-radius:50%;border:2px solid rgba(255,255,255,.2);background:rgba(255,138,31,.55);font-weight:800;font-size:15px}
