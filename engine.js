@@ -2617,29 +2617,41 @@ function gemsDef(){const G=GK;const p=G.proj('gems','Gem Hunt',{sky:'#a6e3ff',ti
 
 /* 5. Turbo Track */
 function turboDef(){const G=GK;const p=G.proj('turbo','Turbo Track',{sky:'#7fb8ff',saveStats:false,saveCheckpoint:false,lobby:true,lobbyWait:15,lobbyRound:150,lobbyScore:'Laps'});G.noBase(p);G.spawnAt(p,0,60,0,{size:[14,1,14]});
-  const T=G.folder(p,'Track');const P=o=>G.part(p,T.id,o);let z=-7,y=60,cp=0;
-  const road=(len,o)=>{P(Object.assign({name:'Road',pos:[0,y,z-len/2],size:[12,1,len],color:'#3b4252',material:'Concrete'},o||{}));z-=len;};
-  const speed=()=>P({name:'Boost',pos:[0,y+.6,z+4],size:[8,.4,5],color:'#ffd400',material:'Neon',behavior:'speed',value:4});
-  const check=()=>{cp++;const c=P({name:'Checkpoint',pos:[0,y,z-5],size:[12,1,10],color:'#3ddc84',material:'Neon'});G.script(p,c.id,'Save',blk('ev_touch'),blk('pl_checkpoint',{PART:bme()}),G.sound('check'));z-=10;};
-  road(40);speed();road(10);z-=16;road(30);check();
-  road(10);P({name:'Ramp',shape:'wedge',pos:[0,y+2,z-5],size:[12,4,10],rot:[0,180,0],color:'#ff7b5c'});z-=10;z-=13;road(30);check();
-  for(let i=0;i<5;i++){road(8,{size:[6,1,8],pos:[i%2?5:-5,y,z-4],color:'#5c6bc0'});z-=4;}check();
-  road(12);P({name:'Launcher',pos:[0,y+.6,z+4],size:[8,.4,5],color:'#22d3ee',material:'Neon',behavior:'jump',value:110});z-=7;y+=20;road(30);check();
-  road(10);speed();road(10);for(let i=0;i<3;i++){const n=P({name:'Sweeper',pos:[0,y+1.5,z-8-i*14],size:[11,1,1],color:'#ff3b30',material:'Neon',behavior:'kill'});G.script(p,n.id,'Spin',...SCR.spin(3+i).blocks.blocks);}road(44);check();
-  road(20);speed();road(8);z-=18;const fin=P({name:'Finish',pos:[0,y,z-10],size:[20,1,20],color:'#ffc93c',material:'Neon'});
-  const LT='vlap',lt=G.vget(LT);
-  G.vars(G.script(p,fin.id,'Lap',blk('ev_touch'),G.sadd('Laps',1),G.vset(LT,{block:{type:'s_timer'}}),G.sound('win'),G.msg(G.join('Lap ',G.stat('Laps'),': ',lt,' seconds'),3),
-    G.iff(G.OR(G.cmp(G.stat('Best Lap'),'EQ',G.num(0)),G.cmp(lt,'LT',G.stat('Best Lap'))),G.sset('Best Lap',lt),G.dset('turbo_best_lap',lt),G.msg('New best lap!',2)),
-    blk('g_reset_timer'),blk('pl_checkpoint',{PART:G.pnamed('SpawnLocation')}),G.tp(0,63,0)),[['lap time',LT]]);
+  const MOX='vtox',MV2=[['map x',MOX]],LT='vlap',lt=G.vget(LT),LG='vlapgo';
+  const TRACKS=[{ox:0,S:'',road:'#3b4252',sky:'#7fb8ff'},{ox:300,S:'B',road:'#1a1033',sky:'#120b2e'}];
+  TRACKS.forEach(TK=>{const {ox,S,road:rc}=TK;const T=G.folder(p,'Track'+S).id;const P=o=>G.part(p,T,Object.assign({},o,{name:o.name+S,pos:[o.pos[0]+ox,o.pos[1],o.pos[2]]}));let z=-7,y=60;
+    const road=(len,o)=>{P(Object.assign({name:'Road',pos:[0,y,z-len/2],size:[12,1,len],color:rc,material:S?'Neon':'Concrete'},o||{}));z-=len;};
+    const speed=()=>P({name:'Boost',pos:[0,y+.6,z+4],size:[8,.4,5],color:'#ffd400',material:'Neon',behavior:'speed',value:4});
+    const check=()=>{const c=P({name:'Checkpoint',pos:[0,y,z-5],size:[12,1,10],color:'#3ddc84',material:'Neon'});G.script(p,c.id,'Save',blk('ev_touch'),blk('pl_checkpoint',{PART:bme()}),G.sound('check'));z-=10;};
+    TK.start=P({name:'StartPad',pos:[0,59.6,0],size:[14,.2,14],color:S?'#e040fb':'#ffffff',material:'Neon'});
+    if(!S){road(40);speed();road(10);z-=16;road(30);check();
+      road(10);P({name:'Ramp',shape:'wedge',pos:[0,y+2,z-5],size:[12,4,10],rot:[0,180,0],color:'#ff7b5c'});z-=10;z-=13;road(30);check();
+      for(let i=0;i<5;i++){road(8,{size:[6,1,8],pos:[i%2?5:-5,y,z-4],color:'#5c6bc0'});z-=4;}check();
+      road(12);P({name:'Launcher',pos:[0,y+.6,z+4],size:[8,.4,5],color:'#22d3ee',material:'Neon',behavior:'jump',value:110});z-=7;y+=20;road(30);check();
+      road(10);speed();road(10);for(let i=0;i<3;i++){const n=P({name:'Sweeper',pos:[0,y+1.5,z-8-i*14],size:[11,1,1],color:'#ff3b30',material:'Neon',behavior:'kill'});G.script(p,n.id,'Spin',...SCR.spin(3+i).blocks.blocks);}road(44);check();
+      road(20);speed();road(8);z-=18;
+      [[3,-22],[-3,-34]].forEach(([x,oz])=>P({name:'OilSlick',pos:[x,60.55,oz],size:[5,.2,6],color:'#212121',material:'Glass',behavior:'speed',value:.45,label:'OIL'}));}
+    else{// Neon City: drops, a tunnel of crushers, moving bridges and a double launcher
+      road(30);speed();road(10);for(let i=0;i<3;i++){y-=4;road(14,{color:['#e040fb','#00e5ff','#76ff03'][i]});}check();
+      road(8);for(let i=0;i<3;i++){const m=P({name:'Bridge',pos:[0,y,z-6],size:[8,1,10],color:'#ff4081',material:'Neon'});G.script(p,m.id,'Slide',...SCR.glide(i%2?7:-7,0,0,1.4).blocks.blocks);z-=14;}road(8);check();
+      road(40,{color:'#311b92'});for(let i=0;i<4;i++){const c=P({name:'Crusher',pos:[0,y+1.3,z+34-i*9],size:[12,1,1.4],color:'#ff1744',material:'Neon',behavior:'kill'});G.script(p,c.id,'Bob',...SCR.glide(0,6,0,.9+i*.15).blocks.blocks);}check();
+      road(10);P({name:'Launcher',pos:[0,y+.6,z+4],size:[8,.4,5],color:'#22d3ee',material:'Neon',behavior:'jump',value:100});z-=8;y+=14;road(12);P({name:'Launcher',pos:[0,y+.6,z+4],size:[8,.4,5],color:'#22d3ee',material:'Neon',behavior:'jump',value:100});z-=8;y+=14;road(24);check();
+      for(let i=0;i<6;i++){road(7,{size:[5,1,7],pos:[[-4,0,4,0,-4,0][i],y,z-3.5],color:'#00e5ff'});z-=3;}road(10);speed();road(20);z-=16;}
+    const fin=P({name:'Finish',pos:[0,y,z-10],size:[20,1,20],color:'#ffc93c',material:'Neon'});TK.fin=fin;
+    G.vars(G.script(p,fin.id,'Lap',blk('ev_touch'),G.sadd('Laps',1),G.vset(LT,{block:{type:'s_timer'}}),G.sound('win'),G.msg(G.join('Lap ',G.stat('Laps'),': ',lt,' seconds'),3),
+      G.iff(G.OR(G.cmp(G.stat('Best Lap'),'EQ',G.num(0)),G.cmp(lt,'LT',G.stat('Best Lap'))),G.sset('Best Lap',lt),G.dset('turbo_best_lap',lt),G.msg('New best lap!',2)),
+      blk('g_reset_timer'),blk('pl_checkpoint',{PART:G.pnamed('StartPad'+S)}),G.tp(ox,63,0),G.vchg(LG,1)),[['lap time',LT],['lap go',LG]]);
+    const gh=G.part(p,'workspace',{name:'GhostRacer'+S,pos:[ox,-40,-2],size:[2,4,2],color:'#b388ff',material:'Neon',canCollide:false,transparency:.45,label:'👻 GHOST'});
+    G.vars(G.script(p,gh.id,'Race',blk('ev_start'),G.forever(G.vset('vgl'+S,G.vget(LG)),G.until(G.cmp(G.vget(LG),'GT',G.vget('vgl'+S))),
+      G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(ox)),[blk('p_setpos',{PART:bme(),X:bn(ox),Y:bn(62.6),Z:bn(-2)}),G.wait(.5),blk('p_glideto',{PART:bme(),X:bn(ox),Y:bn(fin.pos[1]+2.6),Z:bn(fin.pos[2]),S:bn(S?26:24)})],[blk('p_setpos',{PART:bme(),X:bn(ox),Y:bn(-40),Z:bn(-2)})]))),[['lap go',LG],['map x',MOX],['ghost lap'+S,'vgl'+S]]);});
+  G.vars(G.script(p,'sss','Pick track',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(MOX,G.num(0)),blk('g_sky',null,{COLOUR:'#7fb8ff'}),blk('pl_checkpoint',{PART:G.pnamed('StartPad')}),G.tp(0,63,0)],
+    [G.vset(MOX,G.num(300)),blk('g_sky',null,{COLOUR:'#120b2e'}),G.msg('Track: NEON CITY',2),blk('pl_checkpoint',{PART:G.pnamed('StartPadB')}),G.tp(300,63,0)]),G.wait(.2),blk('g_reset_timer'),G.vchg(LG,1)),[...MV2,['lap go',LG]]);
   G.script(p,'sss','BestLap',blk('ev_data_loaded'),G.sset('Best Lap',G.dget('turbo_best_lap',0)));
-  // oil slicks slow you down, so steer around them
-  [[3,-22],[-3,-34]].forEach(([x,oz])=>P({name:'OilSlick',pos:[x,60.55,oz],size:[5,.2,6],color:'#212121',material:'Glass',behavior:'speed',value:.45,label:'OIL'}));
-  // the ghost racer: beat it to the finish
-  const gh=G.part(p,'workspace',{name:'GhostRacer',pos:[0,62.6,-2],size:[2,4,2],color:'#b388ff',material:'Neon',canCollide:false,transparency:.45,label:'👻 GHOST'});
-  G.vars(G.script(p,gh.id,'Race',blk('ev_spawn'),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(62.6),Z:bn(-2)}),G.wait(.5),blk('p_glideto',{PART:bme(),X:bn(0),Y:bn(fin.pos[1]+2.6),Z:bn(fin.pos[2]),S:bn(24)})),[]);
-  G.script(p,'sss','Lap coin',blk('ev_start'),G.forever(G.vset('vlc',G.stat('Laps')),G.until(G.cmp(G.stat('Laps'),'GT',G.vget('vlc'))),
-    G.ifElse(G.cmp({block:{type:'s_prop',fields:{PROP:'z'},inputs:{PART:G.pnamed('GhostRacer')}}},'GT',G.num(fin.pos[2]+3)),[G.msg('You beat the ghost racer! +2 coins',2),blk('pl_coins',{N:bn(2)})],[G.msg('The ghost beat you this lap...',1.5)])));
-  G.welcome(p,G.sset('Laps',0),G.msg('Most laps in 2:30 wins! Hit the boost pads, avoid the oil, and beat the purple ghost racer.',4));
+  G.vars(G.script(p,'sss','Lap coin',blk('ev_start'),G.forever(G.vset('vlc',G.stat('Laps')),G.until(G.cmp(G.stat('Laps'),'GT',G.vget('vlc'))),G.wait(.1),
+    G.ifElse(G.OR(G.AND(G.cmp(G.vget(MOX),'EQ',G.num(0)),G.cmp({block:{type:'s_prop',fields:{PROP:'z'},inputs:{PART:G.pnamed('GhostRacer')}}},'GT',G.num(TRACKS[0].fin.pos[2]+3))),
+        G.AND(G.cmp(G.vget(MOX),'EQ',G.num(300)),G.cmp({block:{type:'s_prop',fields:{PROP:'z'},inputs:{PART:G.pnamed('GhostRacerB')}}},'GT',G.num(TRACKS[1].fin.pos[2]+3)))),
+      [G.msg('You beat the ghost racer! +2 coins',2),blk('pl_coins',{N:bn(2)})],[G.msg('The ghost beat you this lap...',1.5)]))),MV2);
+  G.welcome(p,G.sset('Laps',0),G.msg('Most laps in 2:30 wins! Two tracks take turns. Hit the boost pads and beat the purple ghost racer.',4));
   return G.def(p,'turbo','Turbo Track');}
 
 /* 6. Sumo Smash: sumo bots only fill the ring when there are not enough players */
