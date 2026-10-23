@@ -3270,18 +3270,19 @@ function gkFighterBots(p,o){const G=GK;const NB='vfbots',BV=[['fighter bots',NB]
 function towerHellDef(){const G=GK;const p=G.proj('towerhell','Tower of Hell',{sky:'#1b1f3b',fog:700,brightness:.95,timer:false,saveStats:false,saveCheckpoint:false,lobby:true,lobbyWait:12,lobbyRound:300,lobbyScore:'Height'});
   const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[90,2,90],color:'#2b2f4a',material:'Slate'});
   G.spawnAt(p,0,.5,0,{size:[5,1,5],color:'#ffc93c'});
-  const H=14,COLS=['#ff5252','#ffab40','#ffd740','#69f0ae','#40c4ff','#7c4dff','#ff4081','#b2ff59'];
-  const KINDS=['Stairs','Tiny Steps','Sliders','Vanishing','Spinner','Truss','Bouncy','Crushers'];
+  const H=14,COLS=['#ff5252','#ffab40','#ffd740','#69f0ae','#40c4ff','#7c4dff','#ff4081','#b2ff59','#ff6e40','#e0e0e0','#64ffda'];
+  const KINDS=['Stairs','Tiny Steps','Sliders','Vanishing','Spinner','Truss','Bouncy','Crushers','Lava Steps','Ghost Steps','Wall Hops'];
   const centers=[];
   KINDS.forEach((kind,ki)=>{const M=G.model(p,'Section'+(ki+1),'rs').id;const col=COLS[ki];const P=o=>G.part(p,M,o);
     // floor with a hole in the middle, glass walls
     [[-9.5,0,11,30],[9.5,0,11,30],[0,-9.5,8,11],[0,9.5,8,11]].forEach(([x,z,w,d])=>P({name:'Floor',pos:[x,.5,z],size:[w,1,d],color:col,material:'Plastic'}));
     [[0,-15,30,1],[0,15,30,1],[-15,0,1,30],[15,0,1,30]].forEach(([x,z,w,d])=>P({name:'Glass',pos:[x,H/2,z],size:[w,H,d],color:'#b3e5fc',material:'Glass',transparency:.75}));
     P({name:'Sign',pos:[0,H-1.5,-14.3],size:[6,1.4,.2],color:'#11141f',label:kind.toUpperCase()});
-    const n=7,R=10,sz=kind==='Tiny Steps'?2.6:kind==='Truss'?1.4:4;
+    const n=7,R=10,sz=kind==='Tiny Steps'?2.6:kind==='Truss'?1.4:kind==='Wall Hops'?1.2:4;
     for(let i=0;i<n;i++){const a=i*Math.PI*2/8+.4,x=r3(Math.cos(a)*R),z=r3(Math.sin(a)*R),y=r3(2.4+i*1.35);
-      const st=P({name:'Step',pos:[x,y,z],size:kind==='Truss'?[sz,1,sz*3]:[sz,1,sz],rot:kind==='Truss'?[0,r3(-a*180/Math.PI),0]:[0,0,0],color:i%2?col:'#ffffff',material:kind==='Bouncy'&&i%2?'Neon':'Plastic',
+      const st=P({name:'Step',pos:[x,y,z],size:kind==='Truss'?[sz,1,sz*3]:kind==='Wall Hops'?[sz,1,4.2]:[sz,1,sz],transparency:kind==='Ghost Steps'?.88:0,rot:kind==='Truss'||kind==='Wall Hops'?[0,r3(-a*180/Math.PI),0]:[0,0,0],color:i%2?col:'#ffffff',material:kind==='Bouncy'&&i%2?'Neon':'Plastic',
         behavior:kind==='Bouncy'&&i===3?'jump':'none',value:kind==='Bouncy'&&i===3?75:0});
+      if(kind==='Lava Steps'&&i%2&&i<6)P({name:'LavaStrip',pos:[x,y+.55,z],size:[sz*.5,.12,sz],color:'#ff3d00',material:'Neon',behavior:'kill'});
       if(kind==='Sliders'&&i%2)G.script(p,st.id,'Slide',...SCR.glide(0,0,i%4===1?4:-4,1.4).blocks.blocks);
       if(kind==='Vanishing'&&i>0)G.script(p,st.id,'Vanish',...SCR.vanish().blocks.blocks);
       if(kind==='Crushers'&&i%2===0&&i>0){const kb=P({name:'Crusher',pos:[x,y+5.5,z],size:[sz+1,1,sz+1],color:'#ff1744',material:'Neon',behavior:'kill'});G.script(p,kb.id,'Bob',...SCR.glide(0,-3.2,0,.9).blocks.blocks);}}
@@ -3293,8 +3294,8 @@ function towerHellDef(){const G=GK;const p=G.proj('towerhell','Tower of Hell',{s
   [[0,-7.5,14,1],[0,7.5,14,1],[-7.5,0,1,14],[7.5,0,1,14]].forEach(([x,z,w,d])=>G.part(p,'workspace',{name:'TopRail',pos:[x,LEVELS*H+3,z],size:[w,2,d],color:'#ffecb3',material:'Glass',transparency:.4}));
   const K='vsec',VARS=[['section',K],...G.MV];
   G.vars(G.script(p,'sss','Build tower',G.onMsg('round start'),
-    ...Array.from({length:8},(_,k)=>blk('controls_repeat_ext',{TIMES:bn(LEVELS),DO:doIn(blk('p_destroy',{PART:G.mnamed('Section'+(k+1))}))})),
-    ...Array.from({length:LEVELS},(_,i)=>[G.vset(K,G.rnd(1,8)),...KINDS.map((_,k)=>G.iff(G.cmp(G.vget(K),'EQ',G.num(k+1)),blk('rs_copy',{X:bn(0),Y:bn(r3(1+i*H+centers[k])),Z:bn(0)},{NAME:'Section'+(k+1)})))]).flat(),
+    ...Array.from({length:KINDS.length},(_,k)=>blk('controls_repeat_ext',{TIMES:bn(LEVELS),DO:doIn(blk('p_destroy',{PART:G.mnamed('Section'+(k+1))}))})),
+    ...Array.from({length:LEVELS},(_,i)=>[G.vset(K,G.rnd(1,KINDS.length)),...KINDS.map((_,k)=>G.iff(G.cmp(G.vget(K),'EQ',G.num(k+1)),blk('rs_copy',{X:bn(0),Y:bn(r3(1+i*H+centers[k])),Z:bn(0)},{NAME:'Section'+(k+1)})))]).flat(),
     blk('pl_gravity',{V:bn(196.2)}),blk('pl_speed',{V:bn(16)}),blk('pl_jump',{V:bn(50)}),blk('pl_airjumps',{N:bn(0)}),G.vset('vmod',G.rnd(1,6)),
     G.ifElse(G.cmp(G.vget('vmod'),'EQ',G.num(2)),[blk('pl_gravity',{V:bn(120)}),G.msg('A new tower! Modifier: LOW GRAVITY 🌙',4)],
      [G.ifElse(G.cmp(G.vget('vmod'),'EQ',G.num(3)),[blk('pl_speed',{V:bn(24)}),G.msg('A new tower! Modifier: SPEED ⚡',4)],
@@ -3387,6 +3388,21 @@ function murderDef(){const G=GK;const p=G.proj('murder','Murder Mystery',{sky:'#
     G.script(p,c.id,'Spin',blk('ev_start'),G.forever(blk('p_rotate',{PART:bme(),DEG:bn(8)},{AXIS:'y'}),G.wait(.05)));
     G.vars(G.script(p,c.id,'Take',blk('ev_touch'),G.iff(G.aliveIn(),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_collide',{PART:bme()},{B:'FALSE'}),G.sadd('Coins',1),G.sound('coin'),blk('pl_coins',{N:bn(1)}),blk('p_setpos',{PART:bme(),X:bn(x),Y:bn(-40),Z:bn(z)}))),VARS);
     G.script(p,c.id,'Reset',G.onMsg('round start'),blk('p_setpos',{PART:bme(),X:bn(x),Y:bn(1.4),Z:bn(z)}),blk('p_visible',{PART:bme()},{B:'TRUE'}));});
+  // when the sheriff goes down, the gun drops. Any innocent can pick it up and become the new sheriff
+  const GD='vgundrop',GX='vgunx',GZ='vgunz',GV=[[ 'gun dropped',GD],['gun x',GX],['gun z',GZ]];VARS.push(...GV);
+  const gdp=G.part(p,'workspace',{name:'GunDrop',pos:[0,-40,0],size:[2.4,1,1],color:'#ffd54f',material:'Neon',canCollide:false,label:'🔫 GUN'});
+  G.vars(G.script(p,gdp.id,'Place',blk('ev_start'),G.forever(G.ifElse(eq(GD,1),[blk('p_setpos',{PART:bme(),X:G.vget(GX),Y:bn(1.6),Z:G.vget(GZ)})],[blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-40),Z:bn(0)})]),G.wait(.3))),VARS);
+  G.vars(G.script(p,gdp.id,'Pick up',blk('ev_touch'),G.iff(G.AND(G.AND(eq(GD,1),G.aliveIn()),G.NOT(eq(MU,G.myId()))),G.shSet(GD,G.num(0)),G.shSet(SH,G.myId()),blk('tool_give',null,{NAME:'Gun'}),G.sound('win'),G.msg('You picked up the gun! You are the new SHERIFF.',3))),VARS);
+  G.vars(G.script(p,'sss','Sheriff down',blk('ev_died'),G.iff(G.AND(eq(SH,G.myId()),eq(OV,0)),G.shSet(GX,G.ppos('x')),G.shSet(GZ,G.ppos('z')),G.shSet(GD,G.num(1)),G.bc('gun dropped'))),VARS);
+  [1,2,3,4,5].forEach(k=>G.vars(G.hscript(p,G.pnamed?'sss':'sss','Sheriff bot down '+k,blk('ev_start'),G.forever(G.until(G.AND(eq(SH,G.txt('Bot'+k)),eq(D(k),1))),G.iff(eq(OV,0),
+    G.vset(GX,G.prop(G.pnamed('Bot'+k),'x')),G.vset(GZ,G.prop(G.pnamed('Bot'+k),'z')),G.vset(GD,G.num(1)),G.vset(SH,G.txt('-')),G.bc('gun dropped')),G.wait(1))),VARS));
+  G.script(p,'sss','Gun dropped msg',G.onMsg('gun dropped'),G.sound('check'),G.msg('🔫 The sheriff is down! The gun dropped. Innocents, grab it!',3));
+  G.vars(G.hscript(p,'sss','Gun reset',G.onMsg('round start'),G.vset(GD,G.num(0))),VARS);
+  // bots pick up the gun too
+  [1,2,3,4,5].forEach(k=>G.vars(G.hscript(p,'sss','Bot grabs gun '+k,blk('ev_start'),G.forever(G.wait(.5),G.iff(G.AND(G.AND(eq(GD,1),eq(D(k),0)),G.AND(G.NOT(eq(MU,G.txt('Bot'+k))),G.cmp(G.num(k),'LTE',G.vget(NB)))),
+    G.iff(G.cmp(G.arith('ADD',G.arith('MULTIPLY',G.arith('MINUS',G.prop(G.pnamed('Bot'+k),'x'),G.vget(GX)),G.arith('MINUS',G.prop(G.pnamed('Bot'+k),'x'),G.vget(GX))),G.arith('MULTIPLY',G.arith('MINUS',G.prop(G.pnamed('Bot'+k),'z'),G.vget(GZ)),G.arith('MINUS',G.prop(G.pnamed('Bot'+k),'z'),G.vget(GZ)))),'LT',G.num(400)),
+      blk('rig_walk',{PART:G.pnamed('Bot'+k),X:G.vget(GX),Z:G.vget(GZ)}),G.iff(G.cmp(G.arith('ADD',G.arith('MULTIPLY',G.arith('MINUS',G.prop(G.pnamed('Bot'+k),'x'),G.vget(GX)),G.arith('MINUS',G.prop(G.pnamed('Bot'+k),'x'),G.vget(GX))),G.arith('MULTIPLY',G.arith('MINUS',G.prop(G.pnamed('Bot'+k),'z'),G.vget(GZ)),G.arith('MINUS',G.prop(G.pnamed('Bot'+k),'z'),G.vget(GZ)))),'LT',G.num(9)),
+        G.vset(GD,G.num(0)),G.vset(SH,G.txt('Bot'+k)),blk('rig_say',{PART:G.pnamed('Bot'+k),TEXT:bt('I have the gun now!'),S:bn(2)})))))),VARS));
   G.welcome(p,G.msg('Murder Mystery: find out who the murderer is before it is too late. Bots fill the empty spots.',5));
   G.best(p,'Score','murder_score');
   return G.def(p,'murder','Murder Mystery');}
@@ -3435,6 +3451,17 @@ function doorsDef(){const G=GK;const p=G.proj('doors','Doors',{sky:'#07080d',fog
     G.iff(G.AND(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('Rush')}}},'LT',G.num(16)),G.NOT({block:{type:'s_touching',inputs:{PART:G.mnamed('HidingSpots')}}})),G.msg('RUSH got you!',3),blk('pl_damage',{N:bn(1000)})),G.wait(.2))}));
   G.script(p,'sss','Died',blk('ev_died'),G.msg(G.join('You reached door ',G.stat('Door'),'. Back to the lobby!'),3),G.sset('Door',0),G.vset('vkey',G.num(0)),
     blk('p_collide',{PART:G.mnamed('Doors')},{B:'TRUE'}),blk('p_transp',{PART:G.mnamed('Doors')},{V:bn(0)}),blk('p_visible',{PART:G.mnamed('Keys')},{B:'TRUE'}));
+  // SEEK: eyes appear on the walls from room 20, then at door 25 it chases you through four rooms
+  for(let i=19;i<29;i++){const zc=-i*L-L/2;for(let e=0;e<(i-17)*2;e++){const sd=e%2?1:-1;P({name:'Eye',shape:'ball',pos:[sd*(Wd/2-.1),r3(2+((e*37+i*11)%60)/10),r3(zc+((e*53)%(L-4))-L/2+2)],size:[.4,1,1.4],color:'#eceff1',material:'Neon',canCollide:false});}}
+  for(let i=25;i<29;i++){const zc=-i*L-L/2;P({name:'FallenShelf',pos:[i%2?-4:4,.8,zc],size:[14,1.6,1.6],color:'#4e342e',material:'Wood'});P({name:'FallenShelf',pos:[i%2?7:-7,.8,zc-9],size:[8,1.6,1.6],color:'#4e342e',material:'Wood'});}
+  const seek=G.part(p,'workspace',{name:'Seek',pos:[0,-60,0],size:[3,9,3],color:'#0a0a0a',material:'Neon',canCollide:false,unbreakable:true,label:'👁'});
+  p.nodes.push(emitterNode({parent:seek.id,name:'Ooze',rate:30,speed:3},'smoke'));
+  G.vars(G.script(p,seek.id,'Chase',blk('ev_start'),G.forever(G.until(G.cmp(G.stat('Door'),'EQ',G.num(25))),G.sound('die'),G.msg('👁 SEEK is coming. RUN! Jump over the fallen shelves!',3),blk('g_sky',null,{COLOUR:'#1a0000'}),
+    G.vset('vsz',G.num(-25*L+22)),G.whileDo(G.AND(G.cmp(G.stat('Door'),'GTE',G.num(25)),G.cmp(G.stat('Door'),'LT',G.num(29))),
+      G.vchg('vsz',-1.45),blk('p_setpos',{PART:bme(),X:G.ppos('x'),Y:bn(4.5),Z:G.vget('vsz')}),
+      G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:bme()}}},'LT',G.num(3.4)),G.msg('Seek caught you...',3),blk('pl_damage',{N:bn(1000)})),G.wait(.1)),
+    blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-60),Z:bn(0)}),blk('g_sky',null,{COLOUR:'#07080d'}),
+    G.iff(G.cmp(G.stat('Door'),'GTE',G.num(29)),G.sound('win'),G.msg('You escaped SEEK! +5 coins',3),blk('pl_coins',{N:bn(5)})),G.until(G.cmp(G.stat('Door'),'LT',G.num(25))))),[['seek z','vsz']]);
   G.welcome(p,G.sset('Door',0),G.vset('vkey',G.num(0)),G.msg('Get through 40 doors. Every 5th door is locked: find its key. When the lights flicker, hide in a wardrobe!',6));
   G.best(p,'Door','doors_best');
   return G.def(p,'doors','Doors');}
@@ -3480,7 +3507,7 @@ function arsenalDef(){const G=GK;const p=G.proj('arsenal','Arsenal',{sky:'#ffb74
 
 /* 24. Deathrun: run the trap course; Death (a player, or a bot if there are few players) springs the traps */
 function deathrunDef(){const G=GK;const p=G.proj('deathrun','Deathrun',{sky:'#263238',fog:500,brightness:.9,timer:false,saveStats:false,saveCheckpoint:false,deathStyle:'ragdoll',lobby:true,lobbyWait:12,lobbyRound:120,lobbyScore:'Score',lobbyElim:true});
-  G.noBase(p);const C=G.folder(p,'Course').id;const P=o=>G.part(p,C,o);
+  const TR=[1,2,3,4,5,6,7,8];G.noBase(p);const C=G.folder(p,'Course').id;const P=o=>G.part(p,C,o);
   G.spawnAt(p,0,20.5,10,{size:[12,1,10],color:'#43a047'});
   const Y=20;let z=4;
   const seg=(len,col)=>{const pt=P({name:'Path',pos:[0,Y,z-len/2],size:[12,1,len],color:col||'#546e7a',material:'Concrete'});z-=len;return pt;};
@@ -3499,14 +3526,18 @@ function deathrunDef(){const G=GK;const p=G.proj('deathrun','Deathrun',{sky:'#26
   seg(30);const boulder=P({name:'TrapBoulder',shape:'ball',pos:[0,Y+3,-500],size:[8,8,8],color:'#6d4c41',material:'Slate',behavior:'kill'});const bZ=z+30;
   // 6 laser gate
   seg(6);const laserZ=z-2;const laser=P({name:'TrapLaser',pos:[0,Y-8,laserZ],size:[12,6,.6],color:'#e040fb',material:'Neon',behavior:'kill',canCollide:false});seg(10);
+  // 7 hammer that swings across the path
+  const hamZ=z-5;P({name:'Path',pos:[0,Y,hamZ],size:[12,1,10],color:'#546e7a',material:'Concrete'});P({name:'TrapHammer',pos:[-16,Y+2.5,hamZ],size:[6,4,2.4],color:'#6d4c41',material:'Metal',behavior:'kill'});z-=10;seg(6);
+  // 8 crumbling bridge over the lava
+  const brZ=z-8;const BRM=G.model(p,'TrapBridge').id;for(let i=0;i<4;i++)G.part(p,BRM,{name:'Plank',pos:[0,Y,brZ+6-i*4],size:[12,1,3.8],color:'#8d6e63',material:'Wood'});z-=16;seg(8);
   const fin=P({name:'Finish',pos:[0,Y,z-8],size:[16,1,16],color:'#ffd740',material:'Neon',label:'FINISH'});const finZ=z-8;
   P({name:'Below',pos:[0,Y-20,-140],size:[60,1,320],color:'#ff3d00',material:'Neon',behavior:'kill'});
   // Death's control room above the course with six buttons
   const roomZ=-80;P({name:'DeathRoom',pos:[22,Y+14,roomZ],size:[14,1,40],color:'#212121',material:'Metal',label:"DEATH'S ROOM"});
   const TRAPZ=[drop,spikes,sweep,lava,boulder,laser].map(t=>t.pos[2]);
-  [drop.pos[2],spikeZ,sweepZ,lavaZ,bZ-15,laserZ].forEach((mz,i)=>P({name:'Mark'+(i+1),pos:[0,Y+2,mz+(i===4?0:4)],size:[1,1,1],color:'#000000',transparency:1,canCollide:false}));
-  const ROLE='vdeath',RQ=k=>'vtrap'+k,DONE=k=>'vtrapdone'+k,KV=[['death',ROLE],...[1,2,3,4,5,6].map(k=>['trap request '+k,RQ(k)]),...[1,2,3,4,5,6].map(k=>['trap done '+k,DONE(k)])];
-  [1,2,3,4,5,6].forEach(k=>{const b=G.part(p,'workspace',{name:'Button'+k,pos:[18,Y+15,roomZ-17+k*5],size:[3,.6,3],color:'#d50000',material:'Neon',label:String(k)});
+  [drop.pos[2],spikeZ,sweepZ,lavaZ,bZ-15,laserZ,hamZ,brZ].forEach((mz,i)=>P({name:'Mark'+(i+1),pos:[0,Y+2,mz+(i===4?0:4)],size:[1,1,1],color:'#000000',transparency:1,canCollide:false}));
+  const ROLE='vdeath',RQ=k=>'vtrap'+k,DONE=k=>'vtrapdone'+k,KV=[['death',ROLE],...TR.map(k=>['trap request '+k,RQ(k)]),...TR.map(k=>['trap done '+k,DONE(k)])];
+  TR.forEach(k=>{const b=G.part(p,'workspace',{name:'Button'+k,pos:[18,Y+15,roomZ-20+k*4.5],size:[3,.6,3],color:'#d50000',material:'Neon',label:String(k)});
     G.vars(G.script(p,b.id,'Press',blk('ev_touch'),G.iff(G.cmp(G.vget(ROLE),'EQ',G.myId()),G.shChg(RQ(k),1),G.sound('click'),G.msg('Trap '+k+'!',1),G.wait(2))),KV);});
   const deathBot=rigNode({name:'Death',pos:[26,Y+17.1,roomZ],scale:1.3,health:9999,respawn:0,walkSpeed:0,colors:{head:'#212121',torso:'#000000',arms:'#212121',legs:'#000000'}});p.nodes.push(deathBot);
   // trap actions (host)
@@ -3515,14 +3546,16 @@ function deathrunDef(){const G=GK;const p=G.proj('deathrun','Deathrun',{sky:'#26
     3:[blk('p_setpos',{PART:G.pnamed('TrapSweep'),X:bn(-8),Y:bn(Y+1.6),Z:bn(TRAPZ[2])}),blk('p_glide',{PART:G.pnamed('TrapSweep'),X:bn(16),Y:bn(0),Z:bn(0),S:bn(1)}),blk('p_setpos',{PART:G.pnamed('TrapSweep'),X:bn(-30),Y:bn(Y+1.6),Z:bn(TRAPZ[2])})],
     4:[blk('p_glide',{PART:G.pnamed('TrapLava'),X:bn(0),Y:bn(3.6),Z:bn(0),S:bn(.6)}),G.wait(2.5),blk('p_glide',{PART:G.pnamed('TrapLava'),X:bn(0),Y:bn(-3.6),Z:bn(0),S:bn(.8)})],
     5:[blk('p_setpos',{PART:G.pnamed('TrapBoulder'),X:bn(0),Y:bn(Y+4.5),Z:bn(bZ-30)}),blk('p_glide',{PART:G.pnamed('TrapBoulder'),X:bn(0),Y:bn(0),Z:bn(32),S:bn(1.6)}),blk('p_setpos',{PART:G.pnamed('TrapBoulder'),X:bn(0),Y:bn(Y+3),Z:bn(-500)})],
+    7:[blk('p_setpos',{PART:G.pnamed('TrapHammer'),X:bn(-9),Y:bn(Y+2.5),Z:bn(hamZ)}),blk('p_glide',{PART:G.pnamed('TrapHammer'),X:bn(18),Y:bn(0),Z:bn(0),S:bn(.7)}),blk('p_glide',{PART:G.pnamed('TrapHammer'),X:bn(-18),Y:bn(0),Z:bn(0),S:bn(.7)}),blk('p_setpos',{PART:G.pnamed('TrapHammer'),X:bn(-16),Y:bn(Y+2.5),Z:bn(hamZ)})],
+    8:[blk('p_color',{PART:G.mnamed('TrapBridge')},{COLOUR:'#ff7043'}),G.wait(.4),blk('p_collide',{PART:G.mnamed('TrapBridge')},{B:'FALSE'}),blk('p_transp',{PART:G.mnamed('TrapBridge')},{V:bn(.85)}),G.wait(2.5),blk('p_collide',{PART:G.mnamed('TrapBridge')},{B:'TRUE'}),blk('p_transp',{PART:G.mnamed('TrapBridge')},{V:bn(0)}),blk('p_color',{PART:G.mnamed('TrapBridge')},{COLOUR:'#8d6e63'})],
     6:[blk('p_setpos',{PART:G.pnamed('TrapLaser'),X:bn(0),Y:bn(Y+3.5),Z:bn(TRAPZ[5])}),G.wait(2),blk('p_setpos',{PART:G.pnamed('TrapLaser'),X:bn(0),Y:bn(Y-8),Z:bn(TRAPZ[5])})]};
-  [1,2,3,4,5,6].forEach(k=>{G.vars(G.hscript(p,'sss','Trap '+k,blk('ev_start'),G.vset(DONE(k),G.num(0)),G.forever(G.until(G.cmp(G.vget(RQ(k)),'GT',G.vget(DONE(k)))),G.vset(DONE(k),G.vget(RQ(k))),G.sound('explode'),...ACT[k],G.wait(3.5))),KV);});
+  TR.forEach(k=>{G.vars(G.hscript(p,'sss','Trap '+k,blk('ev_start'),G.vset(DONE(k),G.num(0)),G.forever(G.until(G.cmp(G.vget(RQ(k)),'GT',G.vget(DONE(k)))),G.vset(DONE(k),G.vget(RQ(k))),G.sound('explode'),...ACT[k],G.wait(3.5))),KV);});
   // a bot Death springs traps when a runner is close; only if there are fewer than 3 players
   G.vars(G.hscript(p,'sss','Death bot',blk('ev_start'),G.forever(G.wait(.25),G.iff(G.cmp(G.vget(ROLE),'EQ',G.txt('bot')),
-    ...[1,2,3,4,5,6].map((k,i)=>G.iff(G.AND(G.cmp(G.vget(RQ(k)),'EQ',G.vget(DONE(k))),G.cmp({block:{type:'s_near_dist',inputs:{PART:G.pnamed('Mark'+k)}}},'LT',G.num(k===5?24:9))),
-      G.iff(G.cmp(G.rnd(1,3),'LTE',G.num(2)),G.vchg(RQ(k),1),blk('rig_say',{PART:G.pnamed('Death'),TEXT:bt(['Bye!','Spikes!','Swing!','Hot!','Rolling!','Zap!'][i]),S:bn(1)})),G.wait(.6)))))),KV);
+    ...TR.map((k,i)=>G.iff(G.AND(G.cmp(G.vget(RQ(k)),'EQ',G.vget(DONE(k))),G.cmp({block:{type:'s_near_dist',inputs:{PART:G.pnamed('Mark'+k)}}},'LT',G.num(k===5?24:9))),
+      G.iff(G.cmp(G.rnd(1,3),'LTE',G.num(2)),G.vchg(RQ(k),1),blk('rig_say',{PART:G.pnamed('Death'),TEXT:bt(['Bye!','Spikes!','Swing!','Hot!','Rolling!','Zap!','BONK!','Crumble!'][i]),S:bn(1)})),G.wait(.6)))))),KV);
   const MV=G.matchFlags(p);
-  G.vars(G.hscript(p,'sss','Pick Death',G.onMsg('round start'),...[1,2,3,4,5,6].map(k=>[G.vset(RQ(k),G.num(0)),G.vset(DONE(k),G.num(0))]).flat(),
+  G.vars(G.hscript(p,'sss','Pick Death',G.onMsg('round start'),...TR.map(k=>[G.vset(RQ(k),G.num(0)),G.vset(DONE(k),G.num(0))]).flat(),
     G.ifElse(G.cmp(G.players(),'GTE',G.num(3)),[G.vset(ROLE,G.idOf(G.pref('randplaying'))),G.asP(G.byId(G.vget(ROLE)),G.tp(22,Y+16,roomZ),G.msg('You are DEATH! Step on the red buttons to spring traps on the runners.',5)),
       blk('p_visible',{PART:G.pnamed('Death')},{B:'FALSE'})],[G.vset(ROLE,G.txt('bot')),blk('p_visible',{PART:G.pnamed('Death')},{B:'TRUE'}),G.msg('Death is watching... run!',3)])),[...KV,...MV]);
   G.vars(G.script(p,fin.id,'Finish',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.cmp(G.stat('Finished'),'EQ',G.num(0))),G.sset('Finished',1),G.sadd('Score',10),G.sound('win'),G.msg('You beat Deathrun! +10 coins',3),blk('pl_coins',{N:bn(10)}))),[...KV,...MV]);
@@ -3599,6 +3632,17 @@ function hideSeekDef(){const G=GK;const p=G.proj('hideseek','Hide and Seek',{sky
   G.vars(G.script(p,'sss','Survived',G.onMsg('round end'),blk('pl_freeze',null,{B:'FALSE'}),blk('g_sky',null,{COLOUR:'#a5d6f7'}),
     G.iff(G.AND(G.NOT(amSeeker()),G.cmp(G.vget(CG),'EQ',G.num(0))),G.sadd('Score',30),G.sound('win'),G.msg('Nobody found you! +30 points, +10 coins',3),blk('pl_coins',{N:bn(10)}))),[...VARS,['caught',CG]]);
   G.vars(G.script(p,'sss','All found',G.onMsg('all found'),G.iff(amSeeker(),G.sadd('Score',20),G.sound('win'),G.msg('You found everyone! +20',3))),VARS);
+  // radar: every 20 seconds of seeking, every hider still hidden shows a speech bubble
+  G.vars(G.hscript(p,'sss','Radar',G.onMsg('seek'),G.whileDo(G.AND(G.inMatch(),eq(RD,2)),G.wait(20),G.iff(G.AND(G.inMatch(),eq(RD,2)),G.bc('radar')))),VARS);
+  G.vars(G.script(p,'sss','Pinged',G.onMsg('radar'),G.ifElse(amSeeker(),[G.sound('check'),G.msg('📡 RADAR PING! Look for the speech bubbles!',2)],
+    [G.iff(G.cmp(G.vget(CG),'EQ',G.num(0)),G.sound('click'),G.msg('📡 The seeker pinged the radar. Your bubble is showing!',2),blk('pl_say',{TEXT:bt('📡 here!'),S:bn(2.5)}))])),[...VARS,['caught',CG]]);
+  [1,2,3,4].forEach(k=>G.vars(G.hscript(p,G.pnamed?'sss':'sss','Bot ping '+k,G.onMsg('radar'),G.iff(G.AND(G.cmp(G.num(k),'LTE',G.vget(NB)),eq(FB(k),0)),blk('rig_say',{PART:G.pnamed('Hider'+k),TEXT:bt('📡 here!'),S:bn(2.5)}))),VARS));
+  // taunt: risky points for brave hiders
+  const tn={id:uid(),cls:'Tool',name:'Taunt',parent:'rs',tooltip:'+5 points, but everyone hears you! (10s recharge)',cooldown:10,swing:false};
+  const th=partNode({parent:tn.id,name:'Handle',shape:'ball',pos:[0,3,0],size:[.8,.8,.8],color:'#ff4081',material:'Neon'});tn.handle=th.id;p.nodes.push(tn,th);
+  G.vars(G.script(p,tn.id,'Taunt',blk('ev_tool_act'),G.iff(G.AND(eq(RD,2),G.cmp(G.vget(CG),'EQ',G.num(0))),G.sadd('Score',5),G.sound('boost'),blk('pl_say',{TEXT:bt('Nya nya! Can\'t find me!'),S:bn(2.5)}))),[...VARS,['caught',CG]]);
+  G.vars(G.script(p,'sss','Give taunt',G.onMsg('hide'),blk('tool_take',null,{NAME:'Taunt'}),G.iff(G.NOT(amSeeker()),blk('tool_give',null,{NAME:'Taunt'}))),VARS);
+  G.script(p,'sss','Take taunt',G.onMsg('round end'),blk('tool_take',null,{NAME:'Taunt'}));
   G.welcome(p,G.sset('Score',0),G.msg('Hide and Seek: one seeker, everyone else hides. Bots join when players are short.',5));
   return G.def(p,'hideseek','Hide and Seek');}
 
@@ -3639,6 +3683,11 @@ function evadeDef(){const G=GK;const p=G.proj('evade','Evade',{sky:'#4a148c',fog
   G.vars(G.hscript(p,'sss','Waves',G.onMsg('round start'),G.vset(NA,G.num(0)),G.msg('Nextbots are coming. Keep moving, use jump pads and pick up downed friends!',4),G.wait(5),
     G.whileDo(G.AND(G.inMatch(),G.cmp(G.vget(NA),'LT',G.num(6))),G.vchg(NA,1),G.msg(G.join('A nextbot has appeared! (',G.vget(NA),')'),2),G.wait(20))),VARS);
   G.vars(G.hscript(p,'sss','Clear',G.onMsg('round end'),G.vset(NA,G.num(0))),VARS);
+  // the Ghast blinks next to a random runner every 15 seconds; the Screamer gets a burst of speed
+  G.vars(G.hscript(p,'sss','Ghast blink',G.onMsg('round start'),G.wait(30),G.whileDo(G.inMatch(),G.wait(15),G.iff(G.cmp(G.vget(NA),'GTE',G.num(5)),
+    G.vset('vgt',G.idOf(G.pref('randplaying'))),blk('p_setpos',{PART:G.pnamed('Ghast'),X:G.arith('ADD',G.axOf(G.byId(G.vget('vgt')),'x'),G.rnd(-25,25)),Y:bn(4),Z:G.arith('ADD',G.axOf(G.byId(G.vget('vgt')),'z'),G.rnd(-25,25))}),G.bc('ghast blink')))),VARS);
+  G.script(p,'sss','Blink msg',G.onMsg('ghast blink'),G.sound('die'),G.msg('👻 The Ghast blinked somewhere nearby...',2));
+  G.vars(G.hscript(p,'sss','Screamer burst',G.onMsg('round start'),G.whileDo(G.inMatch(),G.wait(G.rnd(8,14)),G.iff(G.cmp(G.vget(NA),'GTE',G.num(2)),blk('rig_speed',{PART:G.pnamed('Screamer'),N:bn(24)}),blk('rig_say',{PART:G.pnamed('Screamer'),TEXT:bt('AAAAAAAAA!'),S:bn(2)}),G.wait(2.5),blk('rig_speed',{PART:G.pnamed('Screamer'),N:bn(15.8)})))),VARS);
   G.welcome(p,G.sset('Score',0),G.msg('Evade: run from the nextbots! Downed players can be picked up by teammates.',5));
   G.best(p,'Score','evade_best');
   return G.def(p,'evade','Evade');}
@@ -3693,7 +3742,7 @@ function planeCrashDef(){const G=GK;const p=G.proj('planecrash','Plane Crash',{s
     G.wait(10),G.vset(ST,G.num(3)),G.bc('door open'),blk('p_collide',{PART:G.pnamed('EmergencyDoor')},{B:'FALSE'}),blk('p_transp',{PART:G.pnamed('EmergencyDoor')},{V:bn(1)}),
     G.wait(15),G.vset(ST,G.num(4)),G.bc('crash'),blk('pe_toggle',{PART:G.pnamed('Engine')},{B:'FALSE'}),
     blk('p_setpos',{PART:G.pnamed('WreckFire'),X:bn(-30),Y:bn(2),Z:bn(10)}),
-    G.wait(40),G.vset(ST,G.num(5)),G.bc('rescue'),blk('p_setpos',{PART:G.pnamed('Helicopter'),X:bn(40),Y:bn(80),Z:bn(80)}),blk('p_glide',{PART:G.pnamed('Helicopter'),X:bn(0),Y:bn(-63.5),Z:bn(0),S:bn(5)}),
+    G.vset('vflare',G.num(0)),G.vset('vwt',G.num(0)),blk('controls_whileUntil',{BOOL:G.OR(G.cmp(G.vget('vwt'),'GTE',G.num(40)),G.cmp(G.vget('vflare'),'EQ',G.num(1))),DO:doIn(G.wait(1),G.vchg('vwt',1))},{MODE:'UNTIL'}),G.vset(ST,G.num(5)),G.bc('rescue'),blk('p_setpos',{PART:G.pnamed('Helicopter'),X:bn(40),Y:bn(80),Z:bn(80)}),blk('p_glide',{PART:G.pnamed('Helicopter'),X:bn(0),Y:bn(-63.5),Z:bn(0),S:bn(5)}),
     G.wait(25),G.bc('heli leaving'),blk('p_glide',{PART:G.pnamed('Helicopter'),X:bn(0),Y:bn(90),Z:bn(-60),S:bn(4)})),[...VARS,['packs','vnpk']]);
   G.vars(G.hscript(p,'sss','Wreck appears',G.onMsg('crash'),blk('p_glide',{PART:G.mnamed('Wreck'),X:bn(0),Y:bn(300),Z:bn(0),S:bn(0)}),G.wait(1),blk('p_break',{X:bn(-30),Y:bn(2),Z:bn(10),R:bn(18),P:bn(60)})),VARS);
   G.vars(G.hscript(p,'sss','Wreck resets',G.onMsg('round start'),G.iff(G.cmp(G.prop(G.mnamed('Wreck'),'y'),'GT',G.num(-100)),blk('p_glide',{PART:G.mnamed('Wreck'),X:bn(0),Y:bn(-300),Z:bn(0),S:bn(0)}))),VARS);
@@ -3720,6 +3769,16 @@ function planeCrashDef(){const G=GK;const p=G.proj('planecrash','Plane Crash',{s
   G.vars(G.script(p,heli.id,'Board',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.AND(G.cmp(G.stat('Rescued'),'EQ',G.num(0)),eq(ST,5))),G.sset('Rescued',1),G.sadd('Points',50),G.sound('win'),G.msg('RESCUED! +50 points, +15 coins. You survived the plane crash!',5),blk('pl_coins',{N:bn(15)}),G.tp(0,PY+3,0))),VARS);
   G.vars(G.script(p,'sss','Left behind',G.onMsg('heli leaving'),G.iff(G.AND(G.aliveIn(),G.cmp(G.stat('Rescued'),'EQ',G.num(0))),G.msg('The helicopter left without you... at least you are alive. +5',4),G.sadd('Points',5))),VARS);
   G.vars(G.script(p,'sss','Hot wreck',blk('ev_start'),G.forever(G.iff(G.AND(G.aliveIn(),G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('WreckFire')}}},'LT',G.num(9))),blk('pl_damage',{N:bn(8)}),G.msg('Too hot! Move away from the fire.',1)),G.wait(.5))),VARS);
+  // other passengers panic with you
+  const PCOL=['#ef5350','#ab47bc','#26a69a','#ffa726','#8d6e63','#42a5f5'],LINES={turbulence:['Whoa!','Hold on!','I want my mom!','This is fine...','Seatbelts!','Eek!'],'engine fire':['FIRE!!','We are going down!','Is that normal?!','Mayday!','Not again...','AAAH!'],'door open':['JUMP!','Grab a parachute!','I am staying put!','Brace!','Go go go!','Bye!']};
+  for(let k=0;k<6;k++){const sx=k%2?4.5:-4.5,z=-26+(k+2)*5.2;const r=rigNode({name:'Passenger'+(k+1),pos:[sx,PY+3.2,z],scale:.9,health:999,respawn:0,walkSpeed:0,colors:{head:'#ffcc80',torso:PCOL[k],arms:'#ffcc80',legs:'#37474f'}});p.nodes.push(r);
+    Object.entries(LINES).forEach(([ev,ls])=>G.hscript(p,r.id,'Panic '+ev,G.onMsg(ev),G.wait(k*.4),blk('rig_say',{PART:bme(),TEXT:bt(ls[k]),S:bn(2.5)})));
+    G.hscript(p,r.id,'Gone',G.onMsg('crash'),blk('p_visible',{PART:bme()},{B:'FALSE'}));G.hscript(p,r.id,'Back',G.onMsg('round start'),blk('p_visible',{PART:bme()},{B:'TRUE'}));}
+  // supply crates on the island: food heals, and a flare brings the helicopter sooner
+  [[-50,20,'FOOD'],[30,0,'FOOD'],[-10,70,'FLARE']].forEach(([x,z,kind],i)=>{const c=I({name:'Crate'+i,pos:[x,2.2,z],size:[3,3,3],color:kind==='FLARE'?'#d50000':'#8d6e63',material:'Wood',label:kind==='FLARE'?'🧨 FLARE':'🍖 FOOD'});
+    G.vars(G.script(p,c.id,'Open',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.cmp(G.vget(ST),'GTE',G.num(4))),
+      ...(kind==='FLARE'?[G.iff(G.cmp(G.vget('vflare'),'EQ',G.num(0)),G.shSet('vflare',G.num(1)),G.sadd('Points',10),G.sound('explode'),G.msg('You fired the FLARE! The helicopter is coming now! +10',3))]
+        :[blk('pl_heal',{N:bn(50)}),G.sound('coin'),G.msg('Food! +50 health',2),blk('p_visible',{PART:bme()},{B:'FALSE'}),G.wait(30),blk('p_visible',{PART:bme()},{B:'TRUE'})]))),[...VARS,['flare','vflare']]);});
   G.welcome(p,G.sset('Points',0),G.msg('Plane Crash: grab a parachute, stay in your seat during turbulence, and survive the crash!',5));
   G.best(p,'Points','plane_best');
   return G.def(p,'planecrash','Plane Crash');}
