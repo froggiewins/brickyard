@@ -3636,8 +3636,19 @@ function murderDef(){const G=GK;const p=G.proj('murder','Murder Mystery',{sky:'#
     [['Throne',0,-30,8,6,4,'#e1f5fe'],['IceSculpture',-36,-6,4,7,4,'#b2ebf2'],['IceSculpture',36,6,4,7,4,'#b2ebf2'],['Snowman',-10,24,4,6,4,'#fafafa'],['Sled',30,30,6,1.4,3,'#d32f2f'],
      ['Igloo',-36,28,10,5,10,'#ffffff'],['Crystal',10,-10,3,9,3,'#80deea'],['Crystal',-12,8,3,6,3,'#80deea'],['Table',36,-28,8,3,5,'#90a4ae'],['Presents',0,10,4,3,4,'#ab47bc']].forEach(([nm,x,z2,w,h,d,c])=>Q({name:nm,pos:[OX+x,h/2,z2],size:[w,h,d],color:c,material:nm==='Crystal'?'Neon':'Ice'}));
     for(let i=0;i<10;i++)Q({name:'Lamp',pos:[OX-40+i*9,9.6,i%2?-30:30],size:[1.2,.6,1.2],color:'#b3e5fc',material:'Neon'});}
+  // third map: the Cruise Ship, 600 studs east
+  {const OX=600,M3=G.folder(p,'Cruise Ship').id;const Q=o=>G.part(p,M3,o);
+    Q({name:'Ocean',pos:[OX,-2,0],size:[300,1,300],color:'#0277bd',material:'Glass',transparency:.2,canCollide:false});
+    Q({name:'Hull',pos:[OX,-3,0],size:[100,6,76],color:'#fafafa',material:'Metal'});Q({name:'Deck',pos:[OX,.1,0],size:[96,.2,72],color:'#bcaaa4',material:'Wood'});
+    const w3=(x,z2,w,d,col)=>Q({name:'Wall',pos:[OX+x,5,z2],size:[w,10,d],color:col||'#eceff1',material:'Metal'});
+    w3(0,-36,96,1,'#90caf9');w3(0,36,96,1,'#90caf9');w3(-48,0,1,72,'#90caf9');w3(48,0,1,72,'#90caf9');
+    for(let i=0;i<4;i++){w3(-36+i*24,-20,1,16,'#cfd8dc');w3(-36+i*24,20,1,16,'#cfd8dc');}
+    Q({name:'Pool',pos:[OX,.2,0],size:[16,.2,10],color:'#4fc3f7',material:'Glass',transparency:.3,canCollide:false});
+    [['Lifeboat',-40,-30,8,3,4,'#ff7043'],['Lifeboat',40,30,8,3,4,'#ff7043'],['DeckChair',8,8,2,1.5,5,'#ffca28'],['DeckChair',-8,-8,2,1.5,5,'#ffca28'],['Bar',30,-6,10,3.5,3,'#6d4c41'],
+     ['Funnel',-20,0,6,9,6,'#d32f2f'],['Piano',20,24,6,4,4,'#212121'],['Crate',-36,28,4,4,4,'#a1764b'],['Table',0,-28,8,3,5,'#795548'],['Wheel',44,0,2,4,4,'#8d6e63']].forEach(([nm,x,z2,w,h,d,c])=>Q({name:nm,pos:[OX+x,h/2,z2],size:[w,h,d],color:c,material:'Wood'}));
+    for(let i=0;i<10;i++)Q({name:'Lamp',pos:[OX-40+i*9,9.6,i%2?-30:30],size:[1.2,.6,1.2],color:'#fff9c4',material:'Neon'});}
   const MOX='vmox',MOXV=[['map x',MOX]];
-  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(MOX,G.num(0))],[G.vset(MOX,G.num(300))])),MOXV);
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.vset(MOX,G.arith('MULTIPLY',G.rnd(0,2),G.num(300)))),MOXV);
   const ox=v=>G.arith('ADD',typeof v==='number'?G.num(v):v,G.vget(MOX));VARS.push(...MOXV);
   const SPOTS=[[-34,-28],[34,-24],[-34,24],[34,28],[0,-2]];
   for(let k=1;k<=5;k++){const r=rigNode({name:'Bot'+k,pos:[SPOTS[k-1][0],2.6,SPOTS[k-1][1]],health:100,respawn:2,walkSpeed:13,colors:{head:'#ffcc80',torso:BCOLS[k-1],arms:'#ffcc80',legs:'#37474f'}});p.nodes.push(r);
@@ -3682,7 +3693,7 @@ function murderDef(){const G=GK;const p=G.proj('murder','Murder Mystery',{sky:'#
       G.iff(G.AND(eq(MB,1),G.cmp(G.arith('ADD',nPl,G.arith('MINUS',G.vget(AB),G.num(1))),'LTE',G.num(0))),G.vset(OV,G.num(1)),G.msg('Everyone is gone. The murderer bot wins!',4)))},{MODE:'UNTIL'})),VARS);
   G.vars(G.hscript(p,'sss','Murderer down',G.onMsg('murderer down'),G.iff(eq(OV,0),G.vset(OV,G.num(1)),G.msg('The murderer is down! Innocents win!',4),G.bc('innocents win'))),VARS);
   G.vars(G.script(p,'sss','Murderer died',blk('ev_died'),G.iff(G.AND(eq(MU,G.myId()),eq(OV,0)),G.shSet(OV,G.num(1)),G.msg('You were caught! Innocents win.',3),G.bc('innocents win'))),VARS);
-  G.vars(G.script(p,'sss','Your role',G.onMsg('roles'),blk('pl_tpxyz',{X:ox(G.rnd(-30,30)),Y:bn(3),Z:G.rnd(-20,20)}),G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#22253a'})],[blk('g_sky',null,{COLOUR:'#4a6fa5'}),G.msg('Map: ICE PALACE',2)]),
+  G.vars(G.script(p,'sss','Your role',G.onMsg('roles'),blk('pl_tpxyz',{X:ox(G.rnd(-30,30)),Y:bn(3),Z:G.rnd(-20,20)}),G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#22253a'})],[G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(300)),[blk('g_sky',null,{COLOUR:'#4a6fa5'}),G.msg('Map: ICE PALACE',2)],[blk('g_sky',null,{COLOUR:'#ffb74d'}),G.msg('Map: CRUISE SHIP',2)])]),
     G.ifElse(eq(MU,G.myId()),[G.sound('die'),G.msg('You are the MURDERER! Knife (1). Take everyone out without the sheriff catching you.',5),blk('tool_give',null,{NAME:'Knife'})],
       [G.ifElse(eq(SH,G.myId()),[G.sound('check'),G.msg('You are the SHERIFF! Gun (1). Find and shoot the murderer, but never an innocent.',5),blk('tool_give',null,{NAME:'Gun'})],
         [G.msg('You are INNOCENT. Stay alive and help the sheriff find the murderer!',5)])])),VARS);
