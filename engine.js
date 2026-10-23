@@ -3321,11 +3321,24 @@ function flagRaidDef(){const G=GK;const p=G.proj('flagraid','Flag Raid',{sky:'#9
   G.spawnAt(p,0,.6,66,{size:[8,1,8],color:'#1e88e5'});
   for(const t of ['Sword','Healing potion']){const ns=G.prefab(p,t);ns[0].parent='pack';}
   G.prefab(p,'Healing potion',{x:-40,y:2,z:40});G.prefab(p,'Healing potion',{x:40,y:2,z:-5});
-  const CARRY='vcarry',CR='vcarriers',RE='vreinforce',RS='vrspawned',VARS=[['carrying',CARRY],['carriers',CR],['reinforcements',RE],['reinforcements spawned',RS]];const carrying=G.cmp(G.vget(CARRY),'EQ',G.num(1));
+  // second map: Frozen Valley, 300 studs east. The capture pad and the flag move with the map
+  const ROX='vrox',RV=[['map x',ROX]];const ox=v=>G.arith('ADD',typeof v==='number'?G.num(v):v,G.vget(ROX));
+  {const OX=300,V2=G.folder(p,'Frozen Valley').id;const Q=o=>G.part(p,V2,o);
+    Q({name:'Snowfield',pos:[OX,-1,0],size:[200,2,240],color:'#eceff1',material:'Snow'});
+    [[0,-100,120,2],[0,100,120,2],[-60,0,2,200],[60,0,2,200]].forEach(([x,z2,w,d])=>Q({name:'IceWall',pos:[OX+x,5,z2],size:[w,10,d],color:'#b3e5fc',material:'Ice',transparency:.2}));
+    Q({name:'BlueBase',pos:[OX,.15,80],size:[30,.3,24],color:'#90caf9',material:'Concrete'});Q({name:'RedBase',pos:[OX,.15,-80],size:[30,.3,24],color:'#ef9a9a',material:'Concrete'});
+    Q({name:'River',pos:[OX,.12,0],size:[118,.2,10],color:'#4fc3f7',material:'Ice'});
+    [[-20,0],[20,0]].forEach(([x,z2])=>Q({name:'Bridge',pos:[OX+x,.6,z2],size:[8,1,14],color:'#8d6e63',material:'Wood'}));
+    for(let i=0;i<14;i++){const x=((i*41)%100)-50,z2=((i*67)%160)-80;if(Math.abs(z2)<10||Math.abs(z2)>70)continue;Q({name:'PineTrunk',pos:[OX+x,2,z2],size:[1.2,4,1.2],color:'#5d4037',material:'Wood'});[6,4.4,2.6].forEach((w,j)=>Q({name:'Pine',pos:[OX+x,5+j*2.4,z2],size:[w,2.4,w],color:'#1b5e20',material:'Grass'}));}
+    [[-35,-40],[35,-40],[0,-55]].forEach(([x,z2])=>Q({name:'SnowWall',pos:[OX+x,2,z2],size:[12,4,2],color:'#ffffff',material:'Snow'}));
+    Q({name:'Pole',pos:[OX,4,-84],size:[.5,8,.5],color:'#eeeeee',material:'Metal'});}
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(ROX,G.num(0)),blk('g_sky',null,{COLOUR:'#9fd4ff'})],[G.vset(ROX,G.num(300)),blk('g_sky',null,{COLOUR:'#cfd8dc'}),G.msg('Map: FROZEN VALLEY',2)]),
+    blk('pl_tpxyz',{X:ox(G.rnd(-6,6)),Y:bn(3),Z:bn(66)})),RV);
+  const CARRY='vcarry',CR='vcarriers',RE='vreinforce',RS='vrspawned',VARS=[...RV,['carrying',CARRY],['carriers',CR],['reinforcements',RE],['reinforcements spawned',RS]];const carrying=G.cmp(G.vget(CARRY),'EQ',G.num(1));
   P({name:'Pole',pos:[0,4,-84],size:[.5,8,.5],color:'#eeeeee',material:'Metal'});
   const flag=G.part(p,'workspace',{name:'RedFlag',pos:[1.5,7,-84],size:[3,2,.3],color:'#e53935',material:'Neon',canCollide:false,label:'FLAG'});
   p.nodes.push(emitterNode({parent:flag.id,name:'Glow',rate:6},'sparkles'));
-  const home=()=>blk('p_setpos',{PART:G.pnamed('RedFlag'),X:bn(1.5),Y:bn(7),Z:bn(-84)});
+  const home=()=>blk('p_setpos',{PART:G.pnamed('RedFlag'),X:ox(1.5),Y:bn(7),Z:bn(-84)});
   G.vars(G.script(p,flag.id,'Grab',blk('ev_touch'),G.iff(G.AND(G.cmp(G.vget(CARRY),'EQ',G.num(0)),{block:{type:'s_pl_alive'}}),G.vset(CARRY,G.num(1)),G.shChg(CR,1),G.sound('check'),
     G.msg('You grabbed the flag! Bring it back to your blue base! Every guard is coming for you...',2.5),blk('p_label',{PART:bme(),TEXT:bt('')}))),VARS);
   G.vars(G.script(p,flag.id,'Follow',blk('ev_start'),G.forever(G.iff(carrying,blk('p_setpos',{PART:bme(),X:G.arith('ADD',G.ppos('x'),G.num(.8)),Y:G.arith('ADD',G.ppos('y'),G.num(3.4)),Z:G.ppos('z')})),G.wait(0))),VARS);
@@ -3338,16 +3351,16 @@ function flagRaidDef(){const G=GK;const p=G.proj('flagraid','Flag Raid',{sky:'#9
     const near=G.AND(G.cmp(G.nearD(bme()),'LT',G.num(26)),G.cmp(G.nearAx(bme(),'z'),'LT',G.num(10)));
     const alarm=G.AND(G.cmp(G.vget(CR),'GT',G.num(0)),G.cmp(G.nearD(bme()),'LT',G.num(60)));
     G.vars(G.hscript(p,r.id,'Guard',blk('ev_start'),G.wait(2),G.forever(G.ifElse(G.OR(alarm,near),
-      [G.walkN(bme()),G.wait(.2)],[blk('rig_walk',{PART:bme(),X:G.rnd(-28,28),Z:G.rnd(-90,-35)}),G.wait(G.rnd(0,2))]))),VARS);
+      [G.walkN(bme()),G.wait(.2)],[G.iff(G.OR(G.cmp(G.prop(bme(),'x'),'GT',ox(100)),G.cmp(G.prop(bme(),'x'),'LT',ox(-100))),blk('p_setpos',{PART:bme(),X:ox(G.rnd(-20,20)),Y:bn(2.6),Z:bn(-60)})),blk('rig_walk',{PART:bme(),X:ox(G.rnd(-28,28)),Z:G.rnd(-90,-35)}),G.wait(G.rnd(0,2))]))),VARS);
     G.vars(G.script(p,r.id,'Tackle',blk('ev_touch'),blk('pl_damage',{N:bn(25)}),blk('pl_knock',{WHO:bme(),P:bn(70)},{RAG:'TRUE'}),G.sound('explode'),G.wait(1.5)),VARS);
     G.script(p,r.id,'KO',blk('ev_rig_died'),G.sadd('KOs',1),G.sound('coin'));return r;};
   [[-12,-60,12],[12,-60,12],[0,-40,13],[30,-30,11]].forEach(([x,z,sp])=>guard('Guard','workspace',[x,2.6,z],sp));
   guard('Reinforcement','rs',[0,2.6,0],14);
   G.vars(G.hscript(p,'sss','Reinforce',blk('ev_start'),G.vset(RS,G.num(0)),G.forever(G.iff(G.cmp(G.vget(RE),'GT',G.vget(RS)),G.vchg(RS,1),
-    G.iff(G.cmp(G.vget(RS),'LTE',G.num(12)),blk('rs_copy',{X:G.rnd(-20,20),Y:bn(2.6),Z:bn(-70)},{NAME:'Reinforcement'}))),G.wait(.5))),VARS);
+    G.iff(G.cmp(G.vget(RS),'LTE',G.num(12)),blk('rs_copy',{X:ox(G.rnd(-20,20)),Y:bn(2.6),Z:bn(-70)},{NAME:'Reinforcement'}))),G.wait(.5))),VARS);
   G.vars(G.script(p,'sss','Dropped',blk('ev_died'),G.iff(carrying,G.vset(CARRY,G.num(0)),G.shChg(CR,-1),home(),blk('p_label',{PART:G.pnamed('RedFlag'),TEXT:bt('FLAG')}),G.msg('You dropped the flag! It went back to the red base.',3)),
     G.msg('Tackled! Back to your base.',2)),VARS);
-  G.vars(G.script(p,'sss','New match',G.onMsg('round start'),G.vset(CARRY,G.num(0)),home(),blk('p_label',{PART:G.pnamed('RedFlag'),TEXT:bt('FLAG')}),G.msg('Most flag captures in 3 minutes wins!',3)),VARS);
+  G.vars(G.script(p,'sss','New match',G.onMsg('round start'),G.wait(.05),blk('p_setpos',{PART:G.pnamed('CapturePad'),X:ox(0),Y:bn(.4),Z:bn(84)}),G.vset(CARRY,G.num(0)),home(),blk('p_label',{PART:G.pnamed('RedFlag'),TEXT:bt('FLAG')}),G.msg('Most flag captures in 3 minutes wins!',3)),VARS);
   G.vars(G.hscript(p,'sss','New match (host)',G.onMsg('round start'),G.vset(CR,G.num(0)),G.vset(RE,G.num(0)),G.vset(RS,G.num(0)),
     blk('controls_repeat_ext',{TIMES:bn(30),DO:doIn(blk('p_destroy',{PART:G.pnamed('Reinforcement')}))})),VARS);
   G.vars(G.script(p,'sss','Match over',G.onMsg('round end'),G.vset(CARRY,G.num(0)),home(),blk('p_label',{PART:G.pnamed('RedFlag'),TEXT:bt('FLAG')})),VARS);
