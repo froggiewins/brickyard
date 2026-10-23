@@ -2048,7 +2048,8 @@ function handleTouch(p){
 }
 
 /* ---------- builder (Free Build) ---------- */
-const B={tool:'build',size:2,color:'#e53935',ghost:null,clearArm:0};
+const B={tool:'build',size:2,color:'#e53935',ghost:null,clearArm:0,fin:0,undo:[]};
+const BFIN=[{},{neon:true},{transparency:.45},{metal:.7}];
 const BCOLORS=['#e53935','#fb8c00','#fdd835','#7cb342','#00897b','#1e88e5','#5e35b1','#d81b60','#f5f5f5','#455a64','#6d4c41','#111418'];
 const raycaster=new THREE.Raycaster(),ndc=new THREE.Vector2();
 function pickAt(e,filter){const r=cv.getBoundingClientRect();ndc.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
@@ -2060,7 +2061,13 @@ function canPlace(c,s){const h=s/2-.02;const mn=new V3(c.x-h,c.y-h,c.z-h),mx=new
   for(const p of W.solids){if(p.noCollide)continue;if(mn.x<p.max.x&&mx.x>p.min.x&&mn.y<p.max.y&&mx.y>p.min.y&&mn.z<p.max.z&&mx.z>p.min.z)return false;}
   if(mn.x<P.pos.x+PH.x&&mx.x>P.pos.x-PH.x&&mn.y<P.pos.y+PH.y&&mx.y>P.pos.y-PH.y&&mn.z<P.pos.z+PH.z&&mx.z>P.pos.z-PH.z)return false;
   return c.y>0&&Math.abs(c.x)<128&&Math.abs(c.z)<128;}
-function placeBrick(x,y,z,s,color){const p=block(x,y,z,s,s,s,color);p.data.built=true;p.data.rec=[x,y,z,s,color];return p;}
+function placeBrick(x,y,z,s,color,fin){fin=BFIN[fin]?+fin:0;const p=block(x,y,z,s,s,s,color,Object.assign({},BFIN[fin]));p.data.built=true;p.data.rec=[x,y,z,s,color,fin];return p;}
+function buildSnap(){if(MP.world)return;B.undo.push(W.parts.filter(p=>p.data.built).map(p=>p.data.rec.slice()));if(B.undo.length>40)B.undo.shift();}
+function buildUndo(){if(MP.world){toast('Undo works in your own builds','#ff9aa4');return;}const prev=B.undo.pop();if(!prev){SFX.nope();toast('Nothing to undo','#9fb0cc',1);return;}
+  W.parts.filter(p=>p.data.built).forEach(removePart);prev.forEach(r=>placeBrick(r[0],r[1],r[2],r[3],r[4],r[5]));SFX.del();saveBuild();}
+$('#bundo')&&$('#bundo').addEventListener('click',()=>{buildUndo();cv.focus({preventScroll:true});});
+$('#bfinish')&&$('#bfinish').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;B.fin=+b.dataset.fin;$('#bfinish').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
+addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'&&running&&game&&game.mode==='build'){e.preventDefault();buildUndo();}});
 function saveBuild(){if(MP.world){setStat(W.parts.filter(p=>p.data.built).length+' blocks');return;}store.set('build',W.parts.filter(p=>p.data.built).map(p=>p.data.rec));setStat(W.parts.filter(p=>p.data.built).length+' blocks');}
 function removePart(p){scene.remove(p.mesh);removeFrom(W.parts,p);removeFrom(W.solids,p);}
 function builderClick(e){
@@ -2072,9 +2079,9 @@ function builderClick(e){
     else if(B.tool==='paint'){if(part&&part.data.docId){SFX.place();const id=part.data.docId,col=B.color;worldWrite(()=>MP.world.doc(id).update({c:col}));}else SFX.nope();}
     updateGhost(e);return;}
   if(B.tool==='pick'){const c=part&&part.mesh&&part.mesh.material&&part.mesh.material.color?'#'+part.mesh.material.color.getHexString():null;if(c){setBColor(c,!BCOLORS.includes(c));SFX.click();toast('Picked '+c,c,1.2);setBTool('build');}else SFX.nope();updateGhost(e);return;}
-  if(B.tool==='build'){const c=cellFor(hit);if(!canPlace(c,B.size)){SFX.nope();return;}placeBrick(c.x,c.y,c.z,B.size,B.color);SFX.place();saveBuild();}
-  else if(B.tool==='delete'){if(part&&part.data.built){removePart(part);SFX.del();saveBuild();}else SFX.nope();}
-  else if(B.tool==='paint'){if(part&&part.data.built){part.mesh.material=mat(B.color);part.data.rec[4]=B.color;SFX.place();saveBuild();}else SFX.nope();}
+  if(B.tool==='build'){const c=cellFor(hit);if(!canPlace(c,B.size)){SFX.nope();return;}buildSnap();placeBrick(c.x,c.y,c.z,B.size,B.color,B.fin);SFX.place();saveBuild();}
+  else if(B.tool==='delete'){if(part&&part.data.built){buildSnap();removePart(part);SFX.del();saveBuild();}else SFX.nope();}
+  else if(B.tool==='paint'){if(part&&part.data.built){buildSnap();const r=part.data.rec;removePart(part);placeBrick(r[0],r[1],r[2],r[3],B.color,B.fin);SFX.place();saveBuild();}else SFX.nope();}
   updateGhost(e);
 }
 function updateGhost(e){
@@ -2130,7 +2137,7 @@ function loadBricks(list){
   const ok=list.filter(r=>Array.isArray(r)&&r.length>=5&&[0,1,2,3].every(i=>isFinite(+r[i]))&&[1,2,4].includes(+r[3])&&/^#[0-9a-f]{6}$/i.test(r[4]));
   if(MP.world){let n=W.parts.filter(p=>p.data.built).length;(async()=>{for(const r of ok){if(n++>=4000){toast('The shared world is full','#ff9aa4');break;}
       const id=brickId(+r[0],+r[1],+r[2],+r[3]);try{await MP.world.doc(id).set({x:+r[0],y:+r[1],z:+r[2],s:+r[3],c:r[4],by:MP.me.id||null});}catch(e){break;}}})();return;}
-  W.parts.filter(p=>p.data.built).forEach(removePart);ok.forEach(r=>placeBrick(+r[0],+r[1],+r[2],+r[3],r[4]));saveBuild();
+  buildSnap();W.parts.filter(p=>p.data.built).forEach(removePart);ok.forEach(r=>placeBrick(+r[0],+r[1],+r[2],+r[3],r[4],+r[5]||0));saveBuild();
 }
 $('#bsaveBtn').addEventListener('click',()=>openSaves());
 $('#btools').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;setBTool(b.dataset.tool);});
@@ -2138,7 +2145,7 @@ $('#bsizes').addEventListener('click',e=>{const b=e.target.closest('button');if(
 function setBTool(t){B.tool=t;$('#btools').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.tool===t));if(B.ghost)B.ghost.visible=false;}
 $('#bclear').addEventListener('click',()=>{const b=$('#bclear');
   if(B.clearArm>0){if(MP.world){const mine=[...MP.worldDocs].filter(([,d])=>d.by&&d.by===MP.me.id).map(([id])=>id);(async()=>{for(const id of mine){try{await MP.world.doc(id).delete();}catch(e){break;}}})();toast('Cleared your blocks','#9fe3ff');}
-    else{W.parts.filter(p=>p.data.built).forEach(removePart);saveBuild();}SFX.del();B.clearArm=0;b.textContent='Clear';}
+    else{buildSnap();W.parts.filter(p=>p.data.built).forEach(removePart);saveBuild();toast('Cleared. Undo brings it back','#9fe3ff',1.5);}SFX.del();B.clearArm=0;b.textContent='Clear';}
   else{B.clearArm=3;b.textContent=MP.world?'Tap again to clear yours':'Tap again to clear';}});
 
 /* ---------- built-in games ---------- */
@@ -2235,7 +2242,7 @@ function buildSandbox(){
   if(!saved){saved=[];const cols=['#e53935','#fb8c00','#fdd835','#7cb342','#1e88e5'];
     for(let i=0;i<5;i++)for(let h=0;h<=i;h++)saved.push([12+i*2+1,h*2+1,-11,2,cols[i]]);
     for(let i=0;i<4;i++)saved.push([-15+i*4+2,2,-14,4,'#5e35b1']);}
-  saved.forEach(r=>placeBrick(r[0],r[1],r[2],r[3],r[4]));
+  saved.forEach(r=>placeBrick(r[0],r[1],r[2],r[3],r[4],r[5]));B.undo=[];
   const gm=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.45,depthWrite:false});
   B.ghost=new THREE.Mesh(BOX,gm);B.ghost.visible=false;scene.add(B.ghost);
 }
@@ -2887,6 +2894,20 @@ function disastersDef(){const G=GK;const p=G.proj('disasters','Disaster Survival
     [[-20,20],[30,30],[-40,40],[10,0],[40,-10]].forEach(([x,z])=>{G.part(p,F,{name:'PalmTrunk',pos:[x,4,z],size:[1.2,8,1.2],color:'#8d6e63',material:'Wood'});G.part(p,F,{name:'PalmLeaves',pos:[x,8.3,z],size:[7,.6,7],color:'#43a047',material:'Grass'});});
     G.part(p,F,Object.assign({name:'Rock',pos:[38,3,40],size:[10,6,8],color:'#8d8d8d',material:'Slate'},U));
     house(F,0,30,10,7,8,'#bcaaa4','Wood','#795548');G.part(p,F,{name:'Treasure',pos:[0,1,30],size:[3,2,2],color:'#ffca28',material:'Metal',label:'TREASURE'});}
+  // 5. Theme Park
+  {const F=mapModel('Theme Park');
+    G.part(p,F,Object.assign({name:'Ground',pos:[0,-1,0],size:[124,2,124],color:'#7cb342',material:'Grass'},U));
+    G.part(p,F,Object.assign({name:'Path',pos:[0,.05,0],size:[10,.1,124],color:'#d7ccc8',material:'Concrete'},U));
+    // ferris wheel: a ring of cabins on a frame
+    G.part(p,F,{name:'WheelPost',pos:[-34,11,-30],size:[2,22,2],color:'#eceff1',material:'Metal'});
+    for(let i=0;i<12;i++){const a=i/12*Math.PI*2;G.part(p,F,{name:'Cabin',pos:[-34,r3(22+Math.sin(a)*14),r3(-30+Math.cos(a)*14)],size:[3,3,3],color:['#e53935','#fdd835','#1e88e5','#43a047'][i%4],material:'Plastic'});}
+    // roller coaster towers and track
+    for(let i=0;i<6;i++){const h=6+i*3;G.part(p,F,{name:'CoasterPillar',pos:[20+i*6,h/2,-40],size:[1,h,1],color:'#90a4ae',material:'Metal'});G.part(p,F,{name:'Track',pos:[20+i*6,h+.3,-40],size:[6,.6,3],color:'#e53935',material:'Metal'});}
+    tower(F,50,-10,8,26,'#ff7043','Plastic',4,'#ffeb3b');
+    // carousel and stalls
+    G.part(p,F,{name:'Carousel',shape:'cyl',pos:[24,1,24],size:[16,2,16],color:'#f8bbd0',material:'Wood'});G.part(p,F,{name:'CarouselRoof',shape:'cyl',pos:[24,9,24],size:[18,1,18],color:'#ec407a',material:'Fabric'});
+    for(let i=0;i<6;i++){const a=i/6*Math.PI*2;G.part(p,F,{name:'Pole',pos:[r3(24+Math.cos(a)*6),5,r3(24+Math.sin(a)*6)],size:[.5,7,.5],color:'#ffd54f',material:'Metal'});}
+    [[-40,30,'#ffcc80'],[-24,44,'#b39ddb'],[-50,10,'#80cbc4']].forEach(([x,z,c])=>house(F,x,z,9,7,8,c,'Wood','#f44336'));}
   const centers=MAPS.map(m=>{const list=[p.nodes.find(n=>n.id===m.id),...p.nodes.filter(n=>n.parent===m.id)];const c=nodesBounds(list).getCenter(new V3());return [r3(c.x),r3(c.y),r3(c.z)];});
   /* ---------- disasters ---------- */
   const D='vdis',D2='vdis2',MP_='vmap';const VARS=[['disaster',D],['second disaster',D2],['map',MP_]];
@@ -2953,18 +2974,30 @@ function disastersDef(){const G=GK;const p=G.proj('disasters','Disaster Survival
       blk('p_setpos',{PART:G.pnamed('Bolt'+k),X:G.vget(XV),Y:bn(45),Z:G.vget(ZV)}),G.sound('explode'),brk(G.vget(XV),6,G.vget(ZV),5,45),
       G.iff(near('StrikeMark'+k,6.5),blk('pl_damage',{N:bn(45)}),blk('pl_knock',{WHO:bme(),P:bn(50)},{RAG:'TRUE'})),G.wait(.25),
       blk('p_setpos',{PART:G.pnamed('Bolt'+k),X:bn(0),Y:bn(-200),Z:bn(0)}),park(bme())],[park(bme())],[['strike x'+k,XV],['strike z'+k,ZV]]);}
+  // 8 blizzard: freezing wind slows everyone and hailstones crash down
+  for(let k=1;k<=6;k++){const h=PP({name:'Hail'+k,shape:'ball',pos:[0,-80,0],size:[2.4,2.4,2.4],color:'#e1f5fe',material:'Ice'});const XV='vhx'+k,ZV='vhz'+k;
+    dscript(h.id,'Hail',8,[G.wait(G.rnd(0,2)),G.vset(XV,G.rnd(-55,55)),G.vset(ZV,G.rnd(-55,55)),blk('p_setpos',{PART:bme(),X:G.vget(XV),Y:bn(60),Z:G.vget(ZV)}),
+      blk('p_glideto',{PART:bme(),X:G.vget(XV),Y:bn(1.2),Z:G.vget(ZV),S:bn(1.2)}),G.sound('explode'),brk(G.vget(XV),2,G.vget(ZV),4,30),G.iff(near('Hail'+k,4),blk('pl_damage',{N:bn(25)})),park(bme())],[park(bme())],[['hail x'+k,XV],['hail z'+k,ZV]]);}
+  G.vars(G.script(p,'sss','Freezing',blk('ev_msg',null,{MSG:'round start'}),G.wait(6),G.until(G.OR(on(8),G.cmp(G.vget(D),'EQ',G.num(0)))),G.iff(on(8),blk('pl_speed',{V:bn(9)}),blk('pl_jump',{V:bn(38)}),
+    G.whileDo(on(8),G.iff(G.cmp(G.rnd(1,4),'EQ',G.num(1)),blk('pl_damage',{N:bn(2)})),G.wait(1)),blk('pl_speed',{V:bn(16)}),blk('pl_jump',{V:bn(50)}))),VARS);
+  // 9 sandstorm: a wall of wind pushes everyone east. Hold on behind something!
+  const wind=PP({name:'WindSource',pos:[-400,10,0],size:[1,1,1],color:'#d7ccc8',transparency:1});
+  const dust=PP({name:'Dust',pos:[0,-80,0],size:[130,30,130],color:'#d7b98e',material:'Glass',transparency:.75});
+  dscript(dust.id,'Blow',9,[blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(15),Z:bn(0)}),G.until(notOn(9))],[park(bme())]);
+  G.vars(G.script(p,'sss','Gusts',blk('ev_start'),G.forever(G.ifElse(on(9),[blk('pl_knock',{WHO:G.pnamed('WindSource'),P:G.rnd(6,16)},{RAG:'FALSE'}),G.wait(.4)],[G.wait(.4)]))),VARS);
+  dscript('sss','Sand blast',9,[G.wait(G.rnd(1,3)),brk(G.rnd(-50,0),G.rnd(2,12),G.rnd(-55,55),6,30)]);
   /* ---------- matches ---------- */
   const NAMES=['','FLOOD! The water is rising. Get to high ground!','TSUNAMI! Giant waves are coming. Climb something tall!','METEOR SHOWER! Watch for red circles!',
-    'TORNADO! Stay away from the funnel!','VOLCANO! Dark cracks turn into lava!','EARTHQUAKE! Buildings are crumbling!','LIGHTNING STORM! Move away from the glowing rings!'];
-  const SKY=['#8ec9ff','#6f8fb0','#6aa5d8','#ff9e80','#9e9e9e','#bf360c','#a1887f','#2b2f45'];
-  const say=v=>[1,2,3,4,5,6,7].map(k=>G.iff(G.cmp(G.vget(v),'EQ',G.num(k)),G.msg('⚠ '+NAMES[k],3.5),blk('g_sky',null,{COLOUR:SKY[k]})));
+    'TORNADO! Stay away from the funnel!','VOLCANO! Dark cracks turn into lava!','EARTHQUAKE! Buildings are crumbling!','LIGHTNING STORM! Move away from the glowing rings!','BLIZZARD! Freezing wind slows you down. Watch for hail!','SANDSTORM! The wind pushes you east. Hide behind a wall!'];
+  const SKY=['#8ec9ff','#6f8fb0','#6aa5d8','#ff9e80','#9e9e9e','#bf360c','#a1887f','#2b2f45','#eceff1','#c8a165'];
+  const say=v=>[1,2,3,4,5,6,7,8,9].map(k=>G.iff(G.cmp(G.vget(v),'EQ',G.num(k)),G.msg('⚠ '+NAMES[k],3.5),blk('g_sky',null,{COLOUR:SKY[k]})));
   G.vars(G.script(p,'sss','Match',blk('ev_msg',null,{MSG:'round start'}),G.vset(D,G.num(0)),G.vset(D2,G.num(0)),G.sset('Survived',1),G.vset(MP_,G.rnd(1,MAPS.length)),
     ...MAPS.map((m,i)=>G.iff(G.cmp(G.vget(MP_),'EQ',G.num(i+1)),blk('rs_copy',{X:bn(centers[i][0]),Y:bn(centers[i][1]),Z:bn(centers[i][2])},{NAME:m.name}),G.msg('Map: '+m.name,3))),
-    G.wait(5),G.vset(D,G.rnd(1,7)),G.sound('check'),...say(D),
-    G.iff(G.cmp(G.rnd(1,3),'EQ',G.num(1)),G.wait(3),G.vset(D2,G.rnd(1,7)),
-      blk('controls_whileUntil',{BOOL:G.cmp(G.vget(D2),'NEQ',G.vget(D)),DO:doIn(G.vset(D2,G.rnd(1,7)))},{MODE:'UNTIL'}),G.msg('DOUBLE DISASTER!',2),G.wait(2),...say(D2))),VARS);
+    G.wait(5),G.vset(D,G.rnd(1,9)),G.sound('check'),...say(D),
+    G.iff(G.cmp(G.rnd(1,3),'EQ',G.num(1)),G.wait(3),G.vset(D2,G.rnd(1,9)),
+      blk('controls_whileUntil',{BOOL:G.cmp(G.vget(D2),'NEQ',G.vget(D)),DO:doIn(G.vset(D2,G.rnd(1,9)))},{MODE:'UNTIL'}),G.msg('DOUBLE DISASTER!',2),G.wait(2),...say(D2))),VARS);
   G.vars(G.script(p,'sss','MatchOver',blk('ev_msg',null,{MSG:'round end'}),G.vset(D,G.num(0)),G.vset(D2,G.num(0)),blk('g_sky',null,{COLOUR:SKY[0]}),
-    G.iff(G.cmp(G.stat('Survived'),'EQ',G.num(1)),G.sadd('Streak',1),blk('data_change',{KEY:bt('nds_total'),N:bn(1)}),G.sadd('Total Survived',1),G.msg(G.join('You survived! Streak: ',G.stat('Streak')),3)),
+    G.iff(G.cmp(G.stat('Survived'),'EQ',G.num(1)),G.sadd('Streak',1),blk('data_change',{KEY:bt('nds_total'),N:bn(1)}),G.sadd('Total Survived',1),G.msg(G.join('You survived! Streak: ',G.stat('Streak'),' (+3 coins)'),3),blk('pl_coins',{N:bn(3)})),blk('pl_speed',{V:bn(16)}),blk('pl_jump',{V:bn(50)}),
     ...MAPS.map((m,i)=>G.iff(G.cmp(G.vget(MP_),'EQ',G.num(i+1)),blk('controls_repeat_ext',{TIMES:bn(3),DO:doIn(blk('p_destroy',{PART:G.mnamed(m.name)}))})))),VARS);
   G.script(p,'sss','Total',blk('ev_data_loaded'),G.sset('Total Survived',G.dget('nds_total',0)));
   G.script(p,'sss','Out',blk('ev_died'),G.sset('Survived',0),G.sset('Streak',0));
@@ -3015,6 +3048,16 @@ function ghostDef(){const G=GK;const p=G.proj('ghost','Escape the Ghost',{sky:'#
   G.best(p,'Night','ghost_night');
   G.hud(p,'GhostMeter','#311b92',G.join('🔑 ',G.stat('Keys'),'/5   👻 ',G.round({block:{type:'s_distance',inputs:{PART:G.pnamed('Ghost')}}}),' studs away'),.2);
   G.script(p,'sss','Heartbeat',blk('ev_start'),G.forever(G.ifElse(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('Ghost')}}},'LT',G.num(22)),[G.sound('click'),G.wait(.35),G.sound('click'),G.wait(.6)],[G.wait(.5)])));
+  // the flashlight stuns a ghost for 3 seconds (8 second recharge)
+  const fl=gkGun(p,'pack','Flashlight',{dmg:0,cool:8,color:'#fffde7',speed:300,body:'#fbc02d',tip:'Shine it at a ghost to stun it'});
+  const hpn={block:{type:'s_partname',inputs:{PART:{block:{type:'tool_hitpart'},shadow:{type:'p_this'}}}}};
+  G.script(p,fl.id,'Stun',blk('ev_tool_hit'),G.iff(G.OR(G.cmp(hpn,'EQ',G.txt('Ghost')),G.cmp(hpn,'EQ',G.txt('ExtraGhost'))),
+    blk('rig_speed',{PART:{block:{type:'tool_hitpart'},shadow:{type:'p_this'}},N:bn(0)}),blk('rig_say',{PART:{block:{type:'tool_hitpart'},shadow:{type:'p_this'}},TEXT:bt('AAARGH! The light!'),S:bn(1.5)}),G.sound('check'),
+    G.wait(3),blk('rig_speed',{PART:{block:{type:'tool_hitpart'},shadow:{type:'p_this'}},N:bn(9)})));
+  // soul orbs give coins; night 3 brings thick fog
+  for(let k=0;k<6;k++){const so=G.part(p,'workspace',{name:'SoulOrb'+k,shape:'ball',pos:[r3(o+S/2+Math.floor(rr()*n)*S),2.2,r3(o+S/2+Math.floor(rr()*n)*S)],size:[1.2,1.2,1.2],color:'#80d8ff',material:'Neon',canCollide:false});
+    G.script(p,so.id,'Take',blk('ev_touch'),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-90),Z:bn(0)}),G.sadd('Souls',1),G.sound('coin'),blk('pl_coins',{N:bn(1)}));}
+  G.script(p,'sss','Night mood',blk('ev_start'),G.forever(G.until(G.cmp(G.stat('Night'),'GTE',G.num(3))),blk('g_sky',null,{COLOUR:'#05060c'}),G.msg('Night 3: the fog rolls in...',2),G.until(G.cmp(G.stat('Night'),'LT',G.num(3))),blk('g_sky',null,{COLOUR:'#0b0f1a'})));
   const lan=G.part(p,'workspace',{name:'Lantern',shape:'ball',pos:[r3(o+3*S+S/2),2,r3(o+5*S+S/2)],size:[1.6,1.6,1.6],color:'#fff59d',material:'Neon',canCollide:false,label:'LANTERN'});
   p.nodes.push(emitterNode({parent:lan.id,name:'Light',rate:8},'sparkles'));
   G.vars(G.script(p,lan.id,'Use',blk('ev_touch'),G.msg('Lantern! The ghosts are scared and slow for 8 seconds.',2.5),G.sound('win'),blk('p_visible',{PART:bme()},{B:'FALSE'}),G.shSet(SC,G.num(1)),
@@ -3187,6 +3230,11 @@ function flagRaidDef(){const G=GK;const p=G.proj('flagraid','Flag Raid',{sky:'#9
   G.vars(G.script(p,'sss','Match over',G.onMsg('round end'),G.vset(CARRY,G.num(0)),home(),blk('p_label',{PART:G.pnamed('RedFlag'),TEXT:bt('FLAG')})),VARS);
   G.vars(G.welcome(p,G.vset(CARRY,G.num(0)),G.sset('Captures',0),G.sset('KOs',0),G.msg('Sneak into the red base, grab the flag and bring it home. Guards hit hard: use your sword (1), hedges, the tunnel and the tower!',5)),VARS);
   G.best(p,'Captures','flag_captures');
+  // smoke bomb gadget: shield and a burst of speed to escape the guards
+  const smk={id:uid(),cls:'Tool',name:'Smoke Bomb',parent:'pack',tooltip:'Escape! 3s shield and speed (15s recharge)',cooldown:15,swing:false};
+  const sh=partNode({parent:smk.id,name:'Handle',pos:[0,3,0],size:[.8,.8,.8],shape:'ball',color:'#607d8b',material:'Metal'});smk.handle=sh.id;p.nodes.push(smk,sh);
+  G.script(p,smk.id,'Use',blk('ev_tool_act'),G.sound('explode'),G.msg('SMOKE! Run!',1.5),blk('pl_shield',{S:bn(3)}),blk('pl_speed',{V:bn(26)}),G.wait(3),blk('pl_speed',{V:bn(16)}));
+  G.script(p,cap.id,'Capture coins',blk('ev_touch'),G.wait(.1),G.iff(G.cmp(G.stat('Captures'),'GT',G.vget('vcc')),G.vset('vcc',G.stat('Captures')),blk('pl_coins',{N:bn(3)})));
   return G.def(p,'flagraid','Flag Raid');}
 
 /* ======================= famous-style games ======================= */
