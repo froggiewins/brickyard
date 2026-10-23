@@ -2575,9 +2575,18 @@ function gemsDef(){const G=GK;const p=G.proj('gems','Gem Hunt',{sky:'#a6e3ff',ti
   P({name:'Tower',pos:[80,15,80],size:[8,30,8],color:'#8c95a6',material:'Brick'});
   P({name:'JumpPad',pos:[72,.2,80],size:[5,.4,5],color:'#22d3ee',material:'Neon',behavior:'jump',value:115});
   [[0,30],[-70,-10],[60,0]].forEach(([x,z])=>P({name:'SpeedPad',pos:[x,.2,z],size:[5,.4,5],color:'#ffd400',material:'Neon',behavior:'speed',value:2}));
-  const drop=()=>blk('p_setpos',{PART:bme(),X:G.rnd(-95,95),Y:bn(45),Z:G.rnd(-95,95)});
+  const GOX='vgox',GV2=[['map x',GOX]];const ox=v=>G.arith('ADD',typeof v==='number'?G.num(v):v,G.vget(GOX));
+  {const OX=320,C2=G.folder(p,'Crystal Canyon').id;const Q=o=>G.part(p,C2,o);
+    Q({name:'CanyonFloor',pos:[OX,-1,0],size:[220,2,220],color:'#6a4c93',material:'Slate'});
+    [[-50,-40,22,10],[45,-55,26,16],[-55,50,18,8],[40,45,24,12],[0,0,14,18]].forEach(([x,z2,w,h])=>{const n=Math.ceil(h/4);for(let k=0;k<n;k++)Q({name:'Mesa',pos:[OX+x,r3((k+.5)*h/n),z2],size:[r3(w-k*3),r3(h/n),r3(w-k*3)],color:['#8e6cc0','#7a5aa8','#6a4c93','#5a3f80','#4a3370'][k%5],material:'Slate'});});
+    for(let i=0;i<22;i++){const a=i*2.1,r=25+((i*41)%70);Q({name:'Crystal',pos:[OX+r3(Math.cos(a)*r),3,r3(Math.sin(a)*r)],size:[1.6,6+(i%3)*2,1.6],rot:[0,i*20,i%2?12:-12],color:['#e1bee7','#80deea','#f48fb1'][i%3],material:'Neon',canCollide:false});}
+    [[-38,-40],[30,-55],[-40,50],[25,45]].forEach(([x,z2])=>Q({name:'JumpPad',pos:[OX+x,.3,z2],size:[5,.4,5],color:'#22d3ee',material:'Neon',behavior:'jump',value:110}));}
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(GOX,G.num(0)),blk('g_sky',null,{COLOUR:'#a6e3ff'})],[G.vset(GOX,G.num(320)),blk('g_sky',null,{COLOUR:'#2a1b47'}),G.msg('Map: CRYSTAL CANYON',2)]),
+    blk('pl_tpxyz',{X:ox(G.rnd(-8,8)),Y:bn(4),Z:G.rnd(-8,8)})),GV2);
+  const drop=()=>blk('p_setpos',{PART:bme(),X:ox(G.rnd(-95,95)),Y:bn(45),Z:G.rnd(-95,95)});
   for(let i=0;i<16;i++){const g=P({name:'Gem',shape:'ball',pos:[r3(-90+((i*53)%180)),45,r3(-90+((i*97)%180))],size:[1.8,1.8,1.8],color:'#ffd54f',material:'Neon',canCollide:false,anchored:false});
     p.nodes.push(emitterNode({parent:g.id,name:'Shine',rate:3},'sparkles'));
+    G.vars(G.script(p,g.id,'To map',G.onMsg('round start'),G.wait(.1),drop()),GV2);
     G.script(p,g.id,'Collect',blk('ev_touch'),G.sadd('Gems',1),G.sound('coin'),blk('pe_emit',{N:bn(20),PART:bme()}),drop());
     G.script(p,g.id,'Spin',blk('ev_start'),G.forever(blk('p_rotate',{PART:bme(),DEG:bn(6)},{AXIS:'y'}),G.wait(0)));}
   const cr=P({name:'Crystal',shape:'ball',pos:[0,45,-30],size:[3,3,3],color:'#d68cff',material:'Neon',canCollide:false,anchored:false,label:'+5'});p.nodes.push(emitterNode({parent:cr.id,name:'Magic'},'magic'));
@@ -2595,11 +2604,12 @@ function gemsDef(){const G=GK;const p=G.proj('gems','Gem Hunt',{sky:'#a6e3ff',ti
   G.vars(G.script(p,'sss','Chest reset',G.onMsg('round start'),G.vset('vchest',G.num(0)),blk('p_visible',{PART:G.pnamed('TowerChest')},{B:'TRUE'})),[['chest','vchest']]);
   // the gem raccoon steals gems if it catches you
   const rc=rigNode({name:'Gem Raccoon',pos:[-30,2,-60],scale:.7,health:999,respawn:0,walkSpeed:13,colors:{head:'#757575',torso:'#424242',arms:'#757575',legs:'#212121'}});p.nodes.push(rc);
-  G.hscript(p,rc.id,'Prowl',blk('ev_start'),G.forever(G.ifElse(G.cmp(G.nearD(bme()),'LT',G.num(25)),[G.walkN(bme()),G.wait(.3)],[blk('rig_walk',{PART:bme(),X:G.rnd(-90,90),Z:G.rnd(-90,90)}),G.wait(1)])));
+  G.hscript(p,rc.id,'Prowl',blk('ev_start'),G.forever(G.ifElse(G.cmp(G.nearD(bme()),'LT',G.num(25)),[G.walkN(bme()),G.wait(.3)],[blk('rig_walk',{PART:bme(),X:ox(G.rnd(-90,90)),Z:G.rnd(-90,90)}),G.wait(1)])));
   G.script(p,rc.id,'Steal',blk('ev_touch'),G.iff(G.cmp(G.stat('Gems'),'GT',G.num(0)),G.sadd('Gems',-3),G.iff(G.cmp(G.stat('Gems'),'LT',G.num(0)),G.sset('Gems',0)),G.sound('die'),G.msg('The raccoon stole 3 gems! Run!',2),blk('pl_launch',{P:bn(40)})),G.wait(3));
+  G.vars(G.hscript(p,'sss','Raccoon to map',G.onMsg('round start'),G.wait(.1),blk('p_setpos',{PART:G.pnamed('Gem Raccoon'),X:ox(-30),Y:bn(2),Z:bn(-60)}),blk('rig_walk',{PART:G.pnamed('Gem Raccoon'),X:ox(-30),Z:bn(-60)})),GV2);
   // halfway through, a rainbow gem worth 10 drops
   const rg=P({name:'RainbowGem',shape:'ball',pos:[0,-60,0],size:[2.6,2.6,2.6],color:'#ff4081',material:'Neon',canCollide:false,label:'+10'});p.nodes.push(emitterNode({parent:rg.id,name:'Rainbow'},'confetti'));
-  G.vars(G.hscript(p,'sss','Rainbow drop',G.onMsg('round start'),blk('p_setpos',{PART:G.pnamed('RainbowGem'),X:bn(0),Y:bn(-60),Z:bn(0)}),G.vset('vrg',G.num(0)),G.wait(45),G.iff(G.inMatch(),G.vset('vrg',G.num(1)),G.bc('rainbow gem'),blk('p_setpos',{PART:G.pnamed('RainbowGem'),X:G.rnd(-80,80),Y:bn(30),Z:G.rnd(-80,80)}),blk('p_glide',{PART:G.pnamed('RainbowGem'),X:bn(0),Y:bn(-27),Z:bn(0),S:bn(3)}))),[['rainbow gem','vrg'],...G.MV]);
+  G.vars(G.hscript(p,'sss','Rainbow drop',G.onMsg('round start'),blk('p_setpos',{PART:G.pnamed('RainbowGem'),X:bn(0),Y:bn(-60),Z:bn(0)}),G.vset('vrg',G.num(0)),G.wait(45),G.iff(G.inMatch(),G.vset('vrg',G.num(1)),G.bc('rainbow gem'),blk('p_setpos',{PART:G.pnamed('RainbowGem'),X:ox(G.rnd(-80,80)),Y:bn(30),Z:G.rnd(-80,80)}),blk('p_glide',{PART:G.pnamed('RainbowGem'),X:bn(0),Y:bn(-27),Z:bn(0),S:bn(3)}))),[['rainbow gem','vrg'],...G.MV,...GV2]);
   G.script(p,'sss','Rainbow msg',G.onMsg('rainbow gem'),G.sound('check'),G.msg('🌈 A RAINBOW GEM (+10) fell from the sky! Race for it!',3));
   G.vars(G.script(p,rg.id,'Grab',blk('ev_touch'),G.iff(G.cmp(G.vget('vrg'),'EQ',G.num(1)),G.shSet('vrg',G.num(0)),G.sadd('Gems',10),G.sound('win'),G.msg('RAINBOW GEM! +10',2),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-60),Z:bn(0)}))),[['rainbow gem','vrg']]);
   G.matchFlags(p);
@@ -4429,10 +4439,10 @@ function update(dt){
   for(const p of W.fades){const d=p.data,m=p.mesh.material;
     if(d.state==='solid'){if(d.touched){d.timer-=dt;m.opacity=.35+.65*Math.max(0,d.timer/.7)*(.75+.25*Math.sin(t*40));if(d.timer<=0){d.state='gone';d.timer=2.4;p.active=false;m.opacity=.08;}}}
     else{d.timer-=dt;if(d.timer<=0){d.state='solid';d.touched=false;p.active=true;m.opacity=1;}}}
-  for(const p of W.phys){if(p.destroyed)continue;p.vy=(p.vy||0)-PHYS.gravity*dt;const dy=Math.max(-150,p.vy)*dt;p.pos.y+=dy;
-    if(p.vx||p.vz){p.pos.x+=p.vx*dt;p.pos.z+=p.vz*dt;}computeAABB(p);let landed=false;
+  for(const p of W.phys){if(p.destroyed)continue;const prevMin=p.min.y;p.vy=(p.vy||0)-PHYS.gravity*dt;const dy=Math.max(-150,p.vy)*dt;p.pos.y+=dy;
+    if(p.vx||p.vz){p.pos.x+=p.vx*dt;p.pos.z+=p.vz*dt;}p.mesh.position.copy(p.pos);computeAABB(p);let landed=false;
     for(const s of W.solids){if(s===p||s.noCollide||!s.active||s.decor||s.rig)continue;
-      if(p.min.x<s.max.x&&p.max.x>s.min.x&&p.min.z<s.max.z&&p.max.z>s.min.z&&p.min.y<s.max.y&&p.max.y>s.min.y&&dy<0&&p.min.y>s.max.y-1.6){p.pos.y+=s.max.y-p.min.y;p.vy=0;landed=true;computeAABB(p);}}
+      if(p.min.x<s.max.x&&p.max.x>s.min.x&&p.min.z<s.max.z&&p.max.z>s.min.z&&p.min.y<s.max.y&&(p.max.y>s.min.y||prevMin>=s.max.y-.05)&&dy<0&&(p.min.y>s.max.y-1.6||prevMin>=s.max.y-.05)){p.pos.y+=s.max.y-p.min.y;p.vy=0;landed=true;p.mesh.position.copy(p.pos);computeAABB(p);}}
     if(p.vx||p.vz){if(landed){const k=Math.pow(.004,dt);p.vx*=k;p.vz*=k;if(Math.abs(p.vx)+Math.abs(p.vz)<.4)p.vx=p.vz=0;}}
     if(p.spin&&!landed){p.mesh.rotation.x+=p.spin.x*dt;p.mesh.rotation.z+=p.spin.z*dt;}
     p.mesh.position.copy(p.pos);p.base.copy(p.pos);W.dyn.add(p);if(p.pos.y<W.killY)destroyPart(p);}
