@@ -2355,6 +2355,9 @@ function buildCoins(rnd){
   isl.forEach(I=>{const n=Math.floor(I.w*I.d/400);for(let i=0;i<n;i++){const x=I.x+(rnd()-.5)*(I.w-6),z=I.z+(rnd()-.5)*(I.d-6);
     if(coinsAt.some(c=>Math.hypot(c[0]-x,c[1]-z)<6))continue;const g=groundAt(x,z,30);if(g>I.top+.5)continue;
     block(x,g+3.5,z,1.6,7,1.6,0x6d4c41,{decor:true});block(x,g+9.5,z,7,5,7,0x2e7d32,{decor:true});}});
+  // a treasure raft drifts between the islands carrying coins
+  addPart({pos:[60,1.6,-60],size:[10,1,10],color:0x8d6e63,move:{axis:new V3(1,0,1).normalize(),dist:30,speed:.35}});
+  put(60,3.6,-60);
   W.spawn.set(0,3+PH.y+.2,0);W.killY=-30;
   state.total=W.coins.length;
 }
@@ -2995,6 +2998,13 @@ function cloudHopDef(){const G=GK;const p=G.proj('cloudhop','Cloud Hop',{sky:'#8
       G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:bme()}}},'LT',G.num(8)),blk('pl_damage',{N:bn(1000)})),G.wait(.25),blk('p_transp',{PART:bme()},{V:bn(1)})));z-=12;}check();
   // rainbow stars to collect
   for(let i=0;i<3;i++){const st=P({name:'Star',shape:'ball',pos:[x+(i-1)*4,y+2.5,z+20+i*6],size:[1.3,1.3,1.3],color:'#ffd740',material:'Neon',canCollide:false,transparency:0});G.script(p,st.id,'Take',blk('ev_touch'),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-90),Z:bn(0)}),G.sadd('Stars',1),G.sound('coin'),blk('pl_coins',{N:bn(2)}));}
+  // sunset section: tiny golden clouds that drift up and down
+  for(let i=0;i<6;i++){const n=P({name:'SunsetCloud',pos:[x+(i%2?4:-4),y,z-6],size:[4,1.6,4],color:'#ffcc80'});G.script(p,n.id,'Bob',...SCR.glide(0,3,0,1.4+i*.1).blocks.blocks);z-=11;}check();
+  // a hidden sky island off to the side, reached by a hidden bounce cloud
+  {const hx=x-22,hy=y+12,hz=z+23;P({name:'HiddenBounce',pos:[x-10,y,z+20],size:[4,1.6,4],color:'#e3f2fd',behavior:'jump',value:95,transparency:.55});
+    P({name:'SkyIsland',pos:[hx,hy,hz],size:[14,2,14],color:'#c5e1a5',transparency:0});
+    const ch=P({name:'SkyChest',pos:[hx,hy+2,hz],size:[3,2,2],color:'#ffb300',transparency:0,label:'💰'});
+    G.vars(G.script(p,ch.id,'Open',blk('ev_touch'),G.iff(G.cmp(G.vget('vskyc'),'EQ',G.num(0)),G.vset('vskyc',G.num(1)),G.sound('win'),G.msg('You found the hidden sky island! +10 coins',3),blk('pl_coins',{N:bn(10)}))),[['sky chest','vskyc']]);}
   cloud(3,13,4);cloud(3,13,4);cloud(3,14,-3);z-=12;P({name:'Rainbow',pos:[x,y,z-8],size:[16,1.6,16],color:'#ffc93c',behavior:'finish',transparency:0});
   G.vars(G.welcome(p,G.vset('vtriple',G.num(0)),blk('pl_airjumps',{N:bn(1)}),G.msg('You can double jump! Press jump again in the air.',3)),[['triple','vtriple']]);
   return G.def(p,'cloudhop','Cloud Hop');}
