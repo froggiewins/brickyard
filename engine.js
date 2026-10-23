@@ -3188,9 +3188,20 @@ function bombTagDef(){const G=GK;const p=G.proj('bombtag','Bomb Tag',{sky:'#ffd9
   [[-34,-34],[34,34],[34,-34],[-34,34]].forEach(([x,z])=>P({name:'SpeedPad',pos:[x,.3,z],size:[5,.4,5],color:'#ffd400',material:'Neon',behavior:'speed',value:1.4}));
   P({name:'Bench',pos:[0,1,56],size:[40,2,4],color:'#8d6e63',material:'Wood',label:'OUT'});
   G.spawnAt(p,0,.5,0,{size:[6,1,6],color:'#f2cc8f'});
+  // second map: Candy Land, 300 studs east
+  const BOX_='vbox_',BMV=[['map x',BOX_]];const ox=v=>G.arith('ADD',typeof v==='number'?G.num(v):v,G.vget(BOX_));
+  {const OX=300,C2=G.folder(p,'Candy Land').id;const Q=o=>G.part(p,C2,o);
+    Q({name:'Frosting',pos:[OX,-1,0],size:[170,2,170],color:'#f8bbd0',material:'Plastic'});Q({name:'Floor',pos:[OX,.1,0],size:[84,.2,84],color:'#fce4ec',material:'Plastic'});
+    [[0,-42,86,2],[0,42,86,2],[-42,0,2,86],[42,0,2,86]].forEach(([x,z2,w,d],i)=>Q({name:'CandyWall',pos:[OX+x,4,z2],size:[w,8,d],color:['#ff80ab','#80d8ff','#ccff90','#ffe57f'][i],material:'Plastic'}));
+    [[-16,-16],[16,16],[16,-16],[-16,16]].forEach(([x,z2],i)=>{Q({name:'Lollipop',shape:'cyl',pos:[OX+x,4,z2],size:[1,8,1],color:'#ffffff',material:'Plastic'});Q({name:'Candy',shape:'ball',pos:[OX+x,9,z2],size:[7,7,2],color:['#e91e63','#9c27b0','#00bcd4','#ff9800'][i],material:'Neon'});});
+    [[0,-26],[0,26],[-26,0],[26,0]].forEach(([x,z2])=>Q({name:'Gumdrop',shape:'ball',pos:[OX+x,2,z2],size:[7,5,7],color:'#7cb342',material:'Plastic'}));
+    [[-34,-34],[34,34],[34,-34],[-34,34]].forEach(([x,z2])=>Q({name:'SpeedPad',pos:[OX+x,.3,z2],size:[5,.4,5],color:'#ffd400',material:'Neon',behavior:'speed',value:1.4}));
+    Q({name:'Bench',pos:[OX,1,56],size:[40,2,4],color:'#ff80ab',material:'Plastic',label:'OUT'});}
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(BOX_,G.num(0)),blk('g_sky',null,{COLOUR:'#ffd9a8'})],[G.vset(BOX_,G.num(300)),blk('g_sky',null,{COLOUR:'#f3c4fb'}),G.msg('Map: CANDY LAND',2)]),
+    blk('pl_tpxyz',{X:ox(G.rnd(-10,10)),Y:bn(3),Z:G.rnd(-10,10)})),BMV);
   const MV=G.matchFlags(p);
   const VH='vholder',VB='vholderbot',VK='vpickbot',VF='vfuse',VLF='vleft',NB='vnbots',VC='vcool',OUT=k=>'vout'+k;
-  const VARS=[['holder',VH],['holder is a bot',VB],['picked bot',VK],['fuse',VF],['bots left',VLF],['bots',NB],['cooldown',VC],...[1,2,3,4,5].map(k=>['out'+k,OUT(k)]),...MV];
+  const VARS=[['holder',VH],['holder is a bot',VB],['picked bot',VK],['fuse',VF],['bots left',VLF],['bots',NB],['cooldown',VC],...[1,2,3,4,5].map(k=>['out'+k,OUT(k)]),...MV,...BMV];
   const eq=(id,n)=>G.cmp(G.vget(id),'EQ',typeof n==='number'?G.num(n):n);
   const COLS=['#e53935','#1e88e5','#43a047','#8e24aa','#fb8c00'],START=[[-30,-30],[30,-30],[-30,30],[30,30],[0,-34]];
   const bot=k=>G.pnamed('Bot'+k),prop=G.prop;
@@ -3221,17 +3232,17 @@ function bombTagDef(){const G=GK;const p=G.proj('bombtag','Bomb Tag',{sky:'#ffd9
   [[-34,0],[34,0],[0,-34],[0,34]].forEach(([x,z],i)=>{const mb=P({name:'MysteryBox'+i,pos:[x,1.5,z],size:[2.4,2.4,2.4],color:'#ab47bc',material:'Neon',canCollide:false,label:'?'});
     G.vars(G.script(p,mb.id,'Open',blk('ev_touch'),G.iff(G.aliveIn(),blk('p_visible',{PART:bme()},{B:'FALSE'}),G.sound('win'),G.vset('vbox',G.rnd(1,3)),
       G.ifElse(G.cmp(G.vget('vbox'),'EQ',G.num(1)),[G.msg('DASH! Super speed for 3 seconds',1.5),blk('pl_speed',{V:bn(30)}),G.wait(3),blk('pl_speed',{V:bn(16)})],
-        [G.ifElse(G.cmp(G.vget('vbox'),'EQ',G.num(2)),[G.msg('SUPER JUMP!',1.5),blk('pl_launch',{P:bn(110)})],[G.msg('TELEPORT!',1.5),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.tp(-36,3,-36)],[G.tp(36,3,36)])])]),
+        [G.ifElse(G.cmp(G.vget('vbox'),'EQ',G.num(2)),[G.msg('SUPER JUMP!',1.5),blk('pl_launch',{P:bn(110)})],[G.msg('TELEPORT!',1.5),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[blk('pl_tpxyz',{X:ox(-36),Y:bn(3),Z:bn(-36)})],[blk('pl_tpxyz',{X:ox(36),Y:bn(3),Z:bn(36)})])])]),
       G.wait(12),blk('p_visible',{PART:bme()},{B:'TRUE'}))),[...VARS,['box','vbox']]);});
   G.script(p,'sss','Survivor coins',G.onMsg('round end'),G.iff(G.aliveIn(),blk('pl_coins',{N:bn(5)})));
   G.vars(G.script(p,'sss','Boom',G.onMsg('boom'),blk('pe_emit',{N:bn(80),PART:G.pnamed('Bomb')}),G.sound('explode')),VARS);
   G.vars(G.script(p,'sss','Survived',G.onMsg('bomb round'),G.iff(G.AND(G.aliveIn(),G.NOT(isMine())),G.sadd('Rounds',1))),VARS);
   const nPlaying=G.plCount('playing');
   const setupBots=()=>[G.ifElse(G.cmp(G.players(),'GTE',G.num(6)),[G.vset(NB,G.num(0))],[G.vset(NB,G.arith('MINUS',G.num(6),G.players()))]),G.vset(VLF,G.vget(NB)),
-    ...[1,2,3,4,5].map(k=>G.ifElse(G.cmp(G.num(k),'LTE',G.vget(NB)),[G.vset(OUT(k),G.num(0)),blk('p_setpos',{PART:bot(k),X:bn(START[k-1][0]),Y:bn(2.6),Z:bn(START[k-1][1])})],
-      [G.vset(OUT(k),G.num(1)),blk('p_setpos',{PART:bot(k),X:bn(-20+k*6.5),Y:bn(4.6),Z:bn(56)})]))];
+    ...[1,2,3,4,5].map(k=>G.ifElse(G.cmp(G.num(k),'LTE',G.vget(NB)),[G.vset(OUT(k),G.num(0)),blk('p_setpos',{PART:bot(k),X:ox(START[k-1][0]),Y:bn(2.6),Z:bn(START[k-1][1])})],
+      [G.vset(OUT(k),G.num(1)),blk('p_setpos',{PART:bot(k),X:ox(-20+k*6.5),Y:bn(4.6),Z:bn(56)})]))];
   const boomBot=[1,2,3,4,5].map(k=>G.iff(eq(VH,botId(k)),blk('rig_fling',{PART:bot(k),P:bn(150)}),G.vset(OUT(k),G.num(1)),G.vchg(VLF,-1),
-    G.msg(G.join('BOOM! Bot '+k+' is out. ',G.vget(VLF),' bots left.'),2.5),G.wait(2.6),blk('p_setpos',{PART:bot(k),X:bn(-20+k*6.5),Y:bn(4.6),Z:bn(56)}),blk('rig_say',{PART:bot(k),TEXT:bt('I am out!'),S:bn(2)})));
+    G.msg(G.join('BOOM! Bot '+k+' is out. ',G.vget(VLF),' bots left.'),2.5),G.wait(2.6),blk('p_setpos',{PART:bot(k),X:ox(-20+k*6.5),Y:bn(4.6),Z:bn(56)}),blk('rig_say',{PART:bot(k),TEXT:bt('I am out!'),S:bn(2)})));
   G.vars(G.hscript(p,'sss','Game',G.onMsg('round start'),G.vset(VH,G.txt('-')),G.vset(VB,G.num(-1)),G.vset(VF,G.num(0)),...setupBots(),G.wait(3),
     G.whileDo(G.AND(G.inMatch(),G.cmp(G.arith('ADD',nPlaying,G.vget(VLF)),'GTE',G.num(2))),G.vset(VF,G.rnd(9,15)),
       G.ifElse(G.cmp(G.rnd(1,G.arith('ADD',nPlaying,G.vget(VLF))),'LTE',nPlaying),[G.vset(VH,G.idOf(G.pref('randplaying'))),G.vset(VB,G.num(0))],
