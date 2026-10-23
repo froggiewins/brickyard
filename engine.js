@@ -4472,11 +4472,14 @@ function lobbyTick(){
   else txt=(LOBBY.out?'You are out':'Match in progress')+` · next match in ${mm(left+c.wait)}`;
   const solo=MP.remotes.size===0,canGo=solo&&(phase==='lobby'||!LOBBY.inRound||LOBBY.out);
   const key=txt+'|'+canGo+'|'+phase;
+  {const canSpec=LOBBY.out&&LOBBY.inRound&&[...MP.remotes.values()].some(r=>!r.dead&&r.lb&&r.lb.r===LOBBY.idx&&!r.lb.o);const sb=$('#lobbySpec');if(sb&&sb.hidden===canSpec){sb.hidden=!canSpec;}if(!canSpec&&SPEC.on){SPEC.on=false;}
+    if(sb){const t2=SPEC.on?'👁 Next player':'👁 Spectate';if(sb.textContent!==t2)sb.textContent=t2;}}
   if(key!==LOBBY.txt){LOBBY.txt=key;$('#lobbyTxt').textContent=txt;$('#lobbyGo').hidden=!canGo;$('#lobbyBar').classList.toggle('play',phase==='play'&&LOBBY.inRound&&!LOBBY.out);
     if(LOBBY.sign)setPartLabel(LOBBY.sign,phase==='lobby'?'NEXT MATCH IN '+left:LOBBY.inRound&&!LOBBY.out?'MATCH ON':'NEXT MATCH IN '+(left+c.wait));}
   if(LOBBY.resUntil&&t>LOBBY.resUntil){LOBBY.resUntil=0;$('#lobbyRes').hidden=true;}}
 function lobbySkip(){if(!LOBBY.on)return;const c=LOBBY.cfg,{per,ph}=lobbyPhase();LOBBY.off+=ph<c.wait?(c.wait-ph+.02):(per-ph+c.wait+.02);lobbyTick();}
 $('#lobbyGo').addEventListener('click',()=>{lobbySkip();cv.focus({preventScroll:true});});
+$('#lobbySpec').addEventListener('click',()=>{if(SPEC.on)SPEC.i++;else{SPEC.on=true;SPEC.i=0;}const r=specTarget();if(r)toast('Watching '+nameOf(r.by),'#9fe3ff',1.5);cv.focus({preventScroll:true});});
 function lobbyToLobby(){if(!LOBBY.spot)return;W.checkpoint=LOBBY.spot.clone();state.stage=0;
   if(!P.dead){if(P.rag)ragEndPlayer();P.pos.copy(LOBBY.spot).add(new V3((Math.random()-.5)*10,0,(Math.random()-.5)*6));P.vel.set(0,0,0);P.boost=0;}P.health=P.maxHealth;}
 function lobbyStart(idx){const c=LOBBY.cfg;LOBBY.inRound=true;LOBBY.out=false;LOBBY.late=false;LOBBY.seed=idx;
@@ -4682,8 +4685,10 @@ function update(dt){
     hud.timer.style.color=rem<20?'#ff7a85':'';setStat('Coins '+state.coins+'/'+state.total);if(rem<=0)finish();}
   if(toastT>0){toastT-=dt;if(toastT<=0)$('#toast').classList.remove('show');}
 }
+const SPEC={on:false,i:0};
+function specTarget(){if(!SPEC.on||!LOBBY.on||!LOBBY.out||!LOBBY.inRound)return null;const alive=[...MP.remotes.values()].filter(r=>!r.dead&&r.lb&&r.lb.r===LOBBY.idx&&!r.lb.o);if(!alive.length)return null;return alive[SPEC.i%alive.length];}
 function updateCamera(dt){
-  const target=tmp2.copy(P.pos);target.y+=1.6;
+  const st=specTarget();const target=tmp2.copy(st?st.pos:P.pos);target.y+=1.6;
   const cp=Math.cos(cam.pitch),dir=tmp.set(Math.sin(cam.yaw)*cp,Math.sin(cam.pitch),Math.cos(cam.yaw)*cp);
   if(cam.dist<1){camera.position.copy(target);camera.position.y+=.5;camera.lookAt(target.x-dir.x,target.y+.5-dir.y,target.z-dir.z);}
   else{
