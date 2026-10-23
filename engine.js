@@ -545,8 +545,9 @@ const WALLET={coins:0,owned:new Set(AV_ITEMS.filter(i=>!i.price).map(i=>i.id)),a
 function walletApply(w){WALLET.coins=Math.max(0,Math.min(1e7,Math.floor(avNum(w.coins,0))));
   (Array.isArray(w.owned)?w.owned:[]).forEach(id=>{if(AV_BY.has(id))WALLET.owned.add(id);});
   WALLET.av=avClean(w.av);for(const [s] of AV_SLOTS)if(WALLET.av[s]&&!WALLET.owned.has(WALLET.av[s]))WALLET.av[s]='';if(!WALLET.owned.has(WALLET.av.face))WALLET.av.face='smile';
-  WALLET.t=avNum(w.t,0);WALLET.day=typeof w.day==='string'?w.day:'';}
-function walletObj(){return {v:1,coins:WALLET.coins,owned:[...WALLET.owned],av:WALLET.av,t:WALLET.t,day:WALLET.day};}
+  WALLET.t=avNum(w.t,0);WALLET.day=typeof w.day==='string'?w.day:'';
+  if(w.q&&typeof w.q==='object'&&typeof w.q.day==='string'&&Array.isArray(w.q.p)&&(!WALLET.q||w.q.day>=WALLET.q.day))WALLET.q={day:w.q.day,p:w.q.p.slice(0,3).map(x=>Math.max(0,avNum(x,0))),c:(Array.isArray(w.q.c)?w.q.c:[]).slice(0,3).map(Boolean),b:!!w.q.b};}
+function walletObj(){return {v:1,coins:WALLET.coins,owned:[...WALLET.owned],av:WALLET.av,t:WALLET.t,day:WALLET.day,q:WALLET.q||null};}
 function walletBackend(){return (SB.client&&SB.uid)?'sb':(MP.db&&MP.me&&MP.me.id&&!MP.p2p)?'claude':'local';}
 let walletSaveT=0;
 function walletSave(){WALLET.t=Date.now();store.set('wallet',walletObj());renderCoins();clearTimeout(walletSaveT);
@@ -559,13 +560,56 @@ async function walletSync(){const be=walletBackend();if(be==='local'){WALLET.loa
 function earnCoins(n,why){n=Math.floor(n);if(!(n>0)||(game&&game.fromEditor)||TESTCLIENT)return;WALLET.coins=Math.min(1e7,WALLET.coins+n);walletSave();
   coinToast('+'+n+' coins'+(why?' · '+why:''));}
 function coinToast(t){let el=$('#coinToast');if(!el)return;el.textContent='🪙 '+t;el.classList.remove('show');void el.offsetWidth;el.classList.add('show');clearTimeout(coinToast._t);coinToast._t=setTimeout(()=>el.classList.remove('show'),2600);}
-function renderCoins(){document.querySelectorAll('.coinCount').forEach(e=>e.textContent=WALLET.coins.toLocaleString('en-US'));}
+function renderCoins(){document.querySelectorAll('.coinCount').forEach(e=>e.textContent=WALLET.coins.toLocaleString('en-US'));if(typeof renderQuests==='function'&&!$('#menu').hidden)renderQuests();}
 /* playing earns coins: 5 per active minute, daily bonus, finishing courses and lobby matches */
-const PLAYED={t:0};
+const PLAYED={t:0};const GAMECOINS={left:150};
 function coinTick(dt){if(!running||paused||!game||game.fromEditor||game.mode==='build'||state.over)return;
   const moving=Math.hypot(P.vel.x,P.vel.z)>1||!P.onGround;if(!moving&&!(LOBBY.on&&LOBBY.inRound))return;
-  PLAYED.t+=dt;if(PLAYED.t>=60){PLAYED.t-=60;earnCoins(5,'playing');}
+  PLAYED.t+=dt;if(PLAYED.t>=60){PLAYED.t-=60;earnCoins(5,'playing');questBump('minutes','',1);}
   const today=new Date().toISOString().slice(0,10);if(WALLET.day!==today&&PLAYED.t>10){WALLET.day=today;earnCoins(50,'daily bonus');}}
+/* ---------- daily quests: three a day, the same for everybody, paid in coins ---------- */
+const QUESTS=[
+  {id:'doors15',g:'doors',k:'stat',st:'Door',n:15,r:120,t:'Get through 15 doors in Doors'},
+  {id:'tower40',g:'towerhell',k:'stat',st:'Height',n:40,r:100,t:'Climb 40 studs up the Tower of Hell'},
+  {id:'rescued',g:'planecrash',k:'stat',st:'Rescued',n:1,r:150,t:'Get rescued after the Plane Crash'},
+  {id:'chute',g:'planecrash',k:'stat',st:'Points',n:20,r:90,t:'Score 20 points in Plane Crash'},
+  {id:'evade60',g:'evade',k:'stat',st:'Score',n:60,r:100,t:'Score 60 in one round of Evade'},
+  {id:'arsenal3',g:'arsenal',k:'stat',st:'KOs',n:3,r:100,t:'Get 3 knockouts in Arsenal'},
+  {id:'murder',g:'murder',k:'match',n:2,r:80,t:'Play 2 rounds of Murder Mystery'},
+  {id:'hide30',g:'hideseek',k:'stat',st:'Score',n:30,r:100,t:'Stay hidden for a whole round of Hide and Seek'},
+  {id:'deathrun',g:'deathrun',k:'stat',st:'Finished',n:1,r:120,t:'Beat the Deathrun course'},
+  {id:'zombie3',g:'zombies',k:'stat',st:'Wave',n:3,r:100,t:'Reach wave 3 in Zombie Survival'},
+  {id:'disaster2',g:'disasters',k:'stat',st:'Streak',n:2,r:110,t:'Survive 2 disasters in a row'},
+  {id:'bomb2',g:'bombtag',k:'match',n:2,r:80,t:'Play 2 matches of Bomb Tag'},
+  {id:'gems10',g:'gems',k:'stat',st:'Gems',n:10,r:90,t:'Collect 10 gems in Gem Hunt'},
+  {id:'freeze3',g:'freezetag',k:'stat',st:'Tags',n:8,r:90,t:'Freeze 8 runners in Freeze Tag'},
+  {id:'obby',g:'megaobby',k:'finish',n:1,r:150,t:'Finish the Mega Obby'},
+  {id:'rainbow',g:'rainbow',k:'finish',n:1,r:120,t:'Finish the Rainbow Obby'},
+  {id:'boss3',g:'boss',k:'stat',st:'Level',n:3,r:120,t:'Reach level 3 in Boss Battle'},
+  {id:'flag1',g:'flagraid',k:'stat',st:'Captures',n:1,r:100,t:'Capture a flag in Flag Raid'},
+  {id:'matches',g:'',k:'match',n:3,r:80,t:'Play 3 lobby matches in any game'},
+  {id:'win',g:'',k:'win',n:1,r:150,t:'Win a match against another player'},
+  {id:'minutes',g:'',k:'minutes',n:10,r:80,t:'Play for 10 minutes'}];
+const QBONUS=100;
+function questDay(){return new Date().toISOString().slice(0,10);}
+function questsToday(){const d=questDay();let h=hashStr('q'+d)>>>0;const pool=QUESTS.slice(),out=[];
+  while(out.length<3&&pool.length){h=(Math.imul(h,1103515245)+12345)>>>0;const q=pool.splice(h%pool.length,1)[0];if(q.g&&!GAMES.some(g=>g.id===q.g))continue;
+    if(out.some(o=>o.g&&o.g===q.g))continue;out.push(q);}return out;}
+function questState(){const d=questDay();if(!WALLET.q||WALLET.q.day!==d)WALLET.q={day:d,p:[0,0,0],c:[false,false,false],b:false};return WALLET.q;}
+function questBump(kind,gid,val,abs){if(game&&game.fromEditor||TESTCLIENT)return;const qs=questsToday(),S=questState();let changed=false;
+  qs.forEach((q,i)=>{if(S.c[i]||q.k!==kind)return;if(q.g&&q.g!==gid)return;const nv=abs?Math.max(S.p[i],val):S.p[i]+val;if(nv===S.p[i])return;S.p[i]=Math.min(q.n,nv);changed=true;
+    if(S.p[i]>=q.n){S.c[i]=true;WALLET.coins=Math.min(1e7,WALLET.coins+q.r);SFX.win&&SFX.win();toast('Quest complete: '+q.t+'  +'+q.r+' coins','#ffd75e',3.5);}});
+  if(changed){if(!S.b&&S.c.every(Boolean)){S.b=true;WALLET.coins=Math.min(1e7,WALLET.coins+QBONUS);setTimeout(()=>coinToast('+'+QBONUS+' coins · all daily quests done!'),1500);}walletSave();}}
+let questT=0;
+function questTick(dt){if(!running||paused||!game||game.fromEditor||state.over&&game.mode!=='project')return;questT+=dt;if(questT<.5)return;questT=0;
+  const qs=questsToday(),S=questState();qs.forEach((q,i)=>{if(!S.c[i]&&q.k==='stat'&&q.g===game.id){const v=+RT.stats.get(q.st)||0;if(v>S.p[i]&&v<1e6)questBump('stat',game.id,v,true);}});}
+function renderQuests(){const g=$('#questGrid');if(!g)return;const qs=questsToday(),S=questState();
+  g.innerHTML=qs.map((q,i)=>{const gm=GAMES.find(x=>x.id===q.g);const pct=Math.round(100*Math.min(1,S.p[i]/q.n));
+    return `<button type="button" class="quest${S.c[i]?' done':''}" data-quest="${q.g}"><div class="qt"><span class="qn">${esc(q.t)}</span><span class="qr">${S.c[i]?'✓ Done':'🪙 '+q.r}</span></div>
+      <div class="bar"><i style="width:${pct}%"></i></div><span class="qg">${gm?esc(gm.name)+' · ':''}${r3(Math.min(S.p[i],q.n))} / ${q.n}${S.c[i]?'':' · tap to play'}</span></button>`;}).join('');
+  const left=24-new Date().getUTCHours();$('#questNote').innerHTML=S.b?'All done today! New quests in '+left+'h.':'Finish all three for a <b>+'+QBONUS+' coin</b> bonus · new quests in '+left+'h';}
+document.addEventListener('click',e=>{const q=e.target.closest('[data-quest]');if(!q)return;const gm=GAMES.find(x=>x.id===q.dataset.quest);
+  if(gm)startGame(gm.make?gm.make():gm);else{const el=document.querySelector('#grid');el&&el.scrollIntoView({behavior:'smooth'});}});
 /* ---------- faces and shirt art are drawn on canvases ---------- */
 const AVTEX=new Map();
 function faceTex(face,skin){const key='f|'+face+'|'+skin;if(AVTEX.has(key))return AVTEX.get(key);
@@ -1874,6 +1918,7 @@ async function stmt(b,ctx){
     case 'pl_maxhp':{P.maxHealth=Math.max(1,Math.min(100000,numv(inp(b,'N'),ctx)));P.health=Math.min(P.health,P.maxHealth);if(fld(b,'FILL')==='TRUE'&&!P.dead)P.health=P.maxHealth;break;}
     case 'pl_tpxyz':if(!P.dead){P.pos.set(numv(inp(b,'X'),ctx),numv(inp(b,'Y'),ctx),numv(inp(b,'Z'),ctx));P.vel.set(0,0,0);}break;
     case 'pl_respawn':if(!state.over){if(P.dead)P.deadT=0;else{if(P.equipped)unequipTool();respawn();}}break;
+    case 'pl_coins':{const n=Math.max(0,Math.min(GAMECOINS.left,Math.floor(numv(inp(b,'N'),ctx))));if(n>0&&!(game&&game.fromEditor)){GAMECOINS.left-=n;earnCoins(n,game&&game.name||'');}break;}
     case 'pl_chute':setChute(fld(b,'B')==='TRUE');break;
     case 'pl_freeze':P.frozen=fld(b,'B')==='TRUE';if(P.frozen){P.vel.x=0;P.vel.z=0;}break;
     case 'pl_visible':P.hidden=fld(b,'B')!=='TRUE';MP.lastSent='';break;
@@ -3004,7 +3049,12 @@ function towerHellDef(){const G=GK;const p=G.proj('towerhell','Tower of Hell',{s
   G.vars(G.script(p,'sss','Build tower',G.onMsg('round start'),
     ...Array.from({length:8},(_,k)=>blk('controls_repeat_ext',{TIMES:bn(LEVELS),DO:doIn(blk('p_destroy',{PART:G.mnamed('Section'+(k+1))}))})),
     ...Array.from({length:LEVELS},(_,i)=>[G.vset(K,G.rnd(1,8)),...KINDS.map((_,k)=>G.iff(G.cmp(G.vget(K),'EQ',G.num(k+1)),blk('rs_copy',{X:bn(0),Y:bn(r3(1+i*H+centers[k])),Z:bn(0)},{NAME:'Section'+(k+1)})))]).flat(),
-    G.msg('A new tower! Climb as high as you can. Highest climber wins.',3)),VARS);
+    blk('pl_gravity',{V:bn(196.2)}),blk('pl_speed',{V:bn(16)}),blk('pl_jump',{V:bn(50)}),blk('pl_airjumps',{N:bn(0)}),G.vset('vmod',G.rnd(1,6)),
+    G.ifElse(G.cmp(G.vget('vmod'),'EQ',G.num(2)),[blk('pl_gravity',{V:bn(120)}),G.msg('A new tower! Modifier: LOW GRAVITY 🌙',4)],
+     [G.ifElse(G.cmp(G.vget('vmod'),'EQ',G.num(3)),[blk('pl_speed',{V:bn(24)}),G.msg('A new tower! Modifier: SPEED ⚡',4)],
+      [G.ifElse(G.cmp(G.vget('vmod'),'EQ',G.num(4)),[blk('pl_airjumps',{N:bn(1)}),G.msg('A new tower! Modifier: DOUBLE JUMP 🦘',4)],
+       [G.ifElse(G.cmp(G.vget('vmod'),'EQ',G.num(5)),[blk('pl_jump',{V:bn(62)}),G.msg('A new tower! Modifier: HIGH JUMP 🚀',4)],
+        [G.msg('A new tower! No modifier this time. Climb as high as you can!',3)])])])])),VARS);
   G.matchFlags(p);
   G.script(p,FIN.id,'Top',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.cmp(G.stat('Height'),'LT',G.num(999))),G.sset('Height',999),G.sound('win'),G.msg('YOU BEAT THE TOWER OF HELL!',4),blk('pe_emit',{N:bn(60),PART:bme()})));
   p.nodes.push(emitterNode({parent:FIN.id,name:'Party',enabled:false},'confetti'));
@@ -3085,6 +3135,12 @@ function murderDef(){const G=GK;const p=G.proj('murder','Murder Mystery',{sky:'#
   G.vars(G.script(p,'sss','Last one standing',G.onMsg('roles'),G.wait(3),G.whileDo(G.AND(G.aliveIn(),eq(OV,0)),
     G.iff(G.AND(eq(MU,G.myId()),G.cmp(G.arith('ADD',G.arith('MINUS',G.plCount('playing'),G.num(1)),G.vget('valivebots')),'LTE',G.num(0))),
       G.shSet(OV,G.num(1)),G.sadd('Score',5),G.sound('win'),G.msg('Everyone is gone. The MURDERER wins!',4)),G.wait(1))),VARS);
+  // coins scattered around the mansion every round, like the real thing
+  const CSP=[[-40,-30],[-24,-30],[24,-30],[40,-20],[-40,-4],[-6,-18],[8,-6],[40,4],[-40,20],[-20,30],[0,30],[20,20],[40,30],[-30,4]];
+  CSP.forEach(([x,z],i)=>{const c=P({name:'MCoin'+i,shape:'cylinder',pos:[x,1.4,z],size:[1.4,.3,1.4],rot:[90,0,0],color:'#ffd54f',material:'Neon',canCollide:false});
+    G.script(p,c.id,'Spin',blk('ev_start'),G.forever(blk('p_rotate',{PART:bme(),DEG:bn(8)},{AXIS:'y'}),G.wait(.05)));
+    G.vars(G.script(p,c.id,'Take',blk('ev_touch'),G.iff(G.aliveIn(),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_collide',{PART:bme()},{B:'FALSE'}),G.sadd('Coins',1),G.sound('coin'),blk('pl_coins',{N:bn(1)}),blk('p_setpos',{PART:bme(),X:bn(x),Y:bn(-40),Z:bn(z)}))),VARS);
+    G.script(p,c.id,'Reset',G.onMsg('round start'),blk('p_setpos',{PART:bme(),X:bn(x),Y:bn(1.4),Z:bn(z)}),blk('p_visible',{PART:bme()},{B:'TRUE'}));});
   G.welcome(p,G.msg('Murder Mystery: find out who the murderer is before it is too late. Bots fill the empty spots.',5));
   G.best(p,'Score','murder_score');
   return G.def(p,'murder','Murder Mystery');}
@@ -3107,7 +3163,7 @@ function doorsDef(){const G=GK;const p=G.proj('doors','Doors',{sky:'#07080d',fog
     G.script(p,dr.id,'Open',blk('ev_touch'),G.iff(G.cmp(G.stat('Door'),'EQ',G.num(i)),
       ...(locked?[G.ifElse(G.cmp(G.vget('vkey'),'GTE',G.num(i+1)),[G.sound('click')],[G.msg('Locked! Find the key in this room.',1.5),G.wait(1),blk('c_stop',null,{WHAT:'this'})])]:[]),
       blk('p_collide',{PART:bme()},{B:'FALSE'}),blk('p_transp',{PART:bme()},{V:bn(.85)}),G.sadd('Door',1),G.sound('pad'),
-      ...(i===N-1?[G.sound('win'),G.msg('You made it through all 40 doors! You escaped the hotel!',5),G.sset('Escaped',1)]:[])));
+      ...(i===N-1?[G.sound('win'),G.msg('You made it through all 40 doors! You escaped the hotel! +40 coins',5),G.sset('Escaped',1),blk('pl_coins',{N:bn(40)})]:[])));
     // furniture
     for(let k=0;k<3;k++){const side=k%2?1:-1,z=zc+(k-1)*8+rr()*3;P({name:['Dresser','Bed','Table'][k],pos:[side*(Wd/2-3),1.2,r3(z)],size:[4,2.4,k===1?7:3],color:['#795548','#5c6bc0','#6d4c41'][k],material:'Wood'});}
     if(i%2===0){const sd=rr()<.5?-1:1,z=r3(zc+rr()*8-4);
@@ -3117,12 +3173,17 @@ function doorsDef(){const G=GK;const p=G.proj('doors','Doors',{sky:'#07080d',fog
     if(locked){const kx=r3((rr()-.5)*(Wd-8)),kz=r3(zc+(rr()-.5)*(L-10));P({name:'KeyTable',pos:[kx,1,kz],size:[3,2,3],color:'#4e342e',material:'Wood'});
       const ky=G.part(p,KM,{name:'Key'+(i+1),pos:[kx,2.6,kz],size:[1.4,.4,.6],color:'#ffd54f',material:'Neon',canCollide:false,label:'KEY'});
       G.script(p,ky.id,'Take',blk('ev_touch'),G.iff(G.cmp(G.vget('vkey'),'LT',G.num(i+1)),G.vset('vkey',G.num(i+1)),G.sound('coin'),G.msg('Got the key for door '+(i+1)+'!',1.5),blk('p_visible',{PART:bme()},{B:'FALSE'})));}}
+  // gold piles in drawers: shop coins, and Gold for bragging rights
+  for(let i=0;i<N;i++){if(rr()<.45)continue;const zc=-i*L-L/2,gx=r3((rr()<.5?-1:1)*(Wd/2-3)),gz=r3(zc+(rr()-.5)*(L-8));
+    const gp=G.part(p,R,{name:'Gold',shape:'cylinder',pos:[gx,2.75,gz],size:[1.6,.5,1.6],color:'#ffca28',material:'Neon',canCollide:false});
+    G.script(p,gp.id,'Pick up',blk('ev_touch'),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_collide',{PART:bme()},{B:'FALSE'}),G.sadd('Gold',5),G.sound('coin'),blk('pl_coins',{N:bn(1)}),blk('p_setpos',{PART:bme(),X:bn(gx),Y:bn(-50),Z:bn(gz)}));}
+  G.script(p,'sss','Ambush',G.onMsg('ambush'),G.msg('It is turning around... STAY HIDDEN!',2.5),blk('g_sky',null,{COLOUR:'#003000'}),G.wait(.3),blk('g_sky',null,{COLOUR:'#07080d'}));
   P({name:'Exit',pos:[0,-.5,-N*L-10],size:[Wd,1,20],color:'#2e7d32',material:'Grass',label:'FREEDOM'});
   // Rush: the lights flicker, then it tears down the hall. Hide in a wardrobe!
   const rush=G.part(p,'workspace',{name:'Rush',shape:'ball',pos:[0,-60,40],size:[6,6,6],color:'#111111',material:'Neon',canCollide:false,unbreakable:true});
   p.nodes.push(emitterNode({parent:rush.id,name:'Shadow',rate:40,speed:6},'smoke'));
   G.hscript(p,rush.id,'Rush',blk('ev_start'),G.wait(20),G.forever(G.wait(G.rnd(25,45)),G.bc('rush warning'),G.wait(3.2),G.bc('rush'),
-    blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(4),Z:bn(30)}),blk('p_glide',{PART:bme(),X:bn(0),Y:bn(0),Z:bn(-N*L-60),S:bn(7)}),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-60),Z:bn(40)})));
+    blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(4),Z:bn(30)}),blk('p_glide',{PART:bme(),X:bn(0),Y:bn(0),Z:bn(-N*L-60),S:bn(7)}),G.iff(G.cmp(G.rnd(1,3),'EQ',G.num(1)),G.bc('ambush'),G.wait(2.5),G.bc('rush'),blk('p_glide',{PART:bme(),X:bn(0),Y:bn(0),Z:bn(N*L+60),S:bn(6)})),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-60),Z:bn(40)})));
   G.script(p,'sss','Flicker',G.onMsg('rush warning'),G.sound('die'),G.msg('The lights flicker... HIDE!',2.5),blk('g_sky',null,{COLOUR:'#300000'}),G.wait(.2),blk('g_sky',null,{COLOUR:'#07080d'}),G.wait(.3),blk('g_sky',null,{COLOUR:'#300000'}),G.wait(.4),blk('g_sky',null,{COLOUR:'#07080d'}));
   G.script(p,'sss','Rush passes',G.onMsg('rush'),G.sound('explode'),blk('controls_repeat_ext',{TIMES:bn(40),DO:doIn(
     G.iff(G.AND(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('Rush')}}},'LT',G.num(16)),G.NOT({block:{type:'s_touching',inputs:{PART:G.mnamed('HidingSpots')}}})),G.msg('RUSH got you!',3),blk('pl_damage',{N:bn(1000)})),G.wait(.2))}));
@@ -3150,7 +3211,7 @@ function arsenalDef(){const G=GK;const p=G.proj('arsenal','Arsenal',{sky:'#ffb74
     G.whileDo(G.inMatch(),G.iff(G.AND(G.cmp(G.stat('KOs'),'GT',G.vget(TI)),G.cmp(G.vget(TI),'LT',G.num(6))),G.vchg(TI,1),
       ...NAMES.map((n,k)=>G.iff(G.cmp(G.vget(TI),'EQ',G.num(k)),blk('tool_take',null,{NAME:n}))),
       ...NAMES.map((n,k)=>G.iff(G.cmp(G.vget(TI),'EQ',G.num(k+1)),...(k+1<NAMES.length?[blk('tool_give',null,{NAME:NAMES[k+1]}),G.msg('New weapon: '+NAMES[k+1]+'! Press 1',1.6),G.sound('check')]:[]))),
-      G.iff(G.cmp(G.vget(TI),'EQ',G.num(6)),G.sset('KOs',99),G.sound('win'),G.msg('GOLDEN KNIFE KNOCKOUT! YOU WIN!',5))),G.wait(.2))),VARS);
+      G.iff(G.cmp(G.vget(TI),'EQ',G.num(6)),G.sset('KOs',99),G.sound('win'),G.msg('GOLDEN KNIFE KNOCKOUT! YOU WIN! +20 coins',5),blk('pl_coins',{N:bn(20)}))),G.wait(.2))),VARS);
   G.script(p,'sss','Respawn spot',blk('ev_spawn'),G.wait(.05),G.ifElse(G.cmp(G.rnd(1,4),'EQ',G.num(1)),[G.tp(-60,4,-60)],[G.ifElse(G.cmp(G.rnd(1,3),'EQ',G.num(1)),[G.tp(60,4,60)],[G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.tp(60,4,-60)],[G.tp(-60,4,60)])])]));
   // bots fill up to 6 fighters
   const NB='vnbots',BV=[['bots',NB]],BCOLS=['#e53935','#1e88e5','#43a047','#8e24aa','#fb8c00'],HOME=[[-60,-60],[60,60],[60,-60],[-60,60],[0,-60]];
@@ -3218,7 +3279,7 @@ function deathrunDef(){const G=GK;const p=G.proj('deathrun','Deathrun',{sky:'#26
   G.vars(G.hscript(p,'sss','Pick Death',G.onMsg('round start'),...[1,2,3,4,5,6].map(k=>[G.vset(RQ(k),G.num(0)),G.vset(DONE(k),G.num(0))]).flat(),
     G.ifElse(G.cmp(G.players(),'GTE',G.num(3)),[G.vset(ROLE,G.idOf(G.pref('randplaying'))),G.asP(G.byId(G.vget(ROLE)),G.tp(22,Y+16,roomZ),G.msg('You are DEATH! Step on the red buttons to spring traps on the runners.',5)),
       blk('p_visible',{PART:G.pnamed('Death')},{B:'FALSE'})],[G.vset(ROLE,G.txt('bot')),blk('p_visible',{PART:G.pnamed('Death')},{B:'TRUE'}),G.msg('Death is watching... run!',3)])),[...KV,...MV]);
-  G.vars(G.script(p,fin.id,'Finish',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.cmp(G.stat('Finished'),'EQ',G.num(0))),G.sset('Finished',1),G.sadd('Score',10),G.sound('win'),G.msg('You beat Deathrun!',3))),[...KV,...MV]);
+  G.vars(G.script(p,fin.id,'Finish',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.cmp(G.stat('Finished'),'EQ',G.num(0))),G.sset('Finished',1),G.sadd('Score',10),G.sound('win'),G.msg('You beat Deathrun! +10 coins',3),blk('pl_coins',{N:bn(10)}))),[...KV,...MV]);
   G.vars(G.script(p,'sss','Reset',G.onMsg('round start'),G.sset('Finished',0)),MV);
   G.vars(G.script(p,'sss','Runner down',blk('ev_died'),G.iff(G.NOT(G.cmp(G.vget(ROLE),'EQ',G.myId())),G.shChg('vdeathkills',1))),[['death kills','vdeathkills'],...KV]);
   G.vars(G.script(p,'sss','Death score',G.onMsg('round end'),G.iff(G.cmp(G.vget(ROLE),'EQ',G.myId()),G.sset('Score',G.arith('MULTIPLY',G.vget('vdeathkills'),G.num(4))))),[['death kills','vdeathkills'],...KV]);
@@ -3290,7 +3351,7 @@ function hideSeekDef(){const G=GK;const p=G.proj('hideseek','Hide and Seek',{sky
     G.ifElse(amSeeker(),[blk('pl_freeze',null,{B:'FALSE'}),G.tp(0,3,30),G.sound('check'),G.msg('Ready or not, here I come! Touch hiders to find them.',3)],[G.msg('The seeker is coming!',2)])),VARS);
   G.vars(G.script(p,'sss','Hiders HUD',G.onMsg('round start'),G.wait(2),G.whileDo(G.inMatch(),G.sset('Hiders left',G.vget(HL)),G.wait(.5))),VARS);
   G.vars(G.script(p,'sss','Survived',G.onMsg('round end'),blk('pl_freeze',null,{B:'FALSE'}),blk('g_sky',null,{COLOUR:'#a5d6f7'}),
-    G.iff(G.AND(G.NOT(amSeeker()),G.cmp(G.vget(CG),'EQ',G.num(0))),G.sadd('Score',30),G.sound('win'),G.msg('Nobody found you! +30',3))),[...VARS,['caught',CG]]);
+    G.iff(G.AND(G.NOT(amSeeker()),G.cmp(G.vget(CG),'EQ',G.num(0))),G.sadd('Score',30),G.sound('win'),G.msg('Nobody found you! +30 points, +10 coins',3),blk('pl_coins',{N:bn(10)}))),[...VARS,['caught',CG]]);
   G.vars(G.script(p,'sss','All found',G.onMsg('all found'),G.iff(amSeeker(),G.sadd('Score',20),G.sound('win'),G.msg('You found everyone! +20',3))),VARS);
   G.welcome(p,G.sset('Score',0),G.msg('Hide and Seek: one seeker, everyone else hides. Bots join when players are short.',5));
   return G.def(p,'hideseek','Hide and Seek');}
@@ -3308,6 +3369,10 @@ function evadeDef(){const G=GK;const p=G.proj('evade','Evade',{sky:'#4a148c',fog
   [[-30,30],[30,-30],[30,30],[-30,-30],[0,0]].forEach(([x,z])=>P({name:'JumpPad',pos:[x,.3,z],size:[5,.4,5],color:'#00e5ff',material:'Neon',behavior:'bounce',value:120}));
   [[-20,0],[20,0],[0,20],[0,-20]].forEach(([x,z])=>P({name:'SpeedPad',pos:[x,.3,z],size:[5,.4,5],color:'#ffd600',material:'Neon',behavior:'speed',value:1.6}));
   G.spawnAt(p,0,.5,40,{size:[6,1,6],color:'#7c4dff'});
+  // cola cans: a short burst of speed
+  [[-45,-20],[45,20],[-20,-80],[20,80],[-85,40],[85,-40]].forEach(([x,z])=>{const c=P({name:'Cola',shape:'cylinder',pos:[x,1.2,z],size:[1.2,2,1.2],color:'#d50000',material:'Neon',canCollide:false,label:'🥤'});
+    G.script(p,c.id,'Drink',blk('ev_touch'),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_collide',{PART:bme()},{B:'FALSE'}),G.sound('pad'),G.msg('Cola! Super speed for 6 seconds',1.5),blk('pl_speed',{V:bn(27)}),
+      G.wait(6),blk('pl_speed',{V:bn(16)}),G.wait(14),blk('p_visible',{PART:bme()},{B:'TRUE'}));});
   const MV=G.matchFlags(p),NA='vnextbots',DN='vdowned',RV='vrevives';
   const VARS=[['active nextbots',NA],...MV];
   const NBS=[['Grinner','😁','#ffeb3b'],['Screamer','😱','#ff5252'],['Stare','😐','#b0bec5'],['Jester','🤡','#e040fb'],['Ghast','👻','#eeeeee'],['Toothy','😬','#ff9800']];
@@ -3405,7 +3470,7 @@ function planeCrashDef(){const G=GK;const p=G.proj('planecrash','Plane Crash',{s
       [G.iff(G.cmp(G.rnd(1,3),'EQ',G.num(1)),G.msg('You were thrown around the cabin... but somehow survived!',4),G.tp(-30,6,G.rnd(0,20)),blk('pl_damage',{N:bn(85)})),
        G.iff(G.cmp({block:{type:'s_health'}},'GT',G.num(99)),G.msg('You were not wearing a seatbelt...',3),blk('pl_damage',{N:bn(1000)}))]),G.vset('vjumped',G.num(2)))),[...VARS,['jumped','vjumped']]);
   G.vars(G.script(p,'sss','Rescue',G.onMsg('rescue'),G.iff(G.aliveIn(),G.sound('check'),G.msg('🚁 A rescue helicopter is landing on the hill! Get there in 25 seconds!',5))),VARS);
-  G.vars(G.script(p,heli.id,'Board',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.AND(G.cmp(G.stat('Rescued'),'EQ',G.num(0)),eq(ST,5))),G.sset('Rescued',1),G.sadd('Points',50),G.sound('win'),G.msg('RESCUED! +50. You survived the plane crash!',5),G.tp(0,PY+3,0))),VARS);
+  G.vars(G.script(p,heli.id,'Board',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.AND(G.cmp(G.stat('Rescued'),'EQ',G.num(0)),eq(ST,5))),G.sset('Rescued',1),G.sadd('Points',50),G.sound('win'),G.msg('RESCUED! +50 points, +15 coins. You survived the plane crash!',5),blk('pl_coins',{N:bn(15)}),G.tp(0,PY+3,0))),VARS);
   G.vars(G.script(p,'sss','Left behind',G.onMsg('heli leaving'),G.iff(G.AND(G.aliveIn(),G.cmp(G.stat('Rescued'),'EQ',G.num(0))),G.msg('The helicopter left without you... at least you are alive. +5',4),G.sadd('Points',5))),VARS);
   G.vars(G.script(p,'sss','Hot wreck',blk('ev_start'),G.forever(G.iff(G.AND(G.aliveIn(),G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('WreckFire')}}},'LT',G.num(9))),blk('pl_damage',{N:bn(8)}),G.msg('Too hot! Move away from the fire.',1)),G.wait(.5))),VARS);
   G.welcome(p,G.sset('Points',0),G.msg('Plane Crash: grab a parachute, stay in your seat during turbulence, and survive the crash!',5));
@@ -3700,7 +3765,7 @@ function projectDef(proj,fromEditor){
 function startGame(def){
   mpLeave();
   if(def.room===undefined)def.room=def.id;
-  game=def;t=0;
+  game=def;t=0;GAMECOINS.left=150;
   PHYS.gravity=196.2;PHYS.walk=16;PHYS.jump=50;
   newScene(def.scene);
   state={time:0,stage:0,coins:0,total:0,deaths:0,over:false};
@@ -3787,10 +3852,10 @@ function lobbyEnd(){const c=LOBBY.cfg;LOBBY.inRound=false;rtFire('msg','round en
   if(c.score){const rows=[{n:myName(),s:+(RT.stats.get(c.score)||0),me:true}];
     for(const r of MP.remotes.values())if(r.lb&&r.lb.r===LOBBY.idx)rows.push({n:nameOf(r.by),s:num(r.lb.s,0)});
     rows.sort((a,b)=>c.low?a.s-b.s:b.s-a.s);const best=rows[0].s,won=rows.length>0&&rows.find(r=>r.me).s===best&&(c.low||best>0);
-    if(won&&rows.length>1){changeStat('Wins',1);}earnCoins(won&&rows.length>1?40:10,won&&rows.length>1?'you won!':'match played');
+    if(won&&rows.length>1){changeStat('Wins',1);questBump('win',game.id,1);}questBump('match',game.id,1);earnCoins(won&&rows.length>1?40:10,won&&rows.length>1?'you won!':'match played');
     $('#lobbyRes').innerHTML=`<h3>${won?(rows.length>1?'You win!':'Match over'):'Match over'}</h3><ol>${rows.slice(0,8).map((r,i)=>`<li class="${r.me?'me':''}"><span>${['🥇','🥈','🥉'][i]||(i+1)+'.'} ${esc(r.n)}</span><span>${r3(r.s)}</span></li>`).join('')}</ol><p class="sub">${esc(c.score)} · next match soon</p>`;
     $('#lobbyRes').hidden=false;LOBBY.resUntil=t+6;SFX[won?'win':'check']();}
-  else{toast('Match over!','#ffd75e',2);earnCoins(10,'match played');}
+  else{toast('Match over!','#ffd75e',2);questBump('match',game.id,1);earnCoins(10,'match played');}
   lobbyToLobby();MP.lastSent='';}
 function lobbyStop(){LOBBY.on=false;$('#lobbyBar').hidden=true;$('#lobbyRes').hidden=true;$('#game').classList.remove('haslobby');}
 function stopGame(){
@@ -3820,7 +3885,7 @@ $('#btnStop').addEventListener('click',()=>stopGame());
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&running&&!paused)pause();});
 
 function finish(){
-  if(state.over)return;state.over=true;SFX.win();if(!game.fromEditor)earnCoins(25,'finished!');if(game.project)saveFlush(false,true);
+  if(state.over)return;state.over=true;SFX.win();if(!game.fromEditor){earnCoins(25,'finished!');questBump('finish',game.id,1);}if(game.project)saveFlush(false,true);
   mpEmit('fin',{time:r3(state.time)});
   const bests=store.get('bests',{});let html='';
   if(game.mode==='race'||game.mode==='project'){const prev=bests[game.id];const nb=prev==null||state.time<prev;if(nb&&!game.fromEditor){bests[game.id]=state.time;store.set('bests',bests);}
@@ -3910,7 +3975,7 @@ function update(dt){
     p.mesh.position.copy(p.pos);p.base.copy(p.pos);W.dyn.add(p);if(p.pos.y<W.killY)destroyPart(p);}
   for(const s of W.spinners)s.pivot.rotation.y=(tw*s.speed)%(Math.PI*2);
   if(W.labels&&W.labels.length)for(const L of W.labels){if(L.p.destroyed){L.s.visible=false;continue;}L.s.position.set(L.p.pos.x,L.p.max.y+.9+L.s.scale.y/2,L.p.pos.z);L.s.visible=L.p.mesh.visible;}
-  animateAcc(P.model,t);for(const r of MP.remotes.values())animateAcc(r.model,t);coinTick(dt);hostTick(dt);
+  animateAcc(P.model,t);for(const r of MP.remotes.values())animateAcc(r.model,t);coinTick(dt);questTick(dt);hostTick(dt);
   if(W.rigs.length)updateRigs(dt);
   if(game.project||W.projectiles.length)updateTools(dt);
   if(W.emitters.length){W.emitters.forEach(e=>e.update(dt));W.emitters=W.emitters.filter(e=>{if(e.parent.destroyed&&!e.ps.length){e.dispose();return false;}return true;});}
@@ -5425,6 +5490,7 @@ function luaForScript(node,withLib){
     case 'pl_maxhp':return l(`BY.humanoid("MaxHealth", ${V(b,'N','100')})`)+(fld(b,'FILL')==='TRUE'?l(`BY.humanoid("Health", ${V(b,'N','100')})`):'');
     case 'pl_tpxyz':return l(`do local p = player() local c = p and p.Character if c then c:PivotTo(CFrame.new(${V(b,'X','0')}, ${V(b,'Y','0')}, ${V(b,'Z','0')})) end end`);
     case 'pl_respawn':return l('do local p = player() if p then p:LoadCharacter() end end');
+    case 'pl_coins':L.notes.add('Shop coins are a Brickyard feature. In Roblox, use a leaderstat or a DataStore for currency.');return l('-- give shop coins (Brickyard only)');
     case 'pl_chute':return l(fld(b,'B')==='TRUE'?'BY.parachute(true)':'BY.parachute(false)');
     case 'pl_freeze':return l(fld(b,'B')==='TRUE'?'do local h = hum() if h then h.WalkSpeed = 0 h.JumpPower = 0 end end':'do local h = hum() if h then h.WalkSpeed = 16 h.JumpPower = 50 end end');
     case 'pl_visible':return l(`do local p = player() local c = p and p.Character if c then for _, d in c:GetDescendants() do if d:IsA("BasePart") and d.Name ~= "HumanoidRootPart" then d.Transparency = ${fld(b,'B')==='TRUE'?0:1} end end end end`);
@@ -5782,6 +5848,7 @@ function defineBlocks(){
     S_({type:'pl_maxhp',message0:'set max health to %1 %2 refill',args0:[N('N'),{type:'field_checkbox',name:'FILL',checked:true}]},'player_blocks'),
     S_({type:'pl_tpxyz',message0:'teleport player to x %1 y %2 z %3',args0:[N('X'),N('Y'),N('Z')]},'player_blocks'),
     S_({type:'pl_respawn',message0:'respawn the player'},'player_blocks'),
+    S_({type:'pl_coins',message0:'give the player %1 shop coins',args0:[N('N')],tooltip:'Pays real coins the player can spend in the Avatar shop. Each play session can pay out up to 150 coins, and playtests pay nothing.'},'player_blocks'),
     S_({type:'pl_chute',message0:'parachute %1',args0:[{type:'field_dropdown',name:'B',options:[['open','TRUE'],['close','FALSE']]}],tooltip:'Opens a parachute over the player so they float down slowly. It closes by itself on landing.'},'player_blocks'),
     S_({type:'pl_freeze',message0:'freeze the player %1',args0:[{type:'field_dropdown',name:'B',options:[['on','TRUE'],['off','FALSE']]}],tooltip:'A frozen player cannot walk or jump. Handy for cutscenes and countdowns.'},'player_blocks'),
     S_({type:'pl_visible',message0:'make the player %1',args0:[{type:'field_dropdown',name:'B',options:[['invisible','FALSE'],['visible','TRUE']]}]},'player_blocks'),
@@ -5855,7 +5922,7 @@ function defineBlocks(){
       K('pl_as',{WHO:{block:{type:'pl_ref_touchme'}},DO:{block:{type:'pl_knock',inputs:{WHO:{shadow:{type:'pl_ref',fields:{WHO:'sender'}}},P:n_(60)}}}}),K('pl_knock',{WHO:{shadow:{type:'pl_ref',fields:{WHO:'sender'}}},P:n_(60)}),
       K('pl_ragdoll',{S:n_(3)}),K('pl_fling',{P:n_(80)}),K('pl_getup'),K('s_pl_ragdoll'),
       K('ev_spawn'),K('ev_jump'),K('ev_land'),K('ev_hurt'),
-      K('pl_sethp',{N:n_(100)}),K('pl_maxhp',{N:n_(200)}),K('pl_tpxyz',{X:n_(0),Y:n_(20),Z:n_(0)}),K('pl_respawn'),K('pl_freeze',null,{B:'TRUE'}),K('pl_chute',null,{B:'TRUE'}),K('pl_visible',null,{B:'FALSE'}),
+      K('pl_sethp',{N:n_(100)}),K('pl_maxhp',{N:n_(200)}),K('pl_tpxyz',{X:n_(0),Y:n_(20),Z:n_(0)}),K('pl_respawn'),K('pl_freeze',null,{B:'TRUE'}),K('pl_chute',null,{B:'TRUE'}),K('pl_coins',{N:n_(5)}),K('pl_visible',null,{B:'FALSE'}),
       K('pl_shirt'),K('pl_say',{TEXT:t_('Hello!'),S:n_(3)}),K('pl_shield',{S:n_(5)}),K('pl_airjumps',{N:n_(1)}),K('pl_face',{PART:{shadow:{type:'p_this'},block:{type:'p_named',fields:{NAME:'Part'}}}}),K('pl_camera',{N:n_(30)}),
       K('s_pl_name'),K('s_health'),K('s_pl_maxhp'),K('s_pl_speed'),K('s_pl_moving'),K('s_land_speed'),K('s_pl_alive'),K('s_pl_shield'),K('s_pl_tool'),K('s_grounded'),K('s_player')]},
     {kind:'category',name:'Saving',categorystyle:'data',contents:[K('ev_data_loaded'),K('data_set',{KEY:t_('level'),V:n_(1)}),K('data_change',{KEY:t_('gems'),N:n_(1)}),K('data_get',{KEY:t_('level')}),K('data_get_or',{KEY:t_('strength'),DEF:n_(50)}),K('data_has',{KEY:t_('level')}),
@@ -5946,7 +6013,9 @@ const THUMBS={
 const ago=ms=>{const s=(Date.now()-ms)/1000;if(s<60)return 'just now';if(s<3600)return Math.floor(s/60)+' min ago';if(s<86400)return Math.floor(s/3600)+' h ago';return Math.floor(s/86400)+' d ago';};
 let delArm=null;
 document.addEventListener('click',e=>{const c=e.target.closest('#gameChips [data-cat]');if(!c)return;GAME_CAT=c.dataset.cat;store.set('gameCat',GAME_CAT);renderCards();});
+const NEW_GAMES=new Set(['towerhell','murder','doors','arsenal','deathrun','hideseek','evade','planecrash']);
 function renderCards(){
+  renderQuests();
   const grid=$('#grid');grid.innerHTML='';const bests=store.get('bests',{});
   const chips=$('#gameChips');if(chips){const cats=['All',...new Set(GAMES.map(g=>g.cat))];chips.innerHTML=cats.map(c=>`<button type="button" class="chip" aria-pressed="${c===GAME_CAT}" data-cat="${c}">${c}${c==='All'?' ('+GAMES.length+')':''}</button>`).join('');}
   GAMES.filter(gm=>GAME_CAT==='All'||gm.cat===GAME_CAT).forEach(gm=>{const b=document.createElement('button');b.type='button';b.className='card';
@@ -5956,7 +6025,8 @@ function renderCards(){
     else if(gm.mode==='race')best=bv!=null?`Best <b>${fmt(bv)}</b>`:'No time yet';
     else if(gm.mode==='coins')best=bv?`Best <b>${bv.coins}</b> coins`:'No score yet';
     else{const n=(store.get('build',null)||[]).length;best=n?`<b>${n}</b> blocks saved`:'Fresh baseplate';}
-    b.innerHTML=`<canvas aria-hidden="true"></canvas><div class="body"><span class="tag">${gm.tag}</span><h3>${gm.name}</h3><p>${gm.desc}</p><div class="meta"><span class="best">${best}</span><span class="playpill">Play</span></div></div>`;
+    const qi=questsToday().findIndex(q=>q.g===gm.id),qS=questState();
+    b.innerHTML=`${NEW_GAMES.has(gm.id)?'<span class="newb">NEW</span>':''}${qi>=0&&!qS.c[qi]?'<span class="qdot">QUEST</span>':''}<canvas aria-hidden="true"></canvas><div class="body"><span class="tag">${gm.tag}</span><h3>${gm.name}</h3><p>${gm.desc}</p><div class="meta"><span class="best">${best}</span><span class="playpill">Play</span></div></div>`;
     (THUMBS[gm.id]||THUMBS_MORE[gm.id]||THUMBS.baseplate)(b.querySelector('canvas'));
     b.dataset.room=gm.id;b.onclick=()=>startGame(gm.make?gm.make():gm);grid.appendChild(b);});
   updateCardCounts();
