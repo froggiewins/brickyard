@@ -2717,8 +2717,17 @@ function arenaExtras(p){const G=GK;
       Q({name:'Ramp',shape:'wedge',pos:[OX+x,5,z+(z<0?11:-11)],size:[6,10,10],rot:[0,z<0?180:0,0],color:'#90a4ae',material:'Metal'});});
     Q({name:'Rocket',shape:'cyl',pos:[OX,12,0],size:[6,24,6],color:'#fafafa',material:'Metal'});Q({name:'RocketNose',shape:'ball',pos:[OX,24.5,0],size:[6,6,6],color:'#e53935',material:'Metal'});
     [[-12,14],[14,-12],[0,-40],[0,40]].forEach(([x,z])=>Q({name:'Cover',pos:[OX+x,2,z],size:[8,4,2],color:'#78909c',material:'Metal'}));}
-  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(BOX,G.num(0)),blk('pl_gravity',{V:bn(196.2)}),blk('g_sky',null,{COLOUR:'#8ec9ff'})],
-    [G.vset(BOX,G.num(300)),blk('pl_gravity',{V:bn(70)}),blk('g_sky',null,{COLOUR:'#0b0d1a'}),G.msg('Map: MOON BASE. Low gravity!',2.5)]),blk('pl_tpxyz',{X:ox(G.rnd(-20,20)),Y:bn(5),Z:G.rnd(-20,20)})),BV2);
+  {const OX=600,C3=G.folder(p,'Castle Siege').id;const Q=o=>G.part(p,C3,o);
+    Q({name:'Field',pos:[OX,-1,0],size:[160,2,160],color:'#689f38',material:'Grass'});
+    [[0,-30,60,2],[0,30,60,2],[-30,0,2,60],[30,0,2,60]].forEach(([x,z2,w,d])=>{Q({name:'CastleWall',pos:[OX+x,4,z2],size:[w,8,d],color:'#9e9e9e',material:'Brick'});Q({name:'Walkway',pos:[OX+x*(1-2.2/30),8.3,z2*(1-2.2/30)],size:[w?w:4,.6,d?d:4].map((v,i)=>i===0&&!w?4:v),color:'#757575',material:'Brick'});});
+    [[-30,-30],[30,-30],[30,30],[-30,30]].forEach(([x,z2])=>{Q({name:'Turret',shape:'cyl',pos:[OX+x,6,z2],size:[8,12,8],color:'#8d8d8d',material:'Brick'});Q({name:'TurretTop',shape:'cyl',pos:[OX+x,12.4,z2],size:[9,.8,9],color:'#616161',material:'Brick'});
+      Q({name:'Ramp',shape:'wedge',pos:[OX+x+(x<0?9:-9),4,z2],size:[6,8,10],rot:[0,x<0?90:-90,0],color:'#8d6e63',material:'Wood'});});
+    Q({name:'Gate',pos:[OX,4,30],size:[10,8,2.2],color:'#5d4037',material:'Wood',canCollide:false,transparency:.3});
+    Q({name:'Keep',pos:[OX,6,0],size:[14,12,14],color:'#bdbdbd',material:'Brick'});Q({name:'KeepRamp',shape:'wedge',pos:[OX,6,13],size:[6,12,12],rot:[0,180,0],color:'#8d6e63',material:'Wood'});
+    Q({name:'Moat',pos:[OX,.05,0],size:[80,.1,80],color:'#4fc3f7',material:'Glass',transparency:.5,canCollide:false});
+    [[-55,-55],[55,55],[55,-55],[-55,55]].forEach(([x,z2])=>Q({name:'Haybale',pos:[OX+x,1.5,z2],size:[4,3,4],color:'#ffca28',material:'Grass'}));}
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.vset(BOX,G.arith('MULTIPLY',G.rnd(0,2),G.num(300))),blk('pl_gravity',{V:bn(196.2)}),
+    G.ifElse(G.cmp(G.vget(BOX),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#8ec9ff'})],[G.ifElse(G.cmp(G.vget(BOX),'EQ',G.num(300)),[blk('pl_gravity',{V:bn(70)}),blk('g_sky',null,{COLOUR:'#0b0d1a'}),G.msg('Map: MOON BASE. Low gravity!',2.5)],[blk('g_sky',null,{COLOUR:'#b3e5fc'}),G.msg('Map: CASTLE SIEGE',2)])]),blk('pl_tpxyz',{X:ox(G.rnd(-20,20)),Y:bn(5),Z:G.rnd(-20,20)})),BV2);
   G.vars(G.script(p,'sss','Respawn on map',blk('ev_spawn'),G.wait(.05),G.iff(G.cmp(G.vget(BOX),'GT',G.num(0)),blk('pl_tpxyz',{X:ox(G.rnd(-50,50)),Y:bn(5),Z:G.rnd(-50,50)}))),BV2);
   G.script(p,'sss','Normal gravity',G.onMsg('round end'),blk('pl_gravity',{V:bn(196.2)}));
   gkFighterBots(p,{total:4,max:3,home:[[-60,-60],[60,60],[60,-60]],area:70,dmg:9,acc:4,ox:BOX});
@@ -4001,7 +4010,16 @@ function hideSeekDef(){const G=GK;const p=G.proj('hideseek','Hide and Seek',{sky
     Q({name:'Jail',pos:[OX+JAIL[0],.4,JAIL[2]],size:[16,.8,10],color:'#616161',material:'Concrete',label:'FOUND'});
     SPOTS.forEach(([x,z2],i)=>{const c=['#a1764b','#8d6e63','#bcaaa4'][i%3];Q({name:'CrateFort',pos:[OX+x,3,z2-2.6],size:[6,6,.6],color:c,material:'Wood'});Q({name:'CrateFort',pos:[OX+x-2.7,3,z2],size:[.6,6,5],color:c,material:'Wood'});
       Q({name:'CrateFort',pos:[OX+x,3,z2+2.6],size:[6,6,.6],color:c,material:'Wood'});Q({name:'CrateFort',pos:[OX+x,6.2,z2],size:[6,.4,6],color:c,material:'Wood'});});}
-  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(HOX,G.num(0))],[G.vset(HOX,G.num(400))])),HV);
+  {const OX=800,H3=G.folder(p,'Haunted Mansion').id;const Q=o=>G.part(p,H3,o);
+    Q({name:'MansionFloor',pos:[OX,-1,0],size:[200,2,200],color:'#3e2723',material:'Wood'});
+    [[0,-95,190,2],[0,95,190,2],[-95,0,2,190],[95,0,2,190]].forEach(([x,z2,w,d])=>Q({name:'Wall',pos:[OX+x,9,z2],size:[w,18,d],color:'#4a148c',material:'Brick'}));
+    [[-40,0,1,120],[40,0,1,120],[0,-40,60,1],[0,40,60,1]].forEach(([x,z2,w,d])=>Q({name:'InnerWall',pos:[OX+x,5,z2],size:[w,10,d],color:'#6a1b9a',material:'Brick'}));
+    [[-60,-60],[60,-60],[-60,60],[60,60],[0,0]].forEach(([x,z2])=>Q({name:'Chandelier',pos:[OX+x,14,z2],size:[4,1,4],color:'#ffd54f',material:'Neon'}));
+    [['Piano',20,-20,8,4,5,'#212121'],['Coffin',-20,20,3,2,7,'#4e342e'],['Bookcase',-80,-30,2,9,14,'#5d4037'],['Bookcase',80,30,2,9,14,'#5d4037'],['Couch',-60,60,10,3,4,'#880e4f'],['Table',60,-60,10,3,6,'#4e342e']].forEach(([nm,x,z2,w,h,d,c])=>Q({name:nm,pos:[OX+x,h/2,z2],size:[w,h,d],color:c,material:'Wood'}));
+    Q({name:'Jail',pos:[OX+JAIL[0],.4,JAIL[2]],size:[16,.8,10],color:'#616161',material:'Concrete',label:'FOUND'});
+    SPOTS.forEach(([x,z2],i)=>{Q({name:'Wardrobe',pos:[OX+x,4,z2-2.6],size:[6,8,.6],color:'#3e2723',material:'Wood'});Q({name:'Wardrobe',pos:[OX+x-2.7,4,z2],size:[.6,8,5],color:'#3e2723',material:'Wood'});
+      Q({name:'Wardrobe',pos:[OX+x,4,z2+2.6],size:[6,8,.6],color:'#3e2723',material:'Wood'});Q({name:'Wardrobe',pos:[OX+x,8.2,z2],size:[6,.4,6],color:'#3e2723',material:'Wood'});});}
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.vset(HOX,G.arith('MULTIPLY',G.rnd(0,2),G.num(400))),G.iff(G.cmp(G.vget(HOX),'EQ',G.num(800)),blk('g_sky',null,{COLOUR:'#1a0d2e'})),G.iff(G.cmp(G.vget(HOX),'LT',G.num(800)),blk('g_sky',null,{COLOUR:'#a5d6f7'}))),HV);
   const MV=G.matchFlags(p),SK='vseeker',NB='vhbots',HL='vhidersleft',RD='vhsround',CG='vcaught',FB=k=>'vfound'+k;
   const VARS=[...HV,['seeker',SK],['hider bots',NB],['hiders left',HL],['phase',RD],...[1,2,3,4].map(k=>['found '+k,FB(k)]),...MV];
   const eq=(id,v)=>G.cmp(G.vget(id),'EQ',typeof v==='number'?G.num(v):v);
@@ -4042,8 +4060,8 @@ function hideSeekDef(){const G=GK;const p=G.proj('hideseek','Hide and Seek',{sky
     G.iff(G.cmp(G.vget(HL),'LTE',G.num(0)),G.bc('all found')),G.vset(RD,G.num(3))),[...VARS,['spot','vspot']]);
   G.vars(G.script(p,'sss','Hide phase',G.onMsg('hide'),G.vset(CG,G.num(0)),
     G.ifElse(amSeeker(),[blk('pl_tpxyz',{X:ox(JAIL[0]),Y:bn(3),Z:bn(JAIL[2])}),blk('pl_freeze',null,{B:'TRUE'}),G.msg('You are the SEEKER! Count to 20 while everyone hides...',5),blk('g_sky',null,{COLOUR:'#000000'})],
-      [blk('pl_tpxyz',{X:ox(G.rnd(-6,6)),Y:bn(3),Z:bn(30)}),G.sound('check'),G.ifElse(G.cmp(G.vget('vhox'),'GT',G.num(0)),[G.msg('HIDE! The seeker is counting to 20. Squeeze into a crate fort or behind the toy blocks!',5)],[G.msg('HIDE! The seeker is counting to 20. Bushes, closets and the tube are great spots.',5)])])),[...VARS,['caught',CG]]);
-  G.vars(G.script(p,'sss','Seek phase',G.onMsg('seek'),blk('g_sky',null,{COLOUR:'#a5d6f7'}),
+      [blk('pl_tpxyz',{X:ox(G.rnd(-6,6)),Y:bn(3),Z:bn(30)}),G.sound('check'),G.ifElse(G.cmp(G.vget('vhox'),'EQ',G.num(800)),[G.msg('HAUNTED MANSION! The seeker is counting to 20. Hide in a wardrobe or behind the coffin...',5)],[G.ifElse(G.cmp(G.vget('vhox'),'GT',G.num(0)),[G.msg('HIDE! The seeker is counting to 20. Squeeze into a crate fort or behind the toy blocks!',5)],[G.msg('HIDE! The seeker is counting to 20. Bushes, closets and the tube are great spots.',5)])])])),[...VARS,['caught',CG]]);
+  G.vars(G.script(p,'sss','Seek phase',G.onMsg('seek'),G.ifElse(G.cmp(G.vget('vhox'),'EQ',G.num(800)),[blk('g_sky',null,{COLOUR:'#1a0d2e'})],[blk('g_sky',null,{COLOUR:'#a5d6f7'})]),
     G.ifElse(amSeeker(),[blk('pl_freeze',null,{B:'FALSE'}),blk('pl_tpxyz',{X:ox(0),Y:bn(3),Z:bn(30)}),G.sound('check'),G.msg('Ready or not, here I come! Touch hiders to find them.',3)],[G.msg('The seeker is coming!',2)])),VARS);
   G.vars(G.script(p,'sss','Hiders HUD',G.onMsg('round start'),G.wait(2),G.whileDo(G.inMatch(),G.sset('Hiders left',G.vget(HL)),G.wait(.5))),VARS);
   G.vars(G.script(p,'sss','Survived',G.onMsg('round end'),blk('pl_freeze',null,{B:'FALSE'}),blk('g_sky',null,{COLOUR:'#a5d6f7'}),
