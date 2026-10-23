@@ -2475,6 +2475,7 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
     ['Runner',{scale:.85,health:30,walkSpeed:15,colors:{head:'#c5e1a5',torso:'#8d6e63',arms:'#c5e1a5',legs:'#5d4037'}},8,'Hssss!'],
     ['Brute',{scale:1.8,health:320,walkSpeed:7,colors:{head:'#558b2f',torso:'#33691e',arms:'#558b2f',legs:'#1b5e20'}},30,'SMASH!'],
     ['Exploder',{scale:1.05,health:45,walkSpeed:11,colors:{head:'#aed581',torso:'#ff6f00',arms:'#aed581',legs:'#bf360c'}},10,'Tick... tick...'],
+    ['Spitter',{scale:.95,health:40,walkSpeed:9,colors:{head:'#cddc39',torso:'#827717',arms:'#cddc39',legs:'#33691e'}},6,'Ptooey!'],
     ['King',{scale:2.7,health:1600,walkSpeed:8,colors:{head:'#33691e',torso:'#4a148c',arms:'#33691e',legs:'#1a237e'}},45,'BOW TO THE KING!']];
   kinds.forEach(([nm,o,dmg,say])=>{const Z=rigNode(Object.assign({name:nm,parent:'rs',pos:[0,2.6*o.scale,0],respawn:0},o));p.nodes.push(Z);
     G.hscript(p,Z.id,'Chase',blk('ev_start'),G.forever(G.walkN(bme()),G.wait(.2)));
@@ -2483,6 +2484,8 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
     G.script(p,Z.id,'KO',blk('ev_rig_died'),G.sadd('KOs',nm==='King'?20:nm==='Brute'?5:1),G.sadd('Cash',nm==='King'?300:nm==='Brute'?60:nm==='Exploder'?20:10));
     if(nm==='Exploder')G.script(p,Z.id,'Boom',blk('ev_rig_died'),G.sound('explode'),blk('p_break',{X:G.prop(bme(),'x'),Y:G.prop(bme(),'y'),Z:G.prop(bme(),'z'),R:bn(6),P:bn(40)}),
       G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:bme()}}},'LT',G.num(9)),blk('pl_damage',{N:bn(25)}),G.msg('BOOM! Shoot Exploders from a distance.',2)));
+    if(nm==='Spitter')G.hscript(p,Z.id,'Spit',blk('ev_start'),G.forever(G.wait(G.rnd(2,4)),G.iff(G.AND(G.cmp(G.nearD(bme()),'LT',G.num(28)),G.cmp(G.nearD(bme()),'GT',G.num(5))),
+      blk('rig_say',{PART:bme(),TEXT:bt('Ptooey! 🟢'),S:bn(1)}),G.iff(G.cmp(G.rnd(1,10),'LTE',G.num(5)),G.asP({block:{type:'pl_ref_nearpart',inputs:{PART:bme()}}},blk('pl_damage',{N:bn(9)}),G.msg('Acid spit!',1))))));
     if(nm==='King')G.hscript(p,Z.id,'Stomp',blk('ev_start'),G.forever(G.wait(6),G.iff(G.cmp(G.nearD(bme()),'LT',G.num(30)),blk('rig_say',{PART:bme(),TEXT:bt('STOMP!'),S:bn(1)}),G.bc('king stomp'))));
     G.vars(G.hscript(p,Z.id,'Count',blk('ev_rig_died'),G.vchg(ZL,-1)),ZV);});
   const edge=nm=>G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[blk('rs_copy',{X:G.rnd(-80,80),Y:bn(3),Z:G.rnd(-82,-78)},{NAME:nm})],[blk('rs_copy',{X:G.rnd(78,82),Y:bn(3),Z:G.rnd(-80,80)},{NAME:nm})]);
@@ -2494,7 +2497,7 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
       G.vchg(BR,1),G.iff(G.cmp(G.vget(BR),'GTE',G.num(5)),G.vset(BR,G.num(0)),G.vchg(ZL,1),edge('Brute'),G.msg('A BRUTE is coming! It hits hard: keep your distance.',3)),
       G.vchg(KG,1),G.iff(G.cmp(G.vget(KG),'GTE',G.num(10)),G.vset(KG,G.num(0)),G.vchg(ZL,1),edge('King'),G.sound('die'),blk('g_sky',null,{COLOUR:'#3a1030'}),G.msg('👑 THE ZOMBIE KING HAS ARRIVED! Everyone focus fire!',4)),
       G.iff(G.cmp(G.vget(KG),'EQ',G.num(1)),blk('g_sky',null,{COLOUR:'#55606e'})),
-      blk('controls_repeat_ext',{TIMES:G.vget(SP),DO:doIn(G.iff(eq(RS,0),G.ifElse(G.AND(G.cmp(G.vget(WV),'GTE',G.num(4)),G.cmp(G.rnd(1,6),'EQ',G.num(1))),[edge('Exploder')],[G.ifElse(G.AND(G.cmp(G.vget(WV),'GTE',G.num(3)),G.cmp(G.rnd(1,4),'EQ',G.num(1))),[edge('Runner')],[edge('Zombie')])])),G.wait(1.1))}),
+      blk('controls_repeat_ext',{TIMES:G.vget(SP),DO:doIn(G.iff(eq(RS,0),G.ifElse(G.AND(G.cmp(G.vget(WV),'GTE',G.num(6)),G.cmp(G.rnd(1,7),'EQ',G.num(1))),[edge('Spitter')],[G.ifElse(G.AND(G.cmp(G.vget(WV),'GTE',G.num(4)),G.cmp(G.rnd(1,6),'EQ',G.num(1))),[edge('Exploder')],[G.ifElse(G.AND(G.cmp(G.vget(WV),'GTE',G.num(3)),G.cmp(G.rnd(1,4),'EQ',G.num(1))),[edge('Runner')],[edge('Zombie')])])])),G.wait(1.1))}),
       G.until(G.cmp(G.vget(ZL),'LTE',G.num(0))),
       G.ifElse(eq(RS,1),[G.vset(RS,G.num(0)),G.vset(WV,G.num(0)),G.vset(BR,G.num(0)),G.wait(4)],
         [G.msg('Wave cleared! +50 health. Next wave in 5 seconds...',3),G.bc('wave cleared'),G.wait(5)]))),ZV);
@@ -2502,7 +2505,7 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
   G.vars(G.script(p,'sss','WaveStat',blk('ev_start'),G.forever(G.sset('Wave',G.vget(WV)),G.wait(.5))),ZV);
   G.vars(G.script(p,'sss','Overrun',blk('ev_died'),G.ifElse(G.cmp(G.players(),'EQ',G.num(1)),
     [G.msg(G.join('The zombies got you on wave ',G.vget(WV),'! Starting again from wave 1...'),4),G.vset(RS,G.num(1)),G.vset(ZL,G.num(0)),
-      ...['Zombie','Runner','Brute','Exploder','King'].map(nm=>blk('controls_repeat_ext',{TIMES:bn(60),DO:doIn(blk('p_destroy',{PART:G.pnamed(nm)}))}))],
+      ...['Zombie','Runner','Brute','Exploder','Spitter','King'].map(nm=>blk('controls_repeat_ext',{TIMES:bn(60),DO:doIn(blk('p_destroy',{PART:G.pnamed(nm)}))}))],
     [G.msg('Knocked out! Your team holds on while you respawn.',3)])),ZV);
   // the armory: spend Cash from knockouts between waves
   gkGun(p,'rs','Scatter Gun',{dmg:22,cool:.7,color:'#ffab40',speed:200,len:.5,tip:'Bought at the armory'});
@@ -2512,6 +2515,16 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
   G.part(p,F.id,{name:'Armory',pos:[0,.3,-14],size:[26,.6,6],color:'#37474f',material:'Metal',label:'ARMORY'});
   SHOP.forEach(([nm,cost,col,act],i)=>{const pad=G.part(p,F.id,{name:'Buy '+nm,pos:[-9+i*6,1,-14],size:[4,1.2,4],color:col,material:'Neon',label:nm+' · '+cost+' cash'});
     G.script(p,pad.id,'Buy',blk('ev_touch'),G.ifElse(G.cmp(G.stat('Cash'),'GTE',G.num(cost)),[G.sadd('Cash',-cost),...act,G.sound('coin'),G.msg('Bought '+nm+'!',2)],[G.sound('click'),G.msg(nm+' costs '+cost+' cash. Knock out zombies to earn more!',2)]),G.wait(1.5));});
+  // supply drop every third wave: a crate parachutes in with a free weapon or a full heal
+  const crate=G.part(p,'workspace',{name:'SupplyCrate',pos:[0,-50,0],size:[3,3,3],color:'#ffb300',material:'Wood',label:'🪂 SUPPLIES',canCollide:false});
+  G.vars(G.hscript(p,'sss','Supply drop',blk('ev_start'),G.forever(G.until(G.AND(G.cmp(G.vget(WV),'GT',G.num(0)),G.cmp(G.vget('vsupw'),'NEQ',G.vget(WV)))),G.vset('vsupw',G.vget(WV)),
+    G.iff(G.cmp(G.vget('vsupcount'),'GTE',G.num(2)),G.vset('vsupcount',G.num(-1)),G.vset('vsx',G.rnd(-50,50)),G.vset('vsz',G.rnd(-50,50)),G.bc('supply'),
+      blk('p_setpos',{PART:G.pnamed('SupplyCrate'),X:G.vget('vsx'),Y:bn(60),Z:G.vget('vsz')}),blk('p_glide',{PART:G.pnamed('SupplyCrate'),X:bn(0),Y:bn(-58.5),Z:bn(0),S:bn(6)})),G.vchg('vsupcount',1))),[...ZV,['supply wave','vsupw'],['supply count','vsupcount'],['supply x','vsx'],['supply z','vsz']]);
+  G.script(p,'sss','Supply msg',G.onMsg('supply'),G.sound('check'),G.msg('🪂 A SUPPLY DROP is falling! Grab it first!',3));
+  G.vars(G.script(p,crate.id,'Open',blk('ev_touch'),G.iff(G.cmp(G.prop(bme(),'y'),'GT',G.num(-10)),G.shSet('vsupopen',G.num(1)),G.sound('win'),G.vset('vsr',G.rnd(1,3)),
+    G.ifElse(G.cmp(G.vget('vsr'),'EQ',G.num(1)),[blk('tool_take',null,{NAME:'Zombie Laser'}),blk('tool_give',null,{NAME:'Zombie Laser'}),G.msg('SUPPLIES: a free Zombie Laser!',3)],
+      [G.ifElse(G.cmp(G.vget('vsr'),'EQ',G.num(2)),[blk('tool_take',null,{NAME:'Scatter Gun'}),blk('tool_give',null,{NAME:'Scatter Gun'}),G.msg('SUPPLIES: a free Scatter Gun!',3)],[blk('pl_heal',{N:bn(500)}),G.sadd('Cash',100),G.msg('SUPPLIES: full heal and +100 cash!',3)])]))),[['supply open','vsupopen'],['supply roll','vsr']]);
+  G.vars(G.hscript(p,'sss','Supply taken',blk('ev_start'),G.forever(G.until(G.cmp(G.vget('vsupopen'),'EQ',G.num(1))),G.vset('vsupopen',G.num(0)),blk('p_setpos',{PART:G.pnamed('SupplyCrate'),X:bn(0),Y:bn(-50),Z:bn(0)}))),[['supply open','vsupopen']]);
   G.script(p,'sss','Stomped',G.onMsg('king stomp'),G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('King')}}},'LT',G.num(30)),blk('pl_launch',{P:bn(55)}),blk('pl_damage',{N:bn(15)}),G.msg('The ground shakes!',1)));
   G.welcome(p,G.sset('KOs',0),G.sset('Cash',0));
   G.best(p,'Wave','zombie_wave');
