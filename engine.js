@@ -2221,13 +2221,13 @@ function buildTower(rnd){
   let a=0,y=4,pw=14;
   pad(R,y,0,14,14,0xb7bfd0);W.spawn.set(R,y+PH.y+.2,0);
   const place=(w,gap)=>{a+=(pw/2+w/2+gap)/R;pw=w;y+=1.6;return [R*Math.cos(a),y,R*Math.sin(a)];};
-  const types=['steps','move','lava','fade','spin','move','fade','lava'];
+  const types=['steps','move','lava','fade','spin','move','fade','lava','tiny','spin'];
   W.stages=types.length;
   types.forEach((type,s)=>{
-    const col=STAGE_COLS[s];
+    const col=STAGE_COLS[s%STAGE_COLS.length];
     for(let j=0;j<6;j++){
       if(type==='spin'&&j===2){const [x,yy,z]=place(16,4);pad(x,yy,z,16,16,col);addSpinner(x,yy+1.2,z,15,1.5+s*.08);continue;}
-      const w=type==='lava'?7:4.5+rnd()*1.5;const [x,yy,z]=place(w,3.2+rnd()*1.3);
+      const w=type==='lava'?7:type==='tiny'?2.4:4.5+rnd()*1.5;const [x,yy,z]=place(w,type==='tiny'?2.6+rnd():3.2+rnd()*1.3);
       if(type==='move'){const radial=j%2===0;addPart({pos:[x,yy-.5,z],size:[w,1,w],color:col,
         move:{axis:radial?new V3(Math.cos(a),0,Math.sin(a)):new V3(0,1,0),dist:radial?3:2.2,speed:1.3+rnd()*.6,phase:rnd()*6}});}
       else if(type==='fade')pad(x,yy,z,w,w,0xa8e6ff,{kind:'fade'});
@@ -2261,6 +2261,12 @@ function buildSky(rnd){
   run(6);
   const gz=z;run(52,12,0xc7d2ea);for(let i=0;i<3;i++)addSpinner(0,y+1.2,gz-10-i*16,11,1.7+i*.35);
   check();
+  // bounce section: jump pads launch you up through three cloud ledges
+  for(let i=0;i<3;i++){pad(0,y+.2,z-3,5,5,0x22d3ee,{kind:'jump',h:.4,neon:true,data:{power:92}});run(6,6,0xc7d2ea);z-=3;y+=14;run(10,8,0xdfe6f5);}
+  check();
+  // narrow beam with sliders crossing it
+  run(46,2.4,0x9fb1d8);for(let i=0;i<3;i++)addPart({pos:[0,y+1,z+38-i*14],size:[1,1,8],color:0xff3b30,kind:'kill',neon:true,move:{axis:new V3(1,0,0),dist:5,speed:1.4+i*.3,phase:i*2}});
+  check();
   run(28);speedPad(z+5);gap(16);
   pad(0,y,z-10,20,20,0xffc93c,{kind:'finish',metal:.35});
   W.stages=cp;W.killY=y-80;
@@ -2269,7 +2275,7 @@ function buildSky(rnd){
 }
 function buildCoins(rnd){
   pad(0,0,0,900,900,0x2f8fd8,{kind:'water',h:2,transparency:.12,noShadow:true});
-  const isl=[{x:0,z:0,w:70,d:70,top:3},{x:105,z:15,w:40,d:40,top:6},{x:-10,z:110,w:46,d:36,top:4},{x:-105,z:-15,w:42,d:48,top:4},{x:25,z:-105,w:36,d:36,top:3}];
+  const isl=[{x:0,z:0,w:70,d:70,top:3},{x:105,z:15,w:40,d:40,top:6},{x:-10,z:110,w:46,d:36,top:4},{x:-105,z:-15,w:42,d:48,top:4},{x:25,z:-105,w:36,d:36,top:3},{x:190,z:-45,w:38,d:38,top:5}];
   isl.forEach(I=>{pad(I.x,I.top-1,I.z,I.w+6,I.d+6,0xe8d39a,{h:I.top+1});pad(I.x,I.top,I.z,I.w,I.d,0x58b947);});
   const hill=(x,z,top,w,c)=>pad(x,top,z,w,w,c||0x4a9f3c,{h:3});
   hill(-15,-12,6,16);hill(-15,-12,9,8,0x3f8a33);
@@ -2290,6 +2296,10 @@ function buildCoins(rnd){
   [[60,13.5,4.5],[-5,64,3.6],[20,-61,3]].forEach(([x,z,tp])=>put(x,tp+2.5,z));
   put(-59.5,5.5,-10);
   put(33,38.5,-113);put(39,38.5,-107);put(36,38.5,-110);
+  // volcano island far to the east: a moving raft and stepping stones lead there
+  stones(125,10,6,171,-35,5,6,i=>i===3?{move:{axis:new V3(0,1,0),dist:1.2,speed:1,phase:1}}:{});
+  hill(190,-45,8,24,0x6d4c41);hill(190,-45,11,16,0x5d4037);hill(190,-45,14,9,0x4e342e);pad(190,14.6,-45,5,5,0xff5a1f,{kind:'kill',h:.4,neon:true});
+  put(181,11.5,-45);put(199,11.5,-45);put(190,14.5,-36);put(190,14.5,-54);put(190,8.5,-60);put(176,7.5,-30);
   isl.forEach(I=>{const n=Math.floor(I.w*I.d/400);for(let i=0;i<n;i++){const x=I.x+(rnd()-.5)*(I.w-6),z=I.z+(rnd()-.5)*(I.d-6);
     if(coinsAt.some(c=>Math.hypot(c[0]-x,c[1]-z)<6))continue;const g=groundAt(x,z,30);if(g>I.top+.5)continue;
     block(x,g+3.5,z,1.6,7,1.6,0x6d4c41,{decor:true});block(x,g+9.5,z,7,5,7,0x2e7d32,{decor:true});}});
@@ -3854,8 +3864,8 @@ const GAMES=[
   {id:'arena',name:'Brick Battle',tag:'Online battle · lobby matches',desc:'Two-minute matches in a walled arena with swords, blasters and jump pads. Most knockouts wins.',mode:'project',make:arenaDef},
   {id:'tower',name:'Lava Tower',tag:'Obby · 8 stages',desc:'Climb a spiral of moving, fading and lava-striped platforms around a giant pillar. Spinners guard the middle.',
     build:buildTower,mode:'race',stageWord:'Stage',scene:{sky:0x2a1b3d,fogNear:120,fogFar:520,ground:0x5a2a1a},seed:7,objective:'Reach the golden top'},
-  {id:'coins',name:'Coin Rush',tag:'Collect · 2:30',desc:'Hop between islands, ride the ferry and launch off the jump pad to grab every coin before the clock runs out.',
-    build:buildCoins,mode:'coins',limit:150,scene:{sky:0x9fd8ff,fogNear:180,fogFar:620},seed:21,objective:'Collect every coin'},
+  {id:'coins',name:'Coin Rush',tag:'Collect · 3:10',desc:'Hop between six islands, ride the ferry, launch off the jump pad and climb the volcano to grab every coin before the clock runs out.',
+    build:buildCoins,mode:'coins',limit:190,scene:{sky:0x9fd8ff,fogNear:180,fogFar:620},seed:21,objective:'Collect every coin'},
   {id:'sky',name:'Skyline Sprint',tag:'Race · 4 checkpoints',desc:'A speedrun course above the clouds. Hit speed pads to clear big gaps, dodge spinners, beat your best time.',
     build:buildSky,mode:'race',stageWord:'Checkpoint',scene:{sky:0x7fb8ff,fogNear:150,fogFar:560,ground:0x9fb4d6},seed:3,objective:'Cross the finish line'},
   {id:'sandbox',name:'Free Build',tag:'Sandbox',desc:'Place, paint and delete bricks on a studded baseplate. Your build is saved in this browser for next time.',
