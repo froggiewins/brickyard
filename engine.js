@@ -2437,7 +2437,19 @@ function lavaRiseDef(){const G=GK;const p=G.proj('lavarise','Lava Rising',{sky:'
     if(i%9===6)G.script(p,n.id,'Vanish',...SCR.vanish().blocks.blocks);
     if(i===16)Object.assign(n,{behavior:'jump',value:80,color:'#22d3ee',material:'Neon',name:'JumpPad'});}
   const goal=G.part(p,T.id,{name:'Goal',pos:[0,3+34*3.6,0],size:[14,1,14],color:'#ffc93c',material:'Neon',label:'TOP'});
-  const lava=G.part(p,'workspace',{name:'Lava',pos:[0,-3,0],size:[150,2,150],color:'#ff5a1f',material:'Neon',behavior:'kill',transparency:.08});
+  // tower B: the Scaffold, 140 studs east. Even rounds are climbed here
+  {const OX=140,T2=G.folder(p,'Scaffold').id;const Q=o=>G.part(p,T2,o);
+    Q({name:'Ground',pos:[OX,-1,0],size:[80,2,80],color:'#3b2a2a',material:'Slate'});
+    [[-16,-16],[16,-16],[16,16],[-16,16]].forEach(([x,z2])=>Q({name:'Beam',pos:[OX+x,64,z2],size:[2,128,2],color:'#78909c',material:'Metal'}));
+    const corners=[[-12,12],[12,12],[12,-12],[-12,-12]];
+    for(let i=0;i<34;i++){const ang=-i*8.6/13,y=3+i*3.6;
+      const x=r3(Math.cos(ang)*13),z2=r3(Math.sin(ang)*13);const tiny=i%6===5;
+      const st=Q({name:'Plank',pos:[OX+x,y,z2],size:tiny?[3,1,3]:[6,1,6],color:OBBY_COLS[(i+3)%OBBY_COLS.length],material:'Wood'});
+      if(i%7===3)G.script(p,st.id,'Sway',...SCR.glide(i%2?3:-3,0,0,1.6).blocks.blocks);}
+    const g2=Q({name:'GoalB',pos:[OX,3+34*3.6,0],size:[14,1,14],color:'#ffc93c',material:'Neon',label:'TOP'});
+    G.vars(G.script(p,g2.id,'NextRound',blk('ev_touch'),G.bc('lava top')),[]);
+    Q({name:'StartPad',pos:[OX+4,.2,26],size:[6,.4,6],color:'#4e342e',material:'Wood'});}
+  const lava=G.part(p,'workspace',{name:'Lava',pos:[70,-3,0],size:[300,2,150],color:'#ff5a1f',material:'Neon',behavior:'kill',transparency:.08});
   const GR='vgrace',VL=[['grace',GR]];
   const speed=G.arith('DIVIDE',G.num(.85),G.arith('ADD',G.num(1),G.arith('MULTIPLY',G.stat('Round'),G.num(.35))));
   G.vars(G.script(p,lava.id,'Rise',blk('ev_start'),G.vset(GR,G.num(10)),G.forever(G.ifElse(G.cmp(G.vget(GR),'GT',G.num(0)),[G.vchg(GR,-1),G.wait(1)],
@@ -2448,8 +2460,9 @@ function lavaRiseDef(){const G=GK;const p=G.proj('lavarise','Lava Rising',{sky:'
     G.vars(G.script(p,c.id,'Freeze',blk('ev_touch'),G.iff(G.cmp({block:{type:'s_prop',fields:{PROP:'t'},inputs:{PART:bme()}}},'LT',G.num(.5)),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_transp',{PART:bme()},{V:bn(1)}),G.vchg(GR,6),G.sound('check'),
       G.msg('❄ Lava frozen for 6 seconds!',2),blk('p_color',{PART:G.pnamed('Lava')},{COLOUR:'#4dd0e1'}),G.wait(6),blk('p_color',{PART:G.pnamed('Lava')},{COLOUR:'#ff5a1f'}))),VL);});
   const reset=()=>[blk('p_setpos',{PART:G.pnamed('Lava'),X:bn(0),Y:bn(-3),Z:bn(0)}),G.vset(GR,G.num(5)),blk('p_visible',{PART:G.mnamed('IceCrystals')},{B:'TRUE'}),blk('p_transp',{PART:G.mnamed('IceCrystals')},{V:bn(0)})];
-  G.vars(G.script(p,goal.id,'NextRound',blk('ev_touch'),G.sadd('Round',1),G.sound('win'),blk('pl_coins',{N:bn(3)}),G.iff(G.cmp(G.stat('Round'),'EQ',G.num(3)),G.msg('Round 3: fire geysers start erupting from the pillar!',3),G.wait(3)),G.msg(G.join('Round ',G.stat('Round'),'! The lava gets faster...'),3),G.tp(4,4,26),...reset()),VL);
-  G.vars(G.script(p,'sss','LavaGotYou',blk('ev_died'),G.msg(G.join('The lava got you on round ',G.stat('Round'),'. Back to round 1!'),3),G.sset('Round',1),...reset()),VL);
+  G.vars(G.script(p,goal.id,'NextRound',blk('ev_touch'),G.bc('lava top')),VL);
+  G.vars(G.script(p,'sss','Round up',G.onMsg('lava top'),G.sadd('Round',1),G.sound('win'),blk('pl_coins',{N:bn(3)}),G.iff(G.cmp(G.stat('Round'),'EQ',G.num(3)),G.msg('Round 3: fire geysers start erupting from the pillar!',3),G.wait(3)),G.msg(G.join('Round ',G.stat('Round'),'! The lava gets faster...'),3),G.vset('vtower',G.arith('MINUS',G.num(1),G.vget('vtower'))),G.ifElse(G.cmp(G.vget('vtower'),'EQ',G.num(1)),[G.tp(144,4,26),G.msg('Now climb the SCAFFOLD!',2)],[G.tp(4,4,26)]),...reset()),[...VL,['tower','vtower']]);
+  G.vars(G.script(p,'sss','LavaGotYou',blk('ev_died'),G.msg(G.join('The lava got you on round ',G.stat('Round'),'. Back to round 1!'),3),G.sset('Round',1),G.vset('vtower',G.num(0)),...reset()),[...VL,['tower','vtower']]);
   G.welcome(p,G.sset('Round',1),G.sset('Height',0),G.msg('Reach the gold top, then climb again. The lava gets faster every round!',4),G.forever(G.sset('Height',G.ppos('y')),G.wait(.25)));
   G.best(p,'Round','lava_round');
   // from round 3, fireballs burst out of the pillar
