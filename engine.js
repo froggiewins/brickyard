@@ -2164,6 +2164,12 @@ const STAMPS={
   snowman:()=>{const o=[];for(let x=-1;x<=1;x++)for(let z=-1;z<=1;z++)o.push([x,0,z,'#fafafa']);o.push([0,1,0,'#fafafa'],[0,2,0,'#fafafa'],[0,2,1,'#ff9800'],[0,3,0,'#212121']);return o;},
   bridge:()=>{const o=[];for(let z=0;z<10;z++){o.push([0,0,-z,'#8d6e63'],[1,0,-z,'#8d6e63']);if(z%3===0)o.push([-1,1,-z,'#5d4037'],[2,1,-z,'#5d4037']);}return o;},
   castle:()=>{const o=[];for(let x=-4;x<=4;x++){for(let y=0;y<3;y++)o.push([x,y,0,'#9e9e9e']);if(x%2===0)o.push([x,3,0,'#bdbdbd']);}return o;},
+  pyramid:()=>{const o=[];const cols=['#e6c27a','#d7b56d','#cfa95a','#c49c4c','#b98e3f'];for(let y=0;y<5;y++)for(let x=-4+y;x<=4-y;x++)for(let z=-4+y;z<=4-y;z++)if(Math.abs(x)===4-y||Math.abs(z)===4-y||y===4)o.push([x,y,z,cols[y]]);return o;},
+  heart:()=>{const o=[];const H=['0110110','1111111','1111111','0111110','0011100','0001000'];H.forEach((r,y)=>[...r].forEach((c,x)=>{if(c==='1')o.push([x-3,5-y,0,'#e91e63',1]);}));return o;},
+  ship:()=>{const o=[];for(let z=-4;z<=4;z++)for(let x=-1;x<=1;x++)if(!(Math.abs(z)===4&&x!==0))o.push([x,0,z,'#6d4c41']);for(let z=-3;z<=3;z++)o.push([-2,1,z,'#8d6e63'],[2,1,z,'#8d6e63']);for(let y=1;y<7;y++)o.push([0,y,0,'#5d4037']);for(let y=3;y<6;y++)for(let x=-1;x<=1;x++)o.push([x,y,1,'#fafafa']);return o;},
+  windmill:()=>{const o=[];for(let y=0;y<6;y++)for(let x=0;x<=1;x++)for(let z=0;z<=1;z++)o.push([x,y,z,'#bcaaa4']);o.push([0,6,0,'#8d6e63'],[1,6,0,'#8d6e63'],[0,6,1,'#8d6e63'],[1,6,1,'#8d6e63']);for(let k=1;k<=3;k++)o.push([0,5+k,-1,'#fafafa'],[0,5-k,-1,'#fafafa'],[k,5,-1,'#fafafa'],[-k,5,-1,'#fafafa']);return o;},
+  arch:()=>{const o=[];const cols=['#e53935','#fb8c00','#fdd835','#43a047','#1e88e5','#8e24aa'];for(let a=0;a<=12;a++){const t=a/12*Math.PI;cols.forEach((c,i)=>{const r=7-i*.9;o.push([Math.round(Math.cos(t)*r),Math.round(Math.sin(t)*r),0,c,1]);});}return o;},
+  stairs:()=>{const o=[];for(let i=0;i<8;i++)for(let x=0;x<=1;x++)for(let y=0;y<=i;y++)o.push([x,y,-i,y===i?'#b0bec5':'#78909c']);return o;},
   rocket:()=>{const o=[];for(let y=0;y<6;y++)o.push([0,y,0,y===5?'#e53935':'#eceff1',y===5?1:3]);o.push([0,6,0,'#e53935'],[-1,0,0,'#e53935'],[1,0,0,'#e53935'],[0,0,-1,'#e53935'],[0,0,1,'#e53935'],[0,-1,0,'#ff9100',1]);return o;}};
 function placeStamp(c){if(MP.world){toast('Stamps work in your own builds','#ff9aa4');return;}const id=($('#bstamp')||{}).value||'tree';const list=(STAMPS[id]||STAMPS.tree)();buildSnap();let n=0;
   const base=new V3(Math.floor(c.x/2)*2+1,Math.floor(c.y/2)*2+1,Math.floor(c.z/2)*2+1);
