@@ -3947,10 +3947,16 @@ function planeCrashDef(){const G=GK;const p=G.proj('planecrash','Plane Crash',{s
     G.wait(12),G.vset(ST,G.num(1)),G.bc('turbulence'),G.wait(G.rnd(12,18)),G.vset(ST,G.num(2)),G.bc('engine fire'),blk('pe_toggle',{PART:G.pnamed('Engine')},{B:'TRUE'}),
     G.wait(10),G.vset(ST,G.num(3)),G.bc('door open'),blk('p_collide',{PART:G.pnamed('EmergencyDoor')},{B:'FALSE'}),blk('p_transp',{PART:G.pnamed('EmergencyDoor')},{V:bn(1)}),
     G.wait(15),G.vset(ST,G.num(4)),G.bc('crash'),blk('pe_toggle',{PART:G.pnamed('Engine')},{B:'FALSE'}),
-    blk('p_setpos',{PART:G.pnamed('WreckFire'),X:bn(-30),Y:bn(2),Z:bn(10)}),
+    G.iff(G.cmp(G.vget('vsea'),'EQ',G.num(0)),blk('p_setpos',{PART:G.pnamed('WreckFire'),X:bn(-30),Y:bn(2),Z:bn(10)})),
     G.vset('vflare',G.num(0)),G.vset('vwt',G.num(0)),blk('controls_whileUntil',{BOOL:G.OR(G.cmp(G.vget('vwt'),'GTE',G.num(40)),G.cmp(G.vget('vflare'),'EQ',G.num(1))),DO:doIn(G.wait(1),G.vchg('vwt',1))},{MODE:'UNTIL'}),G.vset(ST,G.num(5)),G.bc('rescue'),blk('p_setpos',{PART:G.pnamed('Helicopter'),X:bn(40),Y:bn(80),Z:bn(80)}),blk('p_glide',{PART:G.pnamed('Helicopter'),X:bn(0),Y:bn(-63.5),Z:bn(0),S:bn(5)}),
     G.wait(25),G.bc('heli leaving'),blk('p_glide',{PART:G.pnamed('Helicopter'),X:bn(0),Y:bn(90),Z:bn(-60),S:bn(4)})),[...VARS,['packs','vnpk']]);
-  G.vars(G.hscript(p,'sss','Wreck appears',G.onMsg('crash'),blk('p_glide',{PART:G.mnamed('Wreck'),X:bn(0),Y:bn(300),Z:bn(0),S:bn(0)}),G.wait(1),blk('p_break',{X:bn(-30),Y:bn(2),Z:bn(10),R:bn(18),P:bn(60)})),VARS);
+  // sometimes the plane ditches in the sea instead: hop across the floating wreckage to the beach
+  const WS=G.model(p,'WreckSea').id;[[0,0,0,12,4,26,'#cfd8dc'],[-9,0,-12,16,2,6,'#b0bec5']].forEach(([x,y,z2,w,h,d,c],i)=>G.part(p,WS,{name:'SeaWreck',pos:[x-30,y-300,z2-130],size:[w,h,d],rot:[0,i*30,i*10],color:c,material:'Metal'}));
+  for(let i=0;i<6;i++)I({name:'Debris',pos:[-30+((i%2)?3:-3),-1.6,-113+i*8.5],size:[5,1,5],color:['#8d6e63','#b0bec5','#a1887f'][i%3],material:'Wood'});
+  G.vars(G.script(p,'sss','Pick crash',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset('vsea',G.num(0))],[G.vset('vsea',G.num(1))])),[['sea crash','vsea']]);
+  G.vars(G.hscript(p,'sss','Wreck appears',G.onMsg('crash'),G.ifElse(G.cmp(G.vget('vsea'),'EQ',G.num(1)),[blk('p_glide',{PART:G.mnamed('WreckSea'),X:bn(0),Y:bn(300),Z:bn(0),S:bn(0)})],
+    [blk('p_glide',{PART:G.mnamed('Wreck'),X:bn(0),Y:bn(300),Z:bn(0),S:bn(0)}),G.wait(1),blk('p_break',{X:bn(-30),Y:bn(2),Z:bn(10),R:bn(18),P:bn(60)})])),[...VARS,['sea crash','vsea']]);
+  G.vars(G.hscript(p,'sss','Sea wreck resets',G.onMsg('round start'),G.iff(G.cmp(G.prop(G.mnamed('WreckSea'),'y'),'GT',G.num(-100)),blk('p_glide',{PART:G.mnamed('WreckSea'),X:bn(0),Y:bn(-300),Z:bn(0),S:bn(0)}))),VARS);
   G.vars(G.hscript(p,'sss','Wreck resets',G.onMsg('round start'),G.iff(G.cmp(G.prop(G.mnamed('Wreck'),'y'),'GT',G.num(-100)),blk('p_glide',{PART:G.mnamed('Wreck'),X:bn(0),Y:bn(-300),Z:bn(0),S:bn(0)}))),VARS);
   // everyone: phases on your own screen
   G.vars(G.script(p,'sss','Board',G.onMsg('round start'),G.sset('Parachute',0),G.sset('Rescued',0),blk('pl_chute',null,{B:'FALSE'}),G.vset('vjumped',G.num(0)),
@@ -3968,8 +3974,8 @@ function planeCrashDef(){const G=GK;const p=G.proj('planecrash','Plane Crash',{s
     G.ifElse(G.cmp({block:{type:'s_land_speed'}},'GT',G.num(60)),[G.sound('explode'),G.msg('SPLAT! You hit the ground way too fast.',3),blk('pl_damage',{N:bn(1000)})],
       [G.sadd('Points',20),G.sound('win'),G.msg('Safe landing! +20. Now get to the helipad on the hill!',4)]))),[...VARS,['jumped','vjumped']]);
   G.vars(G.script(p,'sss','Crash',G.onMsg('crash'),blk('g_sky',null,{COLOUR:'#90caf9'}),G.iff(G.AND(G.aliveIn(),G.cmp(G.vget('vjumped'),'EQ',G.num(0))),G.sound('explode'),
-    G.ifElse({block:{type:'s_touching',inputs:{PART:G.mnamed('Seats')}}},[G.msg('BRACE! The plane slams into the island... you survived in your seat! +15',4),G.tp(-30,6,G.rnd(0,20)),blk('pl_damage',{N:G.rnd(30,70)}),G.sadd('Points',15)],
-      [G.iff(G.cmp(G.rnd(1,3),'EQ',G.num(1)),G.msg('You were thrown around the cabin... but somehow survived!',4),G.tp(-30,6,G.rnd(0,20)),blk('pl_damage',{N:bn(85)})),
+    G.ifElse({block:{type:'s_touching',inputs:{PART:G.mnamed('Seats')}}},[G.ifElse(G.cmp(G.vget('vsea'),'EQ',G.num(1)),[G.msg('SPLASHDOWN! You survived in your seat! +15. Hop across the wreckage to the beach. Sharks!',5),G.tp(-30,3,-130)],[G.msg('BRACE! The plane slams into the island... you survived in your seat! +15',4),G.tp(-30,6,G.rnd(0,20))]),blk('pl_damage',{N:G.rnd(30,70)}),G.sadd('Points',15)],
+      [G.iff(G.cmp(G.rnd(1,3),'EQ',G.num(1)),G.msg('You were thrown around the cabin... but somehow survived!',4),G.ifElse(G.cmp(G.vget('vsea'),'EQ',G.num(1)),[G.tp(-30,3,-130)],[G.tp(-30,6,G.rnd(0,20))]),blk('pl_damage',{N:bn(85)})),
        G.iff(G.cmp({block:{type:'s_health'}},'GT',G.num(99)),G.msg('You were not wearing a seatbelt...',3),blk('pl_damage',{N:bn(1000)}))]),G.vset('vjumped',G.num(2)))),[...VARS,['jumped','vjumped']]);
   G.vars(G.script(p,'sss','Rescue',G.onMsg('rescue'),G.iff(G.aliveIn(),G.sound('check'),G.msg('🚁 A rescue helicopter is landing on the hill! Get there in 25 seconds!',5))),VARS);
   G.vars(G.script(p,heli.id,'Board',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.AND(G.cmp(G.stat('Rescued'),'EQ',G.num(0)),eq(ST,5))),G.sset('Rescued',1),G.sadd('Points',50),G.sound('win'),G.msg('RESCUED! +50 points, +15 coins. You survived the plane crash!',5),blk('pl_coins',{N:bn(15)}),G.tp(0,PY+3,0))),VARS);
