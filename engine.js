@@ -1639,8 +1639,8 @@ function computeHost(){if(!MP.gr||!MP.peerMe||!MP.remotes.size)return {am:true,p
   let best=[RT.joinT||0,String(MP.peerMe)],peer=MP.peerMe;
   for(const r of MP.remotes.values()){const k=hostKey(r);if(k[0]<best[0]||(k[0]===best[0]&&k[1]<best[1])){best=k;peer=r.peer;}}
   return {am:peer===MP.peerMe,peer};}
-function nearestPlayer(pos){let best=null,bd=1e18;if(!P.dead){const d=P.pos.distanceToSquared(pos);if(d<bd){bd=d;best={pos:P.pos,me:true,y:P.pos.y-PH.y};}}
-  for(const r of MP.remotes.values()){if(r.dead)continue;const d=r.pos.distanceToSquared(pos);if(d<bd){bd=d;best={pos:r.pos,me:false,r,y:r.pos.y-2.5};}}if(best)best.d=Math.sqrt(bd);return best;}
+function nearestPlayer(pos){let best=null,bd=1e18;if(!P.dead&&!P.hidden){const d=P.pos.distanceToSquared(pos);if(d<bd){bd=d;best={pos:P.pos,me:true,y:P.pos.y-PH.y};}}
+  for(const r of MP.remotes.values()){if(r.dead||r.inv)continue;const d=r.pos.distanceToSquared(pos);if(d<bd){bd=d;best={pos:r.pos,me:false,r,y:r.pos.y-2.5};}}if(best)best.d=Math.sqrt(bd);return best;}
 function myPid(){return MP.gr&&MP.peerMe?String(MP.peerMe):'solo';}
 function isPup(p){return !!(p&&p.rig&&p.puppet);}
 function hostTick(dt){if(!running||!game||!game.project)return;
@@ -3241,7 +3241,7 @@ function ghostDef(){const G=GK;const p=G.proj('ghost','Escape the Ghost',{sky:'#
   G.vars(G.script(p,'sss','Caught',blk('ev_died'),G.msg(G.join('The ghost caught you on night ',G.stat('Night'),'. Back to night 1!'),4),G.sset('Night',1),...reset(),
     G.iff(G.cmp(G.players(),'EQ',G.num(1)),G.vset(GH,G.num(0)),G.vset(GS,G.num(0)),blk('controls_repeat_ext',{TIMES:bn(20),DO:doIn(blk('p_destroy',{PART:G.pnamed('ExtraGhost')}))}),
       blk('p_setpos',{PART:G.pnamed('Ghost'),X:bn(r3(-o-S/2)),Y:bn(2.6),Z:bn(r3(-o-S/2))}))),GV);
-  G.welcome(p,G.sset('Night',1),G.sset('Keys',0),...scatter(),G.msg('Find 5 glowing keys and reach the gate before the ghost catches you!',4));
+  G.welcome(p,G.sset('Night',1),G.sset('Keys',0),...scatter(),G.msg('Find 5 glowing keys and reach the gate before the ghost catches you! Hide in the metal lockers when a ghost gets close.',5));
   G.best(p,'Night','ghost_night');
   G.hud(p,'GhostMeter','#311b92',G.join('🔑 ',G.stat('Keys'),'/5   👻 ',G.round({block:{type:'s_distance',inputs:{PART:G.pnamed('Ghost')}}}),' studs away'),.2);
   G.script(p,'sss','Heartbeat',blk('ev_start'),G.forever(G.ifElse(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('Ghost')}}},'LT',G.num(22)),[G.sound('click'),G.wait(.35),G.sound('click'),G.wait(.6)],[G.wait(.5)])));
@@ -3255,6 +3255,13 @@ function ghostDef(){const G=GK;const p=G.proj('ghost','Escape the Ghost',{sky:'#
   for(let k=0;k<6;k++){const so=G.part(p,'workspace',{name:'SoulOrb'+k,shape:'ball',pos:[r3(o+S/2+Math.floor(rr()*n)*S),2.2,r3(o+S/2+Math.floor(rr()*n)*S)],size:[1.2,1.2,1.2],color:'#80d8ff',material:'Neon',canCollide:false});
     G.script(p,so.id,'Take',blk('ev_touch'),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-90),Z:bn(0)}),G.sadd('Souls',1),G.sound('coin'),blk('pl_coins',{N:bn(1)}));}
   G.script(p,'sss','Night mood',blk('ev_start'),G.forever(G.until(G.cmp(G.stat('Night'),'GTE',G.num(3))),blk('g_sky',null,{COLOUR:'#05060c'}),G.msg('Night 3: the fog rolls in...',2),G.until(G.cmp(G.stat('Night'),'LT',G.num(3))),blk('g_sky',null,{COLOUR:'#0b0f1a'})));
+  // crypt lockers: step inside to hide. Ghosts can't see you while you hide (but they still bump into you)
+  for(let k=0;k<6;k++){const cx=r3(o+S/2+Math.floor(rr()*n)*S),cz=r3(o+S/2+Math.floor(rr()*n)*S);const LK=G.model(p,'Locker'+k).id;
+    G.part(p,LK,{name:'LockerBack',pos:[cx+2.6,3.5,cz],size:[.4,7,4],color:'#455a64',material:'Metal'});G.part(p,LK,{name:'LockerSide',pos:[cx+1,3.5,cz-2],size:[3.6,7,.4],color:'#546e7a',material:'Metal'});
+    G.part(p,LK,{name:'LockerSide',pos:[cx+1,3.5,cz+2],size:[3.6,7,.4],color:'#546e7a',material:'Metal'});G.part(p,LK,{name:'LockerTop',pos:[cx+1,7.2,cz],size:[3.6,.4,4.4],color:'#37474f',material:'Metal'});
+    const inside=G.part(p,'workspace',{name:'LockerInside'+k,pos:[cx+1,3,cz],size:[3,6,3.4],color:'#000000',transparency:.9,canCollide:false,label:'HIDE'});
+    G.script(p,inside.id,'Hide',blk('ev_touch'),blk('pl_visible',null,{B:'FALSE'}),G.msg('Hiding in a locker... the ghosts lose track of you.',2),
+      blk('controls_whileUntil',{BOOL:{block:{type:'s_touching',inputs:{PART:bme()}}},DO:doIn(G.wait(.3))},{MODE:'WHILE'}),blk('pl_visible',null,{B:'TRUE'}));}
   const lan=G.part(p,'workspace',{name:'Lantern',shape:'ball',pos:[r3(o+3*S+S/2),2,r3(o+5*S+S/2)],size:[1.6,1.6,1.6],color:'#fff59d',material:'Neon',canCollide:false,label:'LANTERN'});
   p.nodes.push(emitterNode({parent:lan.id,name:'Light',rate:8},'sparkles'));
   G.vars(G.script(p,lan.id,'Use',blk('ev_touch'),G.msg('Lantern! The ghosts are scared and slow for 8 seconds.',2.5),G.sound('win'),blk('p_visible',{PART:bme()},{B:'FALSE'}),G.shSet(SC,G.num(1)),
