@@ -2748,22 +2748,29 @@ function colorDropDef(){const G=GK;const p=G.proj('colordrop','Color Drop',{sky:
   const names=['Red','Blue','Green','Yellow'],cols=['#ef5350','#42a5f5','#66bb6a','#ffee58'];const M=names.map(n=>G.model(p,n));
   for(let i=0;i<8;i++)for(let j=0;j<8;j++){const k=(i*3+j*5+((i*j)%3))%4;G.part(p,M[k].id,{name:names[k]+'Tile',pos:[(i-3.5)*6,40,(j-3.5)*6],size:[5.8,1,5.8],color:cols[k],material:'Neon'});}
   G.part(p,'workspace',{name:'Bridge',pos:[0,40,-27],size:[6,1,6],color:'#ffffff'});
+  // second arena: the Color Wheel, 300 studs east. Same colors, arranged in rings and slices
+  [4.5,10.5,16.5,22.5].forEach((rad,r)=>{const n=Math.round(2*Math.PI*rad/6.2);for(let i=0;i<n;i++){const a=(i+.5*r)/n*Math.PI*2,k=(i+r)%4;
+    G.part(p,M[k].id,{name:names[k]+'Tile',pos:[r3(300+Math.cos(a)*rad),40,r3(Math.sin(a)*rad)],size:[5.6,1,5.6],color:cols[k],material:'Neon'});}});
+  G.part(p,'workspace',{name:'Hub',shape:'cyl',pos:[300,40.6,0],size:[3,.4,3],color:'#ffffff',material:'Metal'});
+  const COX='vcox';const ox=v=>G.arith('ADD',typeof v==='number'?G.num(v):v,G.vget(COX));
+  G.vars(G.script(p,'sss','Pick arena',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(COX,G.num(0)),blk('g_sky',null,{COLOUR:'#1d2340'})],[G.vset(COX,G.num(300)),blk('g_sky',null,{COLOUR:'#3a1d40'}),G.msg('Arena: COLOR WHEEL',2)]),
+    G.iff(G.cmp(G.vget(COX),'GT',G.num(0)),blk('pl_tpxyz',{X:ox(G.rnd(-12,12)),Y:bn(43),Z:G.rnd(-4,12)}))),[['map x',COX]]);
   const V='vpick';const say=k=>G.msg('Stand on '+names[k].toUpperCase()+'!',2.5);
   const branch=k=>G.iff(G.cmp(G.vget(V),'EQ',G.num(k+1)),G.iff(G.AND(G.cmp(G.vget('vcr'),'GTE',G.num(4)),G.cmp(G.rnd(1,4),'EQ',G.num(1))),G.msg('Stand on '+names[(k+1)%4].toUpperCase()+'!',1),G.wait(1),G.sound('click'),G.msg('...NO WAIT!',.7),G.wait(.7)),say(k),G.ifElse(G.cmp(G.vget('vcr'),'LT',G.num(10)),[G.wait(G.arith('MINUS',G.num(3),G.arith('MULTIPLY',G.vget('vcr'),G.num(.18))))],[G.wait(1.2)]),...names.flatMap((nm,o)=>o===k?[]:[blk('p_collide',{PART:G.mnamed(nm)},{B:'FALSE'}),blk('p_transp',{PART:G.mnamed(nm),V:bn(.9)})]));
   const restore=()=>names.flatMap(nm=>[blk('p_collide',{PART:G.mnamed(nm)},{B:'TRUE'}),blk('p_transp',{PART:G.mnamed(nm),V:bn(0)})]);
   const MV=G.matchFlags(p);
   const s=G.script(p,'sss','Rounds',chain(G.onMsg('round start'),G.vset('vcr',G.num(0)),...restore(),G.msg('Get onto the tiles! When a color is called, stand on it. Last one standing wins!',3),G.wait(5),
     G.whileDo(G.inMatch(),G.vset(V,G.rnd(1,4)),G.sound('click'),branch(0),branch(1),branch(2),branch(3),G.sound('explode'),G.wait(2),...restore(),G.vchg('vcr',1),
-      G.iff(G.AND(G.aliveIn(),G.AND(G.cmp(G.ppos('y'),'GT',G.num(38)),G.cmp(G.ppos('z'),'GT',G.num(-24)))),G.sadd('Rounds',1),G.sound('check')),
+      G.iff(G.AND(G.aliveIn(),G.AND(G.cmp(G.ppos('y'),'GT',G.num(38)),G.OR(G.cmp(G.ppos('z'),'GT',G.num(-24)),G.cmp(G.ppos('x'),'GT',G.num(150))))),G.sadd('Rounds',1),G.sound('check')),
       G.wait(2)),...restore()));
-  s.blocks.variables=[{name:'pick',id:V},{name:'color rounds',id:'vcr'},...MV.map(([name,id])=>({name,id}))];
+  s.blocks.variables=[{name:'pick',id:V},{name:'color rounds',id:'vcr'},{name:'map x',id:COX},...MV.map(([name,id])=>({name,id}))];
   G.script(p,'sss','Fell',blk('ev_died'),G.msg(G.join('You fell after ',G.stat('Rounds'),' rounds!'),3));
   G.best(p,'Rounds','colordrop_rounds');
   const sw=G.part(p,'workspace',{name:'TileSweeper',pos:[0,-40,0],size:[50,1.2,1.2],color:'#e040fb',material:'Neon',canCollide:false,unbreakable:true});
   G.script(p,sw.id,'Spin',blk('ev_start'),G.forever(blk('p_rotate',{PART:bme(),DEG:bn(3)},{AXIS:'y'}),G.wait(.03)));
   G.script(p,sw.id,'Hit',blk('ev_touch'),blk('pl_launch',{P:bn(35)}),blk('pl_knock',{WHO:bme(),P:bn(50)},{RAG:'TRUE'}),G.wait(1));
   G.vars(G.script(p,'sss','Sweeper',G.onMsg('round start'),blk('p_setpos',{PART:G.pnamed('TileSweeper'),X:bn(0),Y:bn(-40),Z:bn(0)}),G.until(G.OR(G.cmp(G.vget('vcr'),'GTE',G.num(7)),G.NOT(G.inMatch()))),
-    G.iff(G.inMatch(),G.msg('Round 7: the SWEEPER joins in! Jump over it.',3),blk('p_setpos',{PART:G.pnamed('TileSweeper'),X:bn(0),Y:bn(41.6),Z:bn(0)}))),[['color rounds','vcr'],...MV]);
+    G.iff(G.inMatch(),G.msg('Round 7: the SWEEPER joins in! Jump over it.',3),blk('p_setpos',{PART:G.pnamed('TileSweeper'),X:ox(0),Y:bn(41.6),Z:bn(0)}))),[['color rounds','vcr'],['map x',COX],...MV]);
   G.script(p,'sss','Winner coins',G.onMsg('round end'),G.iff(G.aliveIn(),blk('pl_coins',{N:bn(5)})));
   G.welcome(p,G.msg('Rounds get faster the longer you survive!',2));
   return G.def(p,'colordrop','Color Drop');}
