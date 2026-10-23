@@ -547,14 +547,14 @@ function avClean(o){const d=AV_DEF();if(!o||typeof o!=='object')return d;const r
   for(const [s] of [['face'],...AV_SLOTS]){const v=o[s];r[s]=typeof v==='string'&&AV_BY.has(v)&&AV_BY.get(v).slot===s?v:(s==='face'?'smile':'');}
   return r;}
 /* ---------- the wallet: coins, owned items and the outfit ---------- */
-const WALLET={xp:0,coins:0,owned:new Set(AV_ITEMS.filter(i=>!i.price).map(i=>i.id)),av:AV_DEF(),t:0,loaded:false,day:''};
+const WALLET={badges:new Set(),wins:0,xp:0,coins:0,owned:new Set(AV_ITEMS.filter(i=>!i.price).map(i=>i.id)),av:AV_DEF(),t:0,loaded:false,day:''};
 (function(){const w=store.get('wallet',null);if(w&&typeof w==='object')walletApply(w);})();
 function walletApply(w){WALLET.coins=Math.max(0,Math.min(1e7,Math.floor(avNum(w.coins,0))));
   (Array.isArray(w.owned)?w.owned:[]).forEach(id=>{if(AV_BY.has(id))WALLET.owned.add(id);});
   WALLET.av=avClean(w.av);for(const [s] of AV_SLOTS)if(WALLET.av[s]&&!WALLET.owned.has(WALLET.av[s]))WALLET.av[s]='';if(!WALLET.owned.has(WALLET.av.face))WALLET.av.face='smile';
-  WALLET.t=avNum(w.t,0);WALLET.day=typeof w.day==='string'?w.day:'';WALLET.xp=Math.max(WALLET.xp||0,Math.min(1e8,Math.floor(avNum(w.xp,0))));
+  WALLET.t=avNum(w.t,0);WALLET.day=typeof w.day==='string'?w.day:'';WALLET.xp=Math.max(WALLET.xp||0,Math.min(1e8,Math.floor(avNum(w.xp,0))));WALLET.wins=Math.max(WALLET.wins||0,Math.floor(avNum(w.wins,0)));(Array.isArray(w.badges)?w.badges:[]).forEach(b=>{if(typeof b==='string'&&b.length<30)WALLET.badges.add(b);});
   if(w.q&&typeof w.q==='object'&&typeof w.q.day==='string'&&Array.isArray(w.q.p)&&(!WALLET.q||w.q.day>=WALLET.q.day))WALLET.q={day:w.q.day,p:w.q.p.slice(0,3).map(x=>Math.max(0,avNum(x,0))),c:(Array.isArray(w.q.c)?w.q.c:[]).slice(0,3).map(Boolean),b:!!w.q.b};}
-function walletObj(){return {v:1,xp:WALLET.xp||0,coins:WALLET.coins,owned:[...WALLET.owned],av:WALLET.av,t:WALLET.t,day:WALLET.day,q:WALLET.q||null};}
+function walletObj(){return {v:1,badges:[...WALLET.badges],wins:WALLET.wins||0,xp:WALLET.xp||0,coins:WALLET.coins,owned:[...WALLET.owned],av:WALLET.av,t:WALLET.t,day:WALLET.day,q:WALLET.q||null};}
 function walletBackend(){return (SB.client&&SB.uid)?'sb':(MP.db&&MP.me&&MP.me.id&&!MP.p2p)?'claude':'local';}
 let walletSaveT=0;
 function walletSave(){WALLET.t=Date.now();store.set('wallet',walletObj());renderCoins();clearTimeout(walletSaveT);
@@ -584,10 +584,10 @@ function ghostTick(){if(!GHOST.on||!running||paused||!state)return;const i=Math.
   if(GHOST.mesh&&GHOST.path){const f=state.time*10,a=GHOST.path[Math.min(GHOST.path.length-1,Math.floor(f))],b=GHOST.path[Math.min(GHOST.path.length-1,Math.floor(f)+1)],u=f-Math.floor(f);
     GHOST.mesh.visible=f<GHOST.path.length;if(a&&b){GHOST.mesh.position.set(a[0]+(b[0]-a[0])*u,a[1]+(b[1]-a[1])*u,a[2]+(b[2]-a[2])*u);const dx=b[0]-a[0],dz=b[2]-a[2];if(dx*dx+dz*dz>.0004)GHOST.mesh.rotation.y=Math.atan2(-dx,-dz);}}}
 function ghostSave(){if(GHOST.on&&GHOST.rec.length>10)store.set('ghost_'+game.id,GHOST.rec.slice(0,6000));}
-const PLAYED={t:0};const GAMECOINS={left:150};
+const PLAYED={t:0,total:0};const GAMECOINS={left:150};
 function coinTick(dt){if(!running||paused||!game||game.fromEditor||game.mode==='build'||state.over)return;
   const moving=Math.hypot(P.vel.x,P.vel.z)>1||!P.onGround;if(!moving&&!(LOBBY.on&&LOBBY.inRound))return;
-  PLAYED.t+=dt;if(PLAYED.t>=60){PLAYED.t-=60;earnCoins(5,'playing');questBump('minutes','',1);gainXP(12);}
+  PLAYED.t+=dt;PLAYED.total+=dt;if(PLAYED.t>=60){PLAYED.t-=60;earnCoins(5,'playing');questBump('minutes','',1);gainXP(12);}
   const today=new Date().toISOString().slice(0,10);if(WALLET.day!==today&&PLAYED.t>10){WALLET.day=today;earnCoins(50,'daily bonus');}}
 /* ---------- daily quests: three a day, the same for everybody, paid in coins ---------- */
 const QUESTS=[
@@ -623,6 +623,31 @@ const QUESTS=[
   {id:'win',g:'',k:'win',n:1,r:150,t:'Win a match against another player'},
   {id:'minutes',g:'',k:'minutes',n:10,r:80,t:'Play for 10 minutes'}];
 const QBONUS=100;
+/* ---------- badges: one-time achievements that pay coins ---------- */
+const BADGES=[
+  ['first','👟','First Steps','Play any game for a minute',()=>PLAYED.total>=60,25],
+  ['seek','👁️','Seek Survivor','Escape Seek in Doors',()=>gid()==='doors'&&st('Door')>=29,150],
+  ['hotel','🏨','Checked Out','Get through all 40 doors',()=>gid()==='doors'&&st('Escaped')>=1,400],
+  ['tower','🗼','Tower Conqueror','Reach the top of the Tower of Hell',()=>gid()==='towerhell'&&st('Height')>=999,300],
+  ['mega','🏁','Mega Finisher','Finish the 50-stage Mega Obby',()=>gid()==='megaobby'&&state.over,300],
+  ['rescue','🚁','Rescued','Get rescued after a plane crash',()=>gid()==='planecrash'&&st('Rescued')>=1,150],
+  ['zombie10','🧟','Zombie Slayer','Reach wave 10 in Zombie Survival',()=>gid()==='zombies'&&st('Wave')>=10,300],
+  ['boss5','🐉','Dragon Tamer','Reach level 5 in Boss Battle',()=>gid()==='boss'&&st('Level')>=5,300],
+  ['ghost3','👻','Night Owl','Survive to night 3 in Escape the Ghost',()=>gid()==='ghost'&&st('Night')>=3,200],
+  ['knife','🔪','Golden Knife','Win a game of Arsenal',()=>gid()==='arsenal'&&st('KOs')>=99,250],
+  ['lava5','🌋','Lava Proof','Reach round 5 of Lava Rising',()=>gid()==='lavarise'&&st('Round')>=5,200],
+  ['gems25','💎','Gem Hoarder','Collect 25 gems in one round',()=>gid()==='gems'&&st('Gems')>=25,150],
+  ['win1','🏆','Winner','Win a match against another player',()=>(WALLET.wins||0)>=1,100],
+  ['win10','🥇','Champion','Win 10 matches',()=>(WALLET.wins||0)>=10,500],
+  ['lvl5','⭐','Rising Star','Reach level 5',()=>lvlOf(WALLET.xp)>=5,100],
+  ['lvl15','🌟','Superstar','Reach level 15',()=>lvlOf(WALLET.xp)>=15,500],
+  ['shop10','🛍️','Shopaholic','Own 15 avatar items',()=>WALLET.owned.size>=15,150],
+  ['quests','📜','Quest Master','Finish all three daily quests in a day',()=>!!(WALLET.q&&WALLET.q.b),100]];
+function gid(){return game&&game.id||'';}
+function st(k){return +(RT.stats&&RT.stats.get(k))||0;}
+function badgeCheck(){if(game&&game.fromEditor||TESTCLIENT)return;for(const [id,ic,nm,ds,fn,r] of BADGES){if(WALLET.badges.has(id))continue;let ok=false;try{ok=!!fn();}catch(e){}
+  if(ok){WALLET.badges.add(id);WALLET.coins=Math.min(1e7,WALLET.coins+r);walletSave();SFX.win&&SFX.win();toast(ic+' BADGE: '+nm+'  +'+r+' coins','#ffd54f',4);}}}
+setInterval(()=>{try{badgeCheck();}catch(e){}},1500);
 function questDay(){return new Date().toISOString().slice(0,10);}
 function questsToday(){const d=questDay();let h=hashStr('q'+d)>>>0;const pool=QUESTS.slice(),out=[];
   while(out.length<3&&pool.length){h=(Math.imul(h,1103515245)+12345)>>>0;const q=pool.splice(h%pool.length,1)[0];if(q.g&&!GAMES.some(g=>g.id===q.g))continue;
@@ -4647,7 +4672,7 @@ function lobbyEnd(){const c=LOBBY.cfg;LOBBY.inRound=false;rtFire('msg','round en
   if(c.score){const rows=[{n:myName(),s:+(RT.stats.get(c.score)||0),me:true}];
     for(const r of MP.remotes.values())if(r.lb&&r.lb.r===LOBBY.idx)rows.push({n:nameOf(r.by),s:num(r.lb.s,0)});
     rows.sort((a,b)=>c.low?a.s-b.s:b.s-a.s);const best=rows[0].s,won=rows.length>0&&rows.find(r=>r.me).s===best&&(c.low||best>0);
-    if(won&&rows.length>1){changeStat('Wins',1);questBump('win',game.id,1);gainXP(40);}questBump('match',game.id,1);gainXP(20);earnCoins(won&&rows.length>1?40:10,won&&rows.length>1?'you won!':'match played');
+    if(won&&rows.length>1){changeStat('Wins',1);questBump('win',game.id,1);gainXP(40);WALLET.wins=(WALLET.wins||0)+1;}questBump('match',game.id,1);gainXP(20);earnCoins(won&&rows.length>1?40:10,won&&rows.length>1?'you won!':'match played');
     $('#lobbyRes').innerHTML=`<h3>${won?(rows.length>1?'You win!':'Match over'):'Match over'}</h3><ol>${rows.slice(0,8).map((r,i)=>`<li class="${r.me?'me':''}"><span>${['🥇','🥈','🥉'][i]||(i+1)+'.'} ${esc(r.n)}</span><span>${r3(r.s)}</span></li>`).join('')}</ol><p class="sub">${esc(c.score)} · next match soon</p>`;
     $('#lobbyRes').hidden=false;LOBBY.resUntil=t+6;SFX[won?'win':'check']();}
   else{toast('Match over!','#ffd75e',2);questBump('match',game.id,1);earnCoins(10,'match played');}
@@ -6811,8 +6836,12 @@ const ago=ms=>{const s=(Date.now()-ms)/1000;if(s<60)return 'just now';if(s<3600)
 let delArm=null;
 document.addEventListener('click',e=>{const c=e.target.closest('#gameChips [data-cat]');if(!c)return;GAME_CAT=c.dataset.cat;store.set('gameCat',GAME_CAT);renderCards();});
 const NEW_GAMES=new Set(['towerhell','murder','doors','arsenal','deathrun','hideseek','evade','planecrash']);
+function renderBadges(){const g=$('#badgeGrid');if(!g)return;const got=BADGES.filter(b=>WALLET.badges.has(b[0])).length;
+  g.innerHTML=BADGES.map(([id,ic,nm,ds,fn,r])=>`<span class="bdg${WALLET.badges.has(id)?' got':''}" data-bdg="${id}" title="${esc(ds)} · ${r} coins"><span class="bi">${ic}</span><span class="bn">${esc(nm)}</span></span>`).join('');
+  $('#badgeNote').textContent=got+' of '+BADGES.length+' earned · hover for how to get each one';}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-bdg]');if(!b)return;const d=BADGES.find(x=>x[0]===b.dataset.bdg);if(d)toast(d[1]+' '+d[2]+': '+d[3]+(WALLET.badges.has(d[0])?' ✓':' · '+d[5]+' coins'),'#ffd54f',2.5);});
 function renderCards(){
-  renderQuests();
+  renderQuests();renderBadges();
   const grid=$('#grid');grid.innerHTML='';const bests=store.get('bests',{});
   const chips=$('#gameChips');if(chips){const cats=['All',...new Set(GAMES.map(g=>g.cat))];chips.innerHTML=cats.map(c=>`<button type="button" class="chip" aria-pressed="${c===GAME_CAT}" data-cat="${c}">${c}${c==='All'?' ('+GAMES.length+')':''}</button>`).join('');}
   GAMES.filter(gm=>GAME_CAT==='All'||gm.cat===GAME_CAT).forEach(gm=>{const b=document.createElement('button');b.type='button';b.className='card';
