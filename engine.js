@@ -2254,6 +2254,7 @@ function arenaDef(){
   [[-20,-55],[20,55],[55,-20]].forEach(([x,z])=>{const nodes=PREFABS.find(x=>x.name==='Training dummy').make({x,y:0,z});nodes[0].parent='workspace';N.push(...nodes);});
   const pot=PREFABS.find(x=>x.name==='Healing potion').make({x:0,y:3,z:-60});pot[0].parent='workspace';N.push(...pot);
   N.find(n=>n.name==='Welcome').blocks=scriptOf(chain(blk('ev_start'),blk('g_stat_set',{N:bn(0)},{STAT:'KOs'}),blk('g_msg',{TEXT:bt('Matches last 2 minutes: whoever gets the most knockouts wins. Sword (1), blaster (2)!'),S:bn(4)})));
+  arenaExtras(p);
   UIDDET=null;const def=projectDef(p,false);return Object.assign(def,{id:'arena',room:'arena',name:'Brick Battle'});
 }
 /* ---------- twelve more built-in games, each built as a normal Brickyard project (so they can be copied into Studio) ---------- */
@@ -2374,24 +2375,31 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
   for(let i=0;i<10;i++){const a=i*.63,r=55+(i%3)*8;G.part(p,F.id,{name:'Crate',pos:[r3(Math.cos(a)*r),1.5,r3(Math.sin(a)*r)],size:[3,3,3],color:'#a1764b',material:'Wood'});}
   for(const t of ['Sword','Blaster']){const ns=G.prefab(p,t);ns[0].parent='pack';}
   G.prefab(p,'Healing potion',{x:0,y:2,z:16});G.prefab(p,'Healing potion',{x:-40,y:2,z:0});
-  const ZL='vzleft',RS='vreset',BR='vbrute',SP='vspawn',WV='vwave',ZV=[['zombies left',ZL],['reset',RS],['brute timer',BR],['to spawn',SP],['wave',WV]];
+  const ZL='vzleft',RS='vreset',BR='vbrute',SP='vspawn',WV='vwave',KG='vking',ZV=[['zombies left',ZL],['reset',RS],['brute timer',BR],['to spawn',SP],['wave',WV],['king timer',KG]];
   const kinds=[['Zombie',{scale:1,health:60,walkSpeed:10,colors:{head:'#7cb342',torso:'#4e6b3a',arms:'#7cb342',legs:'#37474f'}},12,'Braaains!'],
     ['Runner',{scale:.85,health:30,walkSpeed:15,colors:{head:'#c5e1a5',torso:'#8d6e63',arms:'#c5e1a5',legs:'#5d4037'}},8,'Hssss!'],
-    ['Brute',{scale:1.8,health:320,walkSpeed:7,colors:{head:'#558b2f',torso:'#33691e',arms:'#558b2f',legs:'#1b5e20'}},30,'SMASH!']];
+    ['Brute',{scale:1.8,health:320,walkSpeed:7,colors:{head:'#558b2f',torso:'#33691e',arms:'#558b2f',legs:'#1b5e20'}},30,'SMASH!'],
+    ['Exploder',{scale:1.05,health:45,walkSpeed:11,colors:{head:'#aed581',torso:'#ff6f00',arms:'#aed581',legs:'#bf360c'}},10,'Tick... tick...'],
+    ['King',{scale:2.7,health:1600,walkSpeed:8,colors:{head:'#33691e',torso:'#4a148c',arms:'#33691e',legs:'#1a237e'}},45,'BOW TO THE KING!']];
   kinds.forEach(([nm,o,dmg,say])=>{const Z=rigNode(Object.assign({name:nm,parent:'rs',pos:[0,2.6*o.scale,0],respawn:0},o));p.nodes.push(Z);
     G.hscript(p,Z.id,'Chase',blk('ev_start'),G.forever(G.walkN(bme()),G.wait(.2)));
-    G.script(p,Z.id,'Bite',blk('ev_touch'),blk('pl_damage',{N:bn(dmg)}),...(nm==='Brute'?[blk('pl_knock',{WHO:bme(),P:bn(80)},{RAG:'TRUE'})]:[]),G.wait(1));
+    G.script(p,Z.id,'Bite',blk('ev_touch'),blk('pl_damage',{N:bn(dmg)}),...(nm==='Brute'||nm==='King'?[blk('pl_knock',{WHO:bme(),P:bn(80)},{RAG:'TRUE'})]:[]),G.wait(1));
     G.hscript(p,Z.id,'Growl',blk('ev_start'),G.forever(G.wait(G.rnd(4,9)),G.iff(G.cmp(G.nearD(bme()),'LT',G.num(14)),blk('rig_say',{PART:bme(),TEXT:bt(say),S:bn(1)}))));
-    G.script(p,Z.id,'KO',blk('ev_rig_died'),G.sadd('KOs',nm==='Brute'?5:1));
+    G.script(p,Z.id,'KO',blk('ev_rig_died'),G.sadd('KOs',nm==='King'?20:nm==='Brute'?5:1),G.sadd('Cash',nm==='King'?300:nm==='Brute'?60:nm==='Exploder'?20:10));
+    if(nm==='Exploder')G.script(p,Z.id,'Boom',blk('ev_rig_died'),G.sound('explode'),blk('p_break',{X:G.prop(bme(),'x'),Y:G.prop(bme(),'y'),Z:G.prop(bme(),'z'),R:bn(6),P:bn(40)}),
+      G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:bme()}}},'LT',G.num(9)),blk('pl_damage',{N:bn(25)}),G.msg('BOOM! Shoot Exploders from a distance.',2)));
+    if(nm==='King')G.hscript(p,Z.id,'Stomp',blk('ev_start'),G.forever(G.wait(6),G.iff(G.cmp(G.nearD(bme()),'LT',G.num(30)),blk('rig_say',{PART:bme(),TEXT:bt('STOMP!'),S:bn(1)}),G.bc('king stomp'))));
     G.vars(G.hscript(p,Z.id,'Count',blk('ev_rig_died'),G.vchg(ZL,-1)),ZV);});
   const edge=nm=>G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[blk('rs_copy',{X:G.rnd(-80,80),Y:bn(3),Z:G.rnd(-82,-78)},{NAME:nm})],[blk('rs_copy',{X:G.rnd(78,82),Y:bn(3),Z:G.rnd(-80,80)},{NAME:nm})]);
   const eq=(id,n)=>G.cmp(G.vget(id),'EQ',G.num(n));
-  G.vars(G.hscript(p,'sss','Waves',blk('ev_start'),G.vset(WV,G.num(0)),G.vset(RS,G.num(0)),G.vset(BR,G.num(0)),
+  G.vars(G.hscript(p,'sss','Waves',blk('ev_start'),G.vset(WV,G.num(0)),G.vset(KG,G.num(0)),G.vset(RS,G.num(0)),G.vset(BR,G.num(0)),
     G.msg('Zombies attack in waves: fast runners from wave 3 and a huge Brute every 5th wave. Team up online! Sword (1), blaster (2).',5),G.wait(5),
     G.forever(G.vchg(WV,1),G.msg(G.join('Wave ',G.vget(WV),'!'),2),G.sound('check'),
       G.vset(ZL,G.arith('ADD',G.arith('ADD',G.arith('MULTIPLY',G.vget(WV),G.num(3)),G.num(2)),G.arith('MULTIPLY',G.arith('MINUS',G.players(),G.num(1)),G.num(3)))),G.vset(SP,G.vget(ZL)),
       G.vchg(BR,1),G.iff(G.cmp(G.vget(BR),'GTE',G.num(5)),G.vset(BR,G.num(0)),G.vchg(ZL,1),edge('Brute'),G.msg('A BRUTE is coming! It hits hard: keep your distance.',3)),
-      blk('controls_repeat_ext',{TIMES:G.vget(SP),DO:doIn(G.iff(eq(RS,0),G.ifElse(G.AND(G.cmp(G.vget(WV),'GTE',G.num(3)),G.cmp(G.rnd(1,4),'EQ',G.num(1))),[edge('Runner')],[edge('Zombie')])),G.wait(1.1))}),
+      G.vchg(KG,1),G.iff(G.cmp(G.vget(KG),'GTE',G.num(10)),G.vset(KG,G.num(0)),G.vchg(ZL,1),edge('King'),G.sound('die'),blk('g_sky',null,{COLOUR:'#3a1030'}),G.msg('👑 THE ZOMBIE KING HAS ARRIVED! Everyone focus fire!',4)),
+      G.iff(G.cmp(G.vget(KG),'EQ',G.num(1)),blk('g_sky',null,{COLOUR:'#55606e'})),
+      blk('controls_repeat_ext',{TIMES:G.vget(SP),DO:doIn(G.iff(eq(RS,0),G.ifElse(G.AND(G.cmp(G.vget(WV),'GTE',G.num(4)),G.cmp(G.rnd(1,6),'EQ',G.num(1))),[edge('Exploder')],[G.ifElse(G.AND(G.cmp(G.vget(WV),'GTE',G.num(3)),G.cmp(G.rnd(1,4),'EQ',G.num(1))),[edge('Runner')],[edge('Zombie')])])),G.wait(1.1))}),
       G.until(G.cmp(G.vget(ZL),'LTE',G.num(0))),
       G.ifElse(eq(RS,1),[G.vset(RS,G.num(0)),G.vset(WV,G.num(0)),G.vset(BR,G.num(0)),G.wait(4)],
         [G.msg('Wave cleared! +50 health. Next wave in 5 seconds...',3),G.bc('wave cleared'),G.wait(5)]))),ZV);
@@ -2399,9 +2407,18 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
   G.vars(G.script(p,'sss','WaveStat',blk('ev_start'),G.forever(G.sset('Wave',G.vget(WV)),G.wait(.5))),ZV);
   G.vars(G.script(p,'sss','Overrun',blk('ev_died'),G.ifElse(G.cmp(G.players(),'EQ',G.num(1)),
     [G.msg(G.join('The zombies got you on wave ',G.vget(WV),'! Starting again from wave 1...'),4),G.vset(RS,G.num(1)),G.vset(ZL,G.num(0)),
-      ...['Zombie','Runner','Brute'].map(nm=>blk('controls_repeat_ext',{TIMES:bn(60),DO:doIn(blk('p_destroy',{PART:G.pnamed(nm)}))}))],
+      ...['Zombie','Runner','Brute','Exploder','King'].map(nm=>blk('controls_repeat_ext',{TIMES:bn(60),DO:doIn(blk('p_destroy',{PART:G.pnamed(nm)}))}))],
     [G.msg('Knocked out! Your team holds on while you respawn.',3)])),ZV);
-  G.welcome(p,G.sset('KOs',0));
+  // the armory: spend Cash from knockouts between waves
+  gkGun(p,'rs','Scatter Gun',{dmg:22,cool:.7,color:'#ffab40',speed:200,len:.5,tip:'Bought at the armory'});
+  gkGun(p,'rs','Zombie Laser',{dmg:60,cool:.35,color:'#e040fb',speed:400,len:1.4,tip:'Bought at the armory'});
+  const SHOP=[['Medkit',40,'#ef5350',[blk('pl_heal',{N:bn(100)})]],['Armor',120,'#90a4ae',[blk('pl_maxhp',{N:bn(160)}),blk('pl_heal',{N:bn(160)})]],
+    ['Scatter Gun',150,'#ffab40',[blk('tool_take',null,{NAME:'Scatter Gun'}),blk('tool_give',null,{NAME:'Scatter Gun'})]],['Zombie Laser',400,'#e040fb',[blk('tool_take',null,{NAME:'Zombie Laser'}),blk('tool_give',null,{NAME:'Zombie Laser'})]]];
+  G.part(p,F.id,{name:'Armory',pos:[0,.3,-14],size:[26,.6,6],color:'#37474f',material:'Metal',label:'ARMORY'});
+  SHOP.forEach(([nm,cost,col,act],i)=>{const pad=G.part(p,F.id,{name:'Buy '+nm,pos:[-9+i*6,1,-14],size:[4,1.2,4],color:col,material:'Neon',label:nm+' · '+cost+' cash'});
+    G.script(p,pad.id,'Buy',blk('ev_touch'),G.ifElse(G.cmp(G.stat('Cash'),'GTE',G.num(cost)),[G.sadd('Cash',-cost),...act,G.sound('coin'),G.msg('Bought '+nm+'!',2)],[G.sound('click'),G.msg(nm+' costs '+cost+' cash. Knock out zombies to earn more!',2)]),G.wait(1.5));});
+  G.script(p,'sss','Stomped',G.onMsg('king stomp'),G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('King')}}},'LT',G.num(30)),blk('pl_launch',{P:bn(55)}),blk('pl_damage',{N:bn(15)}),G.msg('The ground shakes!',1)));
+  G.welcome(p,G.sset('KOs',0),G.sset('Cash',0));
   G.best(p,'Wave','zombie_wave');
   return G.def(p,'zombies','Zombie Survival');}
 
@@ -2487,9 +2504,38 @@ function turboDef(){const G=GK;const p=G.proj('turbo','Turbo Track',{sky:'#7fb8f
   return G.def(p,'turbo','Turbo Track');}
 
 /* 6. Sumo Smash: sumo bots only fill the ring when there are not enough players */
+function arenaExtras(p){const G=GK;
+  gkFighterBots(p,{total:4,max:3,home:[[-60,-60],[60,60],[60,-60]],area:70,dmg:9,acc:4});
+  // power-up orb in the middle every 20 seconds
+  const orb=G.part(p,'workspace',{name:'PowerOrb',shape:'ball',pos:[0,-40,0],size:[2.4,2.4,2.4],color:'#ffd740',material:'Neon',canCollide:false,unbreakable:true,label:'POWER'});
+  p.nodes.push(emitterNode({parent:orb.id,name:'Glow'},'sparkles'));
+  G.vars(G.hscript(p,'sss','Power orb',G.onMsg('round start'),G.vset('vorb',G.num(0)),G.whileDo(G.inMatch(),G.wait(20),G.iff(G.inMatch(),G.vset('vorb',G.num(1)),blk('p_setpos',{PART:G.pnamed('PowerOrb'),X:bn(0),Y:bn(5),Z:bn(0)}),G.bc('orb')),
+    G.until(G.OR(G.cmp(G.vget('vorb'),'EQ',G.num(0)),G.NOT(G.inMatch()))),blk('p_setpos',{PART:G.pnamed('PowerOrb'),X:bn(0),Y:bn(-40),Z:bn(0)}))),[['orb up','vorb'],...G.MV]);
+  G.script(p,'sss','Orb msg',G.onMsg('orb'),G.sound('check'),G.msg('A POWER ORB appeared in the middle!',2));
+  G.vars(G.script(p,orb.id,'Grab',blk('ev_touch'),G.iff(G.cmp(G.vget('vorb'),'EQ',G.num(1)),G.shSet('vorb',G.num(0)),G.vset('vpw',G.rnd(1,4)),G.sound('win'),
+    G.ifElse(G.cmp(G.vget('vpw'),'EQ',G.num(1)),[G.msg('SPEED BOOST for 10 seconds!',2),blk('pl_speed',{V:bn(26)}),G.wait(10),blk('pl_speed',{V:bn(16)})],
+     [G.ifElse(G.cmp(G.vget('vpw'),'EQ',G.num(2)),[G.msg('SHIELD for 8 seconds!',2),blk('pl_shield',{S:bn(8)})],
+      [G.ifElse(G.cmp(G.vget('vpw'),'EQ',G.num(3)),[G.msg('MEGA HEAL: 200 health!',2),blk('pl_maxhp',{N:bn(200)}),blk('pl_heal',{N:bn(200)})],
+       [G.msg('ROCKET LAUNCHER! Press its number to use it.',2),blk('tool_take',null,{NAME:'Rocket Launcher'}),blk('tool_give',null,{NAME:'Rocket Launcher'})])])]))),[['orb up','vorb'],['power','vpw']]);
+  gkGun(p,'rs','Rocket Launcher',{dmg:70,cool:1.2,color:'#ff5252',speed:150,len:1,tip:'From the power orb'});
+  // tower-top sniper perches
+  [[-30,-30],[30,30]].forEach(([x,z],i)=>{const sn=G.part(p,'workspace',{name:'SniperPickup'+i,pos:[x,8.8,z],size:[3,1,1],color:'#ea80fc',material:'Neon',canCollide:false,label:'SNIPER'});
+    G.script(p,sn.id,'Take',blk('ev_touch'),blk('tool_take',null,{NAME:'Sniper'}),blk('tool_give',null,{NAME:'Sniper'}),G.sound('coin'),G.msg('Sniper! One shot does 100 damage.',2),blk('p_visible',{PART:bme()},{B:'FALSE'}),G.wait(25),blk('p_visible',{PART:bme()},{B:'TRUE'}));});
+  gkGun(p,'rs','Sniper',{dmg:100,cool:1.6,color:'#ea80fc',speed:420,len:1.6,tip:'Tower perch sniper'});
+  // knockout streaks
+  G.vars(G.script(p,'sss','Streaks',G.onMsg('round start'),G.vset('vlast',G.num(0)),G.vset('vstreak',G.num(0)),G.whileDo(G.inMatch(),
+    G.iff(G.cmp(G.stat('KOs'),'GT',G.vget('vlast')),G.vchg('vstreak',G.arith('MINUS',G.stat('KOs'),G.vget('vlast'))),G.vset('vlast',G.stat('KOs')),
+      G.iff(G.cmp(G.vget('vstreak'),'EQ',G.num(3)),G.sound('win'),G.msg('🔥 3 KNOCKOUTS IN A ROW! On fire!',2)),G.iff(G.cmp(G.vget('vstreak'),'EQ',G.num(5)),G.sound('win'),G.msg('⚡ 5 STREAK! UNSTOPPABLE! +5 coins',2),blk('pl_coins',{N:bn(5)}))),G.wait(.3))),[['last kos','vlast'],['streak','vstreak'],...G.MV]);
+  G.vars(G.script(p,'sss','Streak over',blk('ev_died'),G.vset('vstreak',G.num(0)),blk('pl_speed',{V:bn(16)}),blk('pl_maxhp',{N:bn(100)})),[['streak','vstreak']]);
+  G.matchFlags(p);}
 function sumoDef(){const G=GK;const p=G.proj('sumo','Sumo Smash',{sky:'#ffcf9f',deathStyle:'ragdoll',timer:false,saveStats:false,saveCheckpoint:false,lobby:true,lobbyWait:12,lobbyRound:90,lobbyScore:'Time',lobbyElim:true});G.noBase(p);G.spawnAt(p,0,30.5,0,{size:[8,1,8],color:'#ffffff'});
-  const R=G.folder(p,'Ring');G.part(p,R.id,{name:'Ring',shape:'cyl',pos:[0,29,0],size:[60,2,60],color:'#f5e6c8',material:'Wood'});
-  G.part(p,R.id,{name:'Edge',shape:'cyl',pos:[0,28.9,0],size:[62,1.8,62],color:'#c62828',material:'Plastic'});
+  const R=G.folder(p,'Ring');G.part(p,R.id,{name:'Ring',shape:'cyl',pos:[0,29,0],size:[38,2,38],color:'#f5e6c8',material:'Wood'});
+  // the outer ring is made of tiles that fall away halfway through the match
+  const OR=G.model(p,'OuterRing').id;for(let i=0;i<18;i++){const a=i/18*Math.PI*2;G.part(p,OR,{name:'OuterTile',pos:[r3(Math.cos(a)*24.5),29,r3(Math.sin(a)*24.5)],size:[11.5,2,9],rot:[0,r3(-a*180/Math.PI),0],color:i%2?'#f5e6c8':'#ead7b0',material:'Wood'});}
+  G.part(p,R.id,{name:'Edge',shape:'cyl',pos:[0,28.9,0],size:[40,1.8,40],color:'#c62828',material:'Plastic'});
+  const sw=G.part(p,'workspace',{name:'Sweeper',pos:[0,-30,0],size:[36,1.4,1.4],color:'#7e57c2',material:'Neon',canCollide:false,unbreakable:true});
+  G.script(p,sw.id,'Spin',blk('ev_start'),G.forever(blk('p_rotate',{PART:bme(),DEG:bn(4)},{AXIS:'y'}),G.wait(.03)));
+  G.script(p,sw.id,'Sweep',blk('ev_touch'),blk('pl_launch',{P:bn(40)}),blk('pl_knock',{WHO:bme(),P:bn(60)},{RAG:'TRUE'}),G.sound('pad'),G.wait(1));
   const MV=G.matchFlags(p);const SC='vsumos',ON=k=>'vsumo'+k;const SV=[['sumos',SC],...[1,2,3].map(k=>['sumo '+k+' on',ON(k)]),...MV];
   const START=[[-16,-16],[16,16],[16,-16]];
   const mk=(name,parent,pos,spd,k)=>{const r=rigNode({name,parent,pos,scale:1.5,health:999,respawn:3,walkSpeed:spd,colors:{head:'#ffcc80',torso:'#ef5350',arms:'#ffcc80',legs:'#3949ab'}});p.nodes.push(r);
@@ -2508,6 +2554,12 @@ function sumoDef(){const G=GK;const p=G.proj('sumo','Sumo Smash',{sky:'#ffcf9f',
       [G.vset(ON(k),G.num(1)),blk('p_setpos',{PART:G.pnamed('Sumo'+k),X:bn(START[k-1][0]),Y:bn(32.6),Z:bn(START[k-1][1])}),blk('p_visible',{PART:G.pnamed('Sumo'+k)},{B:'TRUE'}),G.vchg(SC,1)],
       [G.vset(ON(k),G.num(0)),blk('p_setpos',{PART:G.pnamed('Sumo'+k),X:bn(k*8),Y:bn(32.6),Z:bn(150)}),blk('p_visible',{PART:G.pnamed('Sumo'+k)},{B:'FALSE'})])),
     G.whileDo(G.inMatch(),G.wait(18),G.iff(G.AND(G.inMatch(),G.cmp(G.vget(SC),'LT',G.num(8))),blk('rs_copy',{X:G.rnd(-15,15),Y:bn(32.6),Z:G.rnd(-15,15)},{NAME:'Extra Sumo'}),G.vchg(SC,1),G.sound('pad'),G.msg('Another sumo joins the ring!',2)))),SV);
+  G.vars(G.hscript(p,'sss','Ring events',G.onMsg('round start'),blk('p_collide',{PART:G.mnamed('OuterRing')},{B:'TRUE'}),blk('p_transp',{PART:G.mnamed('OuterRing')},{V:bn(0)}),
+    blk('p_setpos',{PART:G.pnamed('Sweeper'),X:bn(0),Y:bn(-30),Z:bn(0)}),G.wait(40),G.iff(G.inMatch(),G.bc('ring shrink'),G.wait(3),blk('p_collide',{PART:G.mnamed('OuterRing')},{B:'FALSE'}),blk('p_transp',{PART:G.mnamed('OuterRing')},{V:bn(.85)})),
+    G.wait(15),G.iff(G.inMatch(),G.bc('sweeper'),blk('p_setpos',{PART:G.pnamed('Sweeper'),X:bn(0),Y:bn(31.6),Z:bn(0)}))),SV);
+  G.script(p,'sss','Shrink msg',G.onMsg('ring shrink'),G.sound('die'),G.msg('⚠ The outer ring is falling away in 3 seconds! Get to the middle!',3));
+  G.script(p,'sss','Sweeper msg',G.onMsg('sweeper'),G.sound('check'),G.msg('The SWEEPER is spinning! Jump over it!',3));
+  G.script(p,'sss','Survivor coins',G.onMsg('round end'),G.iff(G.aliveIn(),blk('pl_coins',{N:bn(5)})));
   G.welcome(p,G.sset('Time',0),G.sset('Falls',0),G.sset('Bonks',0),G.msg('Last one on the ring wins! Bonk sumos and players off with your bat (1).',4),
     G.forever(G.wait(1),G.iff(G.AND(G.aliveIn(),G.AND({block:{type:'s_pl_alive'}},G.cmp(G.ppos('y'),'GT',G.num(25)))),G.sadd('Time',1))));
   G.vars(p.nodes.find(n=>n.name==='Welcome'),MV);
@@ -2666,6 +2718,21 @@ function bossDef(){const G=GK;const p=G.proj('boss','Boss Battle',{sky:'#2b1d3a'
     [G.msg('Knocked out! Get back in there and help your team.',3)])),VL);
   G.vars(G.script(p,'sss','Show level',blk('ev_start'),G.forever(G.iff(G.cmp(G.vget(LV),'GT',G.num(0)),G.sset('Level',G.vget(LV))),G.wait(.5))),VL);
   G.best(p,'Level','boss_level');
+  // from level 2 the King calls down fireballs: watch for the red circles on the floor
+  for(let k=1;k<=5;k++){const fb=G.part(p,'workspace',{name:'Fireball'+k,shape:'ball',pos:[k*4,-60,0],size:[4,4,4],color:'#ff6d00',material:'Neon',canCollide:false,unbreakable:true});
+    p.nodes.push(emitterNode({parent:fb.id,name:'Flames',rate:25,speed:4},'fire'));
+    const mk=G.part(p,'workspace',{name:'FireMark'+k,shape:'cylinder',pos:[k*4,-60,0],size:[7,.2,7],color:'#ff1744',material:'Neon',canCollide:false,transparency:.35,unbreakable:true});
+    G.vars(G.hscript(p,fb.id,'Fall',blk('ev_start'),G.wait(10+k*.7),G.forever(G.wait(G.rnd(5,9)),G.iff(G.cmp(G.vget(LV),'GTE',G.num(2)),
+      G.vset('vfx'+k,G.arith('ADD',G.nearAx(G.pnamed('Brick King'),'x'),G.rnd(-14,14))),G.vset('vfz'+k,G.arith('ADD',G.nearAx(G.pnamed('Brick King'),'z'),G.rnd(-14,14))),
+      blk('p_setpos',{PART:G.pnamed('FireMark'+k),X:G.vget('vfx'+k),Y:bn(.25),Z:G.vget('vfz'+k)}),blk('p_setpos',{PART:bme(),X:G.vget('vfx'+k),Y:bn(70),Z:G.vget('vfz'+k)}),
+      blk('p_glideto',{PART:bme(),X:G.vget('vfx'+k),Y:bn(2),Z:G.vget('vfz'+k),S:bn(1.6)}),G.bc('fireball '+k),blk('p_setpos',{PART:G.pnamed('FireMark'+k),X:bn(0),Y:bn(-60),Z:bn(0)}),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-60),Z:bn(0)})))),[...VL,['fx'+k,'vfx'+k],['fz'+k,'vfz'+k]]);
+    G.script(p,'sss','Fireball hit '+k,G.onMsg('fireball '+k),G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('Fireball'+k)}}},'LT',G.num(5)),blk('pl_damage',{N:bn(22)}),G.sound('explode'),G.msg('Burned by a fireball!',1)));}
+  // below half health the King gets angry and faster
+  G.hscript(p,B.id,'Enrage',blk('ev_start'),G.forever(G.until(G.AND(G.cmp({block:{type:'s_rig_health',inputs:{PART:bme()}}},'LT',G.num(250)),G.cmp({block:{type:'s_rig_health',inputs:{PART:bme()}}},'GT',G.num(0)))),
+    blk('rig_say',{PART:bme(),TEXT:bt('ENOUGH! Now I am ANGRY!'),S:bn(2)}),blk('rig_speed',{PART:bme(),N:bn(11)}),G.bc('enraged'),
+    G.until(G.OR(G.cmp({block:{type:'s_rig_health',inputs:{PART:bme()}}},'LTE',G.num(0)),G.cmp({block:{type:'s_rig_health',inputs:{PART:bme()}}},'GT',G.num(400)))),blk('rig_speed',{PART:bme(),N:bn(7)}),G.wait(1)));
+  G.script(p,'sss','Enraged',G.onMsg('enraged'),G.sound('die'),blk('g_sky',null,{COLOUR:'#5a0f1e'}),G.msg('The Brick King is ENRAGED! He is faster now.',2.5));
+  G.script(p,'sss','Calm',G.onMsg('boss down'),blk('g_sky',null,{COLOUR:'#2b1d3a'}),blk('pl_coins',{N:bn(5)}));
   G.welcome(p,G.msg('Defeat the Brick King again and again, alone or with friends online. Sword (1), blaster (2), potion (3).',5));
   G.spawnAt(p,0,.5,24);return G.def(p,'boss','Boss Battle');}
 
@@ -3021,6 +3088,23 @@ function gkMelee(p,parent,name,o){const T={id:uid(),cls:'Tool',name,parent,toolt
   if(o.script!==false)p.nodes.push(scriptNode({parent:T.id,name:name+' Script',blocks:scriptOf(chain(blk('ev_tool_hit'),hitBranch(o.dmg,doIn(blk('g_sound',null,{SND:'explode'})))))}));return T;}
 
 /* 20. Tower of Hell: a random tower, the same for everyone, rebuilt every match */
+/* bots that fill a lobby up to `total` fighters: they chase, shoot and can be knocked out. Host-run so everyone sees the same bots */
+function gkFighterBots(p,o){const G=GK;const NB='vfbots',BV=[['fighter bots',NB]],n=o.max||5,cols=o.cols||['#e53935','#1e88e5','#43a047','#8e24aa','#fb8c00'];
+  for(let k=1;k<=n;k++){const home=o.home[(k-1)%o.home.length];const r=rigNode({name:'Fighter'+k,pos:[home[0],2.6+(o.y||0),home[1]],health:o.hp||100,respawn:4,walkSpeed:o.speed||14,colors:{head:'#ffcc80',torso:cols[(k-1)%cols.length],arms:'#ffcc80',legs:'#212121'}});p.nodes.push(r);
+    G.part(p,'workspace',{name:'FBolt'+k,shape:'ball',pos:[0,-50,0],size:[.8,.8,.8],color:cols[(k-1)%cols.length],material:'Neon',canCollide:false,unbreakable:true});
+    G.vars(G.hscript(p,r.id,'Fight',blk('ev_start'),G.forever(G.ifElse(G.cmp(G.num(k),'GT',G.vget(NB)),[G.wait(.5)],
+      [G.ifElse(G.cmp(G.nearD(bme()),'LT',G.num(32)),[blk('rig_walk',{PART:bme(),X:G.arith('ADD',G.nearAx(bme(),'x'),G.rnd(-9,9)),Z:G.arith('ADD',G.nearAx(bme(),'z'),G.rnd(-9,9))})],
+        [G.ifElse(G.cmp(G.rnd(1,3),'EQ',G.num(1)),[blk('rig_walk',{PART:bme(),X:G.rnd(-o.area,o.area),Z:G.rnd(-o.area,o.area)})],[G.walkN(bme())]),G.wait(.3)])]))),BV);
+    G.vars(G.hscript(p,r.id,'Shoot',blk('ev_start'),G.forever(G.wait(G.rnd(1,2)),G.iff(G.AND(G.cmp(G.num(k),'LTE',G.vget(NB)),G.AND(G.cmp({block:{type:'s_rig_health',inputs:{PART:bme()}}},'GT',G.num(0)),G.cmp(G.nearD(bme()),'LT',G.num(40)))),
+      blk('p_setpos',{PART:G.pnamed('FBolt'+k),X:G.prop(bme(),'x'),Y:G.arith('ADD',G.prop(bme(),'y'),G.num(1)),Z:G.prop(bme(),'z')}),
+      blk('p_glideto',{PART:G.pnamed('FBolt'+k),X:G.nearAx(bme(),'x'),Y:G.arith('ADD',G.nearAx(bme(),'y'),G.num(2.5)),Z:G.nearAx(bme(),'z'),S:bn(.35)}),
+      G.iff(G.cmp(G.rnd(1,10),'LTE',G.num(o.acc||5)),G.asP({block:{type:'pl_ref_nearpart',inputs:{PART:bme()}}},blk('pl_damage',{N:bn(o.dmg||14)}))),
+      blk('p_setpos',{PART:G.pnamed('FBolt'+k),X:bn(0),Y:bn(-50),Z:bn(0)})))),BV);
+    G.script(p,r.id,'KO',blk('ev_rig_died'),G.sadd(o.stat||'KOs',1));}
+  G.vars(G.hscript(p,'sss','Fill with bots',G.onMsg(o.msg||'round start'),G.ifElse(G.cmp(G.players(),'GTE',G.num(o.total)),[G.vset(NB,G.num(0))],[G.vset(NB,G.arith('MINUS',G.num(o.total),G.players()))]),
+    G.iff(G.cmp(G.vget(NB),'GT',G.num(n)),G.vset(NB,G.num(n))),
+    ...Array.from({length:n},(_,i)=>{const k=i+1,h=o.home[i%o.home.length];return G.ifElse(G.cmp(G.num(k),'LTE',G.vget(NB)),[blk('rig_heal',{PART:G.pnamed('Fighter'+k),N:bn(1000)}),blk('p_visible',{PART:G.pnamed('Fighter'+k)},{B:'TRUE'}),blk('p_setpos',{PART:G.pnamed('Fighter'+k),X:bn(h[0]),Y:bn(2.6+(o.y||0)),Z:bn(h[1])})],
+      [blk('p_visible',{PART:G.pnamed('Fighter'+k)},{B:'FALSE'}),blk('p_setpos',{PART:G.pnamed('Fighter'+k),X:bn(k*6),Y:bn(2.6),Z:bn(300)})]);})),BV);}
 function towerHellDef(){const G=GK;const p=G.proj('towerhell','Tower of Hell',{sky:'#1b1f3b',fog:700,brightness:.95,timer:false,saveStats:false,saveCheckpoint:false,lobby:true,lobbyWait:12,lobbyRound:300,lobbyScore:'Height'});
   const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[90,2,90],color:'#2b2f4a',material:'Slate'});
   G.spawnAt(p,0,.5,0,{size:[5,1,5],color:'#ffc93c'});
@@ -3406,7 +3490,8 @@ function planeCrashDef(){const G=GK;const p=G.proj('planecrash','Plane Crash',{s
   P({name:'Hull',pos:[7.5,PY+5,31],size:[1,10,8],color:'#eceff1',material:'Metal'});
   P({name:'Ceiling',pos:[0,PY+10.5,0],size:[16,1,70],color:'#cfd8dc',material:'Metal'});P({name:'Nose',pos:[0,PY+5,-35.5],size:[16,11,1],color:'#eceff1',material:'Metal'});P({name:'Tail',pos:[0,PY+5,35.5],size:[16,11,1],color:'#eceff1',material:'Metal'});
   const door=P({name:'EmergencyDoor',pos:[7.5,PY+4,23.5],size:[1,8,7],color:'#ff7043',material:'Metal',label:'EXIT'});
-  for(let i=0;i<9;i++)for(const sx of [-4.5,4.5]){const z=-26+i*5.2;P({name:'Seat',pos:[sx,PY+1.2,z],size:[3.2,1.4,2.6],color:'#1565c0',material:'Fabric'});P({name:'SeatBack',pos:[sx,PY+3,z+1.4],size:[3.2,3.6,.5],color:'#0d47a1',material:'Fabric'});}
+  const SEATS=G.model(p,'Seats').id;
+  for(let i=0;i<9;i++)for(const sx of [-4.5,4.5]){const z=-26+i*5.2;G.part(p,SEATS,{name:'Seat',pos:[sx,PY+1.2,z],size:[3.2,1.4,2.6],color:'#1565c0',material:'Fabric'});P({name:'SeatBack',pos:[sx,PY+3,z+1.4],size:[3.2,3.6,.5],color:'#0d47a1',material:'Fabric'});}
   for(let i=0;i<6;i++){P({name:'Window',pos:[-7.4,PY+5.5,-24+i*9],size:[1.2,2.2,3],color:'#bbdefb',material:'Glass',transparency:.4});}
   P({name:'Wing',pos:[-24,PY+1,0],size:[32,1,12],color:'#b0bec5',material:'Metal'});P({name:'Wing',pos:[24,PY+1,-6],size:[32,1,12],color:'#b0bec5',material:'Metal'});
   const eng=P({name:'Engine',shape:'cylinder',pos:[-22,PY-1.5,-2],size:[4,8,4],rot:[90,0,0],color:'#546e7a',material:'Metal'});
@@ -3454,7 +3539,7 @@ function planeCrashDef(){const G=GK;const p=G.proj('planecrash','Plane Crash',{s
   G.vars(G.script(p,'sss','Board',G.onMsg('round start'),G.sset('Parachute',0),G.sset('Rescued',0),blk('pl_chute',null,{B:'FALSE'}),G.vset('vjumped',G.num(0)),
     G.tp(0,PY+3,G.rnd(-20,20)),G.sound('check'),blk('g_sky',null,{COLOUR:'#90caf9'}),G.msg('Welcome aboard Flight 404! Find a seat... and check the overhead bins.',5)),[...VARS,['jumped','vjumped']]);
   G.vars(G.script(p,'sss','Turbulence',G.onMsg('turbulence'),G.msg('⚠ TURBULENCE! Sit in a seat to hold on!',3),G.sound('die'),
-    blk('controls_repeat_ext',{TIMES:bn(10),DO:doIn(G.wait(G.rnd(1,2)),G.iff(G.AND(G.aliveIn(),G.NOT({block:{type:'s_touching',inputs:{PART:G.pnamed('Seat')}}})),
+    blk('controls_repeat_ext',{TIMES:bn(10),DO:doIn(G.wait(G.rnd(1,2)),G.iff(G.AND(G.aliveIn(),G.NOT({block:{type:'s_touching',inputs:{PART:G.mnamed('Seats')}}})),
       G.iff(G.cmp(G.ppos('y'),'GT',G.num(PY-5)),blk('pl_launch',{P:bn(30)}),blk('pl_damage',{N:bn(6)}))))})),VARS);
   G.vars(G.script(p,'sss','Fire',G.onMsg('engine fire'),blk('g_sky',null,{COLOUR:'#ff8a65'}),G.sound('explode'),G.msg('🔥 The left engine is on FIRE! We are going down!',4)),VARS);
   G.vars(G.script(p,'sss','Door',G.onMsg('door open'),G.sound('explode'),G.msg('The emergency door blew open! Jump with a parachute, or stay seated and BRACE!',5)),VARS);
@@ -3466,7 +3551,7 @@ function planeCrashDef(){const G=GK;const p=G.proj('planecrash','Plane Crash',{s
     G.ifElse(G.cmp({block:{type:'s_land_speed'}},'GT',G.num(60)),[G.sound('explode'),G.msg('SPLAT! You hit the ground way too fast.',3),blk('pl_damage',{N:bn(1000)})],
       [G.sadd('Points',20),G.sound('win'),G.msg('Safe landing! +20. Now get to the helipad on the hill!',4)]))),[...VARS,['jumped','vjumped']]);
   G.vars(G.script(p,'sss','Crash',G.onMsg('crash'),blk('g_sky',null,{COLOUR:'#90caf9'}),G.iff(G.AND(G.aliveIn(),G.cmp(G.vget('vjumped'),'EQ',G.num(0))),G.sound('explode'),
-    G.ifElse({block:{type:'s_touching',inputs:{PART:G.pnamed('Seat')}}},[G.msg('BRACE! The plane slams into the island... you survived in your seat! +15',4),G.tp(-30,6,G.rnd(0,20)),blk('pl_damage',{N:G.rnd(30,70)}),G.sadd('Points',15)],
+    G.ifElse({block:{type:'s_touching',inputs:{PART:G.mnamed('Seats')}}},[G.msg('BRACE! The plane slams into the island... you survived in your seat! +15',4),G.tp(-30,6,G.rnd(0,20)),blk('pl_damage',{N:G.rnd(30,70)}),G.sadd('Points',15)],
       [G.iff(G.cmp(G.rnd(1,3),'EQ',G.num(1)),G.msg('You were thrown around the cabin... but somehow survived!',4),G.tp(-30,6,G.rnd(0,20)),blk('pl_damage',{N:bn(85)})),
        G.iff(G.cmp({block:{type:'s_health'}},'GT',G.num(99)),G.msg('You were not wearing a seatbelt...',3),blk('pl_damage',{N:bn(1000)}))]),G.vset('vjumped',G.num(2)))),[...VARS,['jumped','vjumped']]);
   G.vars(G.script(p,'sss','Rescue',G.onMsg('rescue'),G.iff(G.aliveIn(),G.sound('check'),G.msg('🚁 A rescue helicopter is landing on the hill! Get there in 25 seconds!',5))),VARS);
