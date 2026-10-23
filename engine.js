@@ -562,6 +562,17 @@ function earnCoins(n,why){n=Math.floor(n);if(!(n>0)||(game&&game.fromEditor)||TE
 function coinToast(t){let el=$('#coinToast');if(!el)return;el.textContent='🪙 '+t;el.classList.remove('show');void el.offsetWidth;el.classList.add('show');clearTimeout(coinToast._t);coinToast._t=setTimeout(()=>el.classList.remove('show'),2600);}
 function renderCoins(){document.querySelectorAll('.coinCount').forEach(e=>e.textContent=WALLET.coins.toLocaleString('en-US'));if(typeof renderQuests==='function'&&!$('#menu').hidden)renderQuests();}
 /* playing earns coins: 5 per active minute, daily bonus, finishing courses and lobby matches */
+/* best-run ghost: your fastest finish replays as a see-through runner */
+const GHOST={rec:[],path:null,mesh:null,on:false};
+function ghostEligible(){return game&&!game.fromEditor&&(game.mode==='race'||(game.project&&game.project.settings&&game.project.settings.timer!==false&&!LOBBY.on));}
+function ghostStart(){if(GHOST.mesh){scene.remove(GHOST.mesh);GHOST.mesh=null;}GHOST.rec=[];GHOST.path=null;GHOST.on=ghostEligible();if(!GHOST.on)return;
+  const pth=store.get('ghost_'+game.id,null);if(!Array.isArray(pth)||pth.length<10)return;GHOST.path=pth;
+  try{const m=makeAvatar();m.traverse(o=>{if(o.isMesh&&o.material){o.material=o.material.clone();o.material.transparent=true;o.material.opacity=.32;o.material.depthWrite=false;}});GHOST.mesh=m;scene.add(m);}catch(e){GHOST.path=null;}}
+function ghostTick(){if(!GHOST.on||!running||paused||!state)return;const i=Math.floor(state.time*10);
+  if(!state.over&&GHOST.rec.length<=i&&GHOST.rec.length<6000){while(GHOST.rec.length<=i)GHOST.rec.push([r3(P.pos.x),r3(P.pos.y),r3(P.pos.z)]);}
+  if(GHOST.mesh&&GHOST.path){const f=state.time*10,a=GHOST.path[Math.min(GHOST.path.length-1,Math.floor(f))],b=GHOST.path[Math.min(GHOST.path.length-1,Math.floor(f)+1)],u=f-Math.floor(f);
+    GHOST.mesh.visible=f<GHOST.path.length;if(a&&b){GHOST.mesh.position.set(a[0]+(b[0]-a[0])*u,a[1]+(b[1]-a[1])*u,a[2]+(b[2]-a[2])*u);const dx=b[0]-a[0],dz=b[2]-a[2];if(dx*dx+dz*dz>.0004)GHOST.mesh.rotation.y=Math.atan2(-dx,-dz);}}}
+function ghostSave(){if(GHOST.on&&GHOST.rec.length>10)store.set('ghost_'+game.id,GHOST.rec.slice(0,6000));}
 const PLAYED={t:0};const GAMECOINS={left:150};
 function coinTick(dt){if(!running||paused||!game||game.fromEditor||game.mode==='build'||state.over)return;
   const moving=Math.hypot(P.vel.x,P.vel.z)>1||!P.onGround;if(!moving&&!(LOBBY.on&&LOBBY.inRound))return;
@@ -3474,17 +3485,21 @@ function arsenalDef(){const G=GK;const p=G.proj('arsenal','Arsenal',{sky:'#ffb74
   [[-30,-30,14,12,14],[30,30,14,16,14],[30,-34,18,8,10],[-34,30,10,10,18],[0,0,12,6,12],[-50,0,6,14,22],[50,0,6,14,22]].forEach(([x,z,w,h,d])=>{P({name:'Building',pos:[x,h/2,z],size:[w,h,d],color:'#bcaaa4',material:'Brick'});P({name:'Ramp',shape:'wedge',pos:[x,h/2,z+d/2+h/2],size:[4,h,h],rot:[0,180,0],color:'#a1887f',material:'Wood'});});
   [[-15,15],[15,-15],[-55,-55],[55,55],[0,-50],[0,50]].forEach(([x,z])=>P({name:'Crate',pos:[x,2,z],size:[4,4,4],color:'#a1764b',material:'Wood'}));
   G.spawnAt(p,0,6.5,0,{size:[6,1,6],color:'#ff7043'});
-  const TIERS=[['Blaster',25,.3,'#5cc8ff',230,0],['Rapid Blaster',12,.1,'#69f0ae',260,0],['Scatter Cannon',45,.8,'#ffab40',200,.6],['Sniper',100,1.4,'#ea80fc',420,1.6],['Rocket Launcher',70,1.2,'#ff5252',150,1]];
-  TIERS.forEach(([nm,dmg,cool,col,spd,len],i)=>gkGun(p,i===0?'pack':'rs',nm,{dmg,cool,color:col,speed:spd,len,tip:'Weapon '+(i+1)+' of 6'}));
+  const TIERS=[['Blaster',25,.3,'#5cc8ff',230,0],['Rapid Blaster',12,.1,'#69f0ae',260,0],['Scatter Cannon',45,.8,'#ffab40',200,.6],['Flamethrower',9,.07,'#ff9100',95,.3],['Sniper',100,1.4,'#ea80fc',420,1.6],['Railgun',80,1.0,'#18ffff',600,1.8],['Rocket Launcher',70,1.2,'#ff5252',150,1]];
+  TIERS.forEach(([nm,dmg,cool,col,spd,len],i)=>gkGun(p,i===0?'pack':'rs',nm,{dmg,cool,color:col,speed:spd,len,tip:'Weapon '+(i+1)+' of '+(TIERS.length+1)}));
   gkMelee(p,'rs','Golden Knife',{dmg:100,cool:.4,color:'#ffd54f',mat:'Neon',tip:'Get one knockout with this to WIN'});
   const NAMES=TIERS.map(t=>t[0]).concat(['Golden Knife']);
   const TI='vtier',MV=G.matchFlags(p),VARS=[['tier',TI],...MV];
   // when your knockouts go up, swap to the next weapon
   G.vars(G.script(p,'sss','Gun game',G.onMsg('round start'),G.vset(TI,G.num(0)),...NAMES.map(n=>blk('tool_take',null,{NAME:n})),blk('tool_give',null,{NAME:'Blaster'}),
-    G.whileDo(G.inMatch(),G.iff(G.AND(G.cmp(G.stat('KOs'),'GT',G.vget(TI)),G.cmp(G.vget(TI),'LT',G.num(6))),G.vchg(TI,1),
-      ...NAMES.map((n,k)=>G.iff(G.cmp(G.vget(TI),'EQ',G.num(k)),blk('tool_take',null,{NAME:n}))),
+    G.whileDo(G.inMatch(),G.iff(G.AND(G.cmp(G.stat('KOs'),'GT',G.vget(TI)),G.cmp(G.vget(TI),'LT',G.num(NAMES.length))),G.vchg(TI,1),
+      ...NAMES.map((n,k)=>G.iff(G.cmp(G.vget(TI),'EQ',G.num(k+1)),blk('tool_take',null,{NAME:n}))),
       ...NAMES.map((n,k)=>G.iff(G.cmp(G.vget(TI),'EQ',G.num(k+1)),...(k+1<NAMES.length?[blk('tool_give',null,{NAME:NAMES[k+1]}),G.msg('New weapon: '+NAMES[k+1]+'! Press 1',1.6),G.sound('check')]:[]))),
-      G.iff(G.cmp(G.vget(TI),'EQ',G.num(6)),G.sset('KOs',99),G.sound('win'),G.msg('GOLDEN KNIFE KNOCKOUT! YOU WIN! +20 coins',5),blk('pl_coins',{N:bn(20)}))),G.wait(.2))),VARS);
+      G.iff(G.cmp(G.vget(TI),'EQ',G.num(NAMES.length)),G.sset('KOs',99),G.sound('win'),G.msg('GOLDEN KNIFE KNOCKOUT! YOU WIN! +20 coins',5),blk('pl_coins',{N:bn(20)}))),G.wait(.2))),VARS);
+  // medkits and jump pads around the map
+  [[-40,0],[40,0],[0,-40],[0,40]].forEach(([x,z],i)=>{const mk=P({name:'Medkit'+i,pos:[x,1.2,z],size:[2,1.4,2],color:'#ef5350',material:'Neon',canCollide:false,label:'+'});
+    G.script(p,mk.id,'Heal',blk('ev_touch'),blk('pl_heal',{N:bn(50)}),G.sound('coin'),blk('p_visible',{PART:bme()},{B:'FALSE'}),G.wait(15),blk('p_visible',{PART:bme()},{B:'TRUE'}));});
+  [[-30,-14],[30,14],[-14,30],[14,-30]].forEach(([x,z])=>P({name:'JumpPad',pos:[x,.3,z],size:[4,.4,4],color:'#22d3ee',material:'Neon',behavior:'jump',value:95}));
   G.script(p,'sss','Respawn spot',blk('ev_spawn'),G.wait(.05),G.ifElse(G.cmp(G.rnd(1,4),'EQ',G.num(1)),[G.tp(-60,4,-60)],[G.ifElse(G.cmp(G.rnd(1,3),'EQ',G.num(1)),[G.tp(60,4,60)],[G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.tp(60,4,-60)],[G.tp(-60,4,60)])])]));
   // bots fill up to 6 fighters
   const NB='vnbots',BV=[['bots',NB]],BCOLS=['#e53935','#1e88e5','#43a047','#8e24aa','#fb8c00'],HOME=[[-60,-60],[60,60],[60,-60],[-60,60],[0,-60]];
@@ -4101,6 +4116,7 @@ function startGame(def){
   if(def.fromEditor)logOut('Playtest started.','sys');
   running=true;paused=false;
   if(def.project)lobbyInit();
+  ghostStart();
   mpJoin(def);
   cv.focus({preventScroll:true});
 }
@@ -4170,7 +4186,7 @@ function stopGame(){
   if(game&&game.project&&SAVE.loaded)saveFlush(false,true);SAVE.gen++;SAVE.loaded=false;
   mpLeave();
   if(P.equipped)unequipTool();P.backpack=[];renderHotbar();
-  running=false;paused=false;rtReset();lobbyStop();$('#bsaves').hidden=true;$('#game').hidden=true;keys.clear();jumpHeld=false;
+  running=false;paused=false;rtReset();lobbyStop();if(GHOST.mesh){scene.remove(GHOST.mesh);GHOST.mesh=null;}$('#bsaves').hidden=true;$('#game').hidden=true;keys.clear();jumpHeld=false;
   if(game&&game.fromEditor){logOut('Playtest stopped.','sys');ED.ecv.focus({preventScroll:true});return;}
   $('#menu').hidden=false;renderCards();
 }
@@ -4194,7 +4210,7 @@ function finish(){
   if(state.over)return;state.over=true;SFX.win();if(!game.fromEditor){earnCoins(25,'finished!');questBump('finish',game.id,1);}if(game.project)saveFlush(false,true);
   mpEmit('fin',{time:r3(state.time)});
   const bests=store.get('bests',{});let html='';
-  if(game.mode==='race'||game.mode==='project'){const prev=bests[game.id];const nb=prev==null||state.time<prev;if(nb&&!game.fromEditor){bests[game.id]=state.time;store.set('bests',bests);}
+  if(game.mode==='race'||game.mode==='project'){const prev=bests[game.id];const nb=prev==null||state.time<prev;if(nb&&!game.fromEditor){bests[game.id]=state.time;store.set('bests',bests);ghostSave();}
     const stats=[...RT.stats].map(([k,v])=>esc(k)+' '+r3(v)).join(' · ');
     html=`<h2>${game.mode==='project'?'You win!':'Course complete!'}</h2><div class="big">${fmt(state.time)}</div><div class="sub">${game.fromEditor?'Playtest':nb?'<span class="badge">New best</span>':'Best '+fmt(prev)} · ${state.deaths} ${state.deaths===1?'fall':'falls'}${stats?' · '+stats:''}</div>`;}
   else if(game.mode==='coins'){const all=state.coins>=state.total;const prev=bests[game.id];
@@ -4281,7 +4297,7 @@ function update(dt){
     p.mesh.position.copy(p.pos);p.base.copy(p.pos);W.dyn.add(p);if(p.pos.y<W.killY)destroyPart(p);}
   for(const s of W.spinners)s.pivot.rotation.y=(tw*s.speed)%(Math.PI*2);
   if(W.labels&&W.labels.length)for(const L of W.labels){if(L.p.destroyed){L.s.visible=false;continue;}L.s.position.set(L.p.pos.x,L.p.max.y+.9+L.s.scale.y/2,L.p.pos.z);L.s.visible=L.p.mesh.visible;}
-  animateAcc(P.model,t);for(const r of MP.remotes.values())animateAcc(r.model,t);coinTick(dt);questTick(dt);hostTick(dt);
+  animateAcc(P.model,t);for(const r of MP.remotes.values())animateAcc(r.model,t);coinTick(dt);questTick(dt);ghostTick();hostTick(dt);
   if(W.rigs.length)updateRigs(dt);
   if(game.project||W.projectiles.length)updateTools(dt);
   if(W.emitters.length){W.emitters.forEach(e=>e.update(dt));W.emitters=W.emitters.filter(e=>{if(e.parent.destroyed&&!e.ps.length){e.dispose();return false;}return true;});}
