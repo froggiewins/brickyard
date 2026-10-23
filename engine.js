@@ -3144,6 +3144,18 @@ function disastersDef(){const G=GK;const p=G.proj('disasters','Disaster Survival
     tower(F,46,0,7,26,'#d7ccc8','Sand',4,'#8d6e63');
     [[0,-40],[-48,0],[18,40],[50,-50]].forEach(([x,z])=>{G.part(p,F,{name:'PalmTrunk',pos:[x,4,z],size:[1.2,8,1.2],color:'#8d6e63',material:'Wood'});G.part(p,F,{name:'PalmLeaves',pos:[x,8.3,z],size:[7,.6,7],color:'#43a047',material:'Grass'});});
     G.part(p,F,{name:'Camel',pos:[-10,2,40],size:[6,3,2],color:'#c49c4c',material:'Plastic'});}
+  // 7. Rainforest Village: treehouses on stilts, rope bridges and a waterfall cliff
+  {const F=mapModel('Rainforest Village');
+    G.part(p,F,Object.assign({name:'Ground',pos:[0,-1,0],size:[124,2,124],color:'#33691e',material:'Grass'},U));
+    G.part(p,F,Object.assign({name:'River',pos:[0,.05,30],size:[124,.2,10],color:'#4fc3f7',material:'Glass'},U));
+    for(let k=0;k<6;k++)G.part(p,F,Object.assign({name:'Cliff',pos:[40,2+k*4,-40],size:[36-k*4,4,30-k*3],color:['#5d4037','#6d4c41','#795548','#5d4037','#4e342e','#3e2723'][k],material:'Slate'},U));
+    G.part(p,F,{name:'Waterfall',pos:[40,12,-24.5],size:[8,24,1],color:'#81d4fa',material:'Glass',transparency:.4,canCollide:false});
+    const th=(x,z,h)=>{[[-3,-3],[3,-3],[3,3],[-3,3]].forEach(([dx,dz])=>G.part(p,F,{name:'Stilt',pos:[x+dx,h/2,z+dz],size:[1,h,1],color:'#6d4c41',material:'Wood'}));
+      G.part(p,F,{name:'Deck',pos:[x,h+.3,z],size:[9,.6,9],color:'#a1887f',material:'Wood'});G.part(p,F,{name:'Hut',pos:[x,h+2.8,z],size:[6,4.4,6],color:'#8d6e63',material:'Wood'});G.part(p,F,{name:'Thatch',pos:[x,h+5.4,z],size:[8,.8,8],color:'#c0a060',material:'Grass'});
+      for(let i=0;i<Math.ceil(h/2);i++)G.part(p,F,{name:'Ladder',pos:[x+5,1+i*2,z-3+i*(6/Math.ceil(h/2))],size:[2.4,.6,2],color:'#795548',material:'Wood'});};
+    th(-35,-30,10);th(-20,10,12);th(10,-15,8);th(-40,40,14);
+    G.part(p,F,{name:'RopeBridge',pos:[-27.5,10.3,-10],size:[2.4,.4,40],rot:[0,-20,0],color:'#bcaaa4',material:'Wood'});
+    for(let i=0;i<10;i++){const x=((i*43)%110)-55,z2=((i*71)%110)-55;if(Math.abs(z2-30)<8)continue;tree(F,x,z2,8,'#1b5e20');}}
   const centers=MAPS.map(m=>{const list=[p.nodes.find(n=>n.id===m.id),...p.nodes.filter(n=>n.parent===m.id)];const c=nodesBounds(list).getCenter(new V3());return [r3(c.x),r3(c.y),r3(c.z)];});
   /* ---------- disasters ---------- */
   const D='vdis',D2='vdis2',MP_='vmap';const VARS=[['disaster',D],['second disaster',D2],['map',MP_]];
