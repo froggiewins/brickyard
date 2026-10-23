@@ -547,14 +547,14 @@ function avClean(o){const d=AV_DEF();if(!o||typeof o!=='object')return d;const r
   for(const [s] of [['face'],...AV_SLOTS]){const v=o[s];r[s]=typeof v==='string'&&AV_BY.has(v)&&AV_BY.get(v).slot===s?v:(s==='face'?'smile':'');}
   return r;}
 /* ---------- the wallet: coins, owned items and the outfit ---------- */
-const WALLET={coins:0,owned:new Set(AV_ITEMS.filter(i=>!i.price).map(i=>i.id)),av:AV_DEF(),t:0,loaded:false,day:''};
+const WALLET={xp:0,coins:0,owned:new Set(AV_ITEMS.filter(i=>!i.price).map(i=>i.id)),av:AV_DEF(),t:0,loaded:false,day:''};
 (function(){const w=store.get('wallet',null);if(w&&typeof w==='object')walletApply(w);})();
 function walletApply(w){WALLET.coins=Math.max(0,Math.min(1e7,Math.floor(avNum(w.coins,0))));
   (Array.isArray(w.owned)?w.owned:[]).forEach(id=>{if(AV_BY.has(id))WALLET.owned.add(id);});
   WALLET.av=avClean(w.av);for(const [s] of AV_SLOTS)if(WALLET.av[s]&&!WALLET.owned.has(WALLET.av[s]))WALLET.av[s]='';if(!WALLET.owned.has(WALLET.av.face))WALLET.av.face='smile';
-  WALLET.t=avNum(w.t,0);WALLET.day=typeof w.day==='string'?w.day:'';
+  WALLET.t=avNum(w.t,0);WALLET.day=typeof w.day==='string'?w.day:'';WALLET.xp=Math.max(WALLET.xp||0,Math.min(1e8,Math.floor(avNum(w.xp,0))));
   if(w.q&&typeof w.q==='object'&&typeof w.q.day==='string'&&Array.isArray(w.q.p)&&(!WALLET.q||w.q.day>=WALLET.q.day))WALLET.q={day:w.q.day,p:w.q.p.slice(0,3).map(x=>Math.max(0,avNum(x,0))),c:(Array.isArray(w.q.c)?w.q.c:[]).slice(0,3).map(Boolean),b:!!w.q.b};}
-function walletObj(){return {v:1,coins:WALLET.coins,owned:[...WALLET.owned],av:WALLET.av,t:WALLET.t,day:WALLET.day,q:WALLET.q||null};}
+function walletObj(){return {v:1,xp:WALLET.xp||0,coins:WALLET.coins,owned:[...WALLET.owned],av:WALLET.av,t:WALLET.t,day:WALLET.day,q:WALLET.q||null};}
 function walletBackend(){return (SB.client&&SB.uid)?'sb':(MP.db&&MP.me&&MP.me.id&&!MP.p2p)?'claude':'local';}
 let walletSaveT=0;
 function walletSave(){WALLET.t=Date.now();store.set('wallet',walletObj());renderCoins();clearTimeout(walletSaveT);
@@ -567,7 +567,11 @@ async function walletSync(){const be=walletBackend();if(be==='local'){WALLET.loa
 function earnCoins(n,why){n=Math.floor(n);if(!(n>0)||(game&&game.fromEditor)||TESTCLIENT)return;WALLET.coins=Math.min(1e7,WALLET.coins+n);walletSave();
   coinToast('+'+n+' coins'+(why?' · '+why:''));}
 function coinToast(t){let el=$('#coinToast');if(!el)return;el.textContent='🪙 '+t;el.classList.remove('show');void el.offsetWidth;el.classList.add('show');clearTimeout(coinToast._t);coinToast._t=setTimeout(()=>el.classList.remove('show'),2600);}
-function renderCoins(){document.querySelectorAll('.coinCount').forEach(e=>e.textContent=WALLET.coins.toLocaleString('en-US'));if(typeof renderQuests==='function'&&!$('#menu').hidden)renderQuests();}
+const lvlOf=xp=>Math.floor(Math.sqrt((xp||0)/40))+1;
+function gainXP(n,why){if(!(n>0)||(game&&game.fromEditor)||TESTCLIENT)return;const before=lvlOf(WALLET.xp);WALLET.xp=Math.min(1e8,(WALLET.xp||0)+Math.floor(n));const after=lvlOf(WALLET.xp);
+  if(after>before){const bonus=after*20;WALLET.coins=Math.min(1e7,WALLET.coins+bonus);SFX.win&&SFX.win();toast('⭐ LEVEL UP! You are now level '+after+'  +'+bonus+' coins','#b388ff',3.5);MP.lastSent='';}
+  walletSave();}
+function renderCoins(){document.querySelectorAll('.lvlNum').forEach(e=>e.textContent=lvlOf(WALLET.xp));document.querySelectorAll('.coinCount').forEach(e=>e.textContent=WALLET.coins.toLocaleString('en-US'));if(typeof renderQuests==='function'&&!$('#menu').hidden)renderQuests();}
 /* playing earns coins: 5 per active minute, daily bonus, finishing courses and lobby matches */
 /* best-run ghost: your fastest finish replays as a see-through runner */
 const GHOST={rec:[],path:null,mesh:null,on:false};
@@ -583,7 +587,7 @@ function ghostSave(){if(GHOST.on&&GHOST.rec.length>10)store.set('ghost_'+game.id
 const PLAYED={t:0};const GAMECOINS={left:150};
 function coinTick(dt){if(!running||paused||!game||game.fromEditor||game.mode==='build'||state.over)return;
   const moving=Math.hypot(P.vel.x,P.vel.z)>1||!P.onGround;if(!moving&&!(LOBBY.on&&LOBBY.inRound))return;
-  PLAYED.t+=dt;if(PLAYED.t>=60){PLAYED.t-=60;earnCoins(5,'playing');questBump('minutes','',1);}
+  PLAYED.t+=dt;if(PLAYED.t>=60){PLAYED.t-=60;earnCoins(5,'playing');questBump('minutes','',1);gainXP(12);}
   const today=new Date().toISOString().slice(0,10);if(WALLET.day!==today&&PLAYED.t>10){WALLET.day=today;earnCoins(50,'daily bonus');}}
 /* ---------- daily quests: three a day, the same for everybody, paid in coins ---------- */
 const QUESTS=[
@@ -626,7 +630,7 @@ function questsToday(){const d=questDay();let h=hashStr('q'+d)>>>0;const pool=QU
 function questState(){const d=questDay();if(!WALLET.q||WALLET.q.day!==d)WALLET.q={day:d,p:[0,0,0],c:[false,false,false],b:false};return WALLET.q;}
 function questBump(kind,gid,val,abs){if(game&&game.fromEditor||TESTCLIENT)return;const qs=questsToday(),S=questState();let changed=false;
   qs.forEach((q,i)=>{if(S.c[i]||q.k!==kind)return;if(q.g&&q.g!==gid)return;const nv=abs?Math.max(S.p[i],val):S.p[i]+val;if(nv===S.p[i])return;S.p[i]=Math.min(q.n,nv);changed=true;
-    if(S.p[i]>=q.n){S.c[i]=true;WALLET.coins=Math.min(1e7,WALLET.coins+q.r);SFX.win&&SFX.win();toast('Quest complete: '+q.t+'  +'+q.r+' coins','#ffd75e',3.5);}});
+    if(S.p[i]>=q.n){S.c[i]=true;WALLET.coins=Math.min(1e7,WALLET.coins+q.r);setTimeout(()=>gainXP(60),0);SFX.win&&SFX.win();toast('Quest complete: '+q.t+'  +'+q.r+' coins','#ffd75e',3.5);}});
   if(changed){if(!S.b&&S.c.every(Boolean)){S.b=true;WALLET.coins=Math.min(1e7,WALLET.coins+QBONUS);setTimeout(()=>coinToast('+'+QBONUS+' coins · all daily quests done!'),1500);}walletSave();}}
 let questT=0;
 function questTick(dt){if(!running||paused||!game||game.fromEditor||state.over&&game.mode!=='project')return;questT+=dt;if(questT<.5)return;questT=0;
@@ -1295,7 +1299,7 @@ function makeRemote(p){
     tag:null,bubble:null,bubbleUntil:0,toolKey:'',held:null,swT0:-9,lastSw:0,dead:false,mv:0,air:false,stats:{},hp:100,flashT:0,first:true};
   r.mesh=r.model;scene.add(r.model);MP.remotes.set(p.peer,r);setRemoteTag(r);return r;
 }
-function setRemoteTag(r){if(r.tag){r.model.remove(r.tag);r.tag.material.map.dispose();r.tag.material.dispose();}r.tag=textSprite(nameOf(r.by));r.tag.position.set(0,3.6,0);r.model.add(r.tag);}
+function setRemoteTag(r){if(r.tag){r.model.remove(r.tag);r.tag.material.map.dispose();r.tag.material.dispose();}r.tag=textSprite((r.lv>1?'Lv'+r.lv+' · ':'')+nameOf(r.by));r.tag.position.set(0,3.6,0);r.model.add(r.tag);}
 function applyPresence(r,pr){
   const p=pr.p;r.tgt.set(num(p[0],0),num(p[1],5),num(p[2],0));if(r.first){r.pos.copy(r.tgt);r.first=false;}
   r.tyaw=num(pr.yaw,0);r.mv=num(pr.mv,0);r.air=!!pr.air;r.hp=num(pr.hp,100);
@@ -1307,6 +1311,7 @@ function applyPresence(r,pr){
   if(num(pr.sw,0)!==r.lastSw){r.lastSw=num(pr.sw,0);if(r.lastSw)r.swT0=t;}
   r.stats=pr.st&&typeof pr.st==='object'?pr.st:{};
   if(pr.jt!=null)r.jt=num(pr.jt,9e15);
+  {const lv=Math.max(1,Math.min(999,Math.round(num(pr.lv,1))));if(lv!==r.lv){r.lv=lv;if(r.tag)setRemoteTag(r);}}
   r.lb=pr.lb&&typeof pr.lb==='object'?{r:Math.round(num(pr.lb.r,-1)),s:num(pr.lb.s,0),o:!!pr.lb.o}:null;
   r.inv=!!pr.inv;r.model.visible=(!r.dead||!!r.rgq)&&!r.inv;
   const say=typeof pr.say==='string'?pr.say.slice(0,120):'';if(say!==(r.say||'')){r.say=say;if(say){if(r.bubble)r.model.remove(r.bubble);r.bubble=bubbleOver(r.model,say.split('|').slice(1).join('|'));r.bubbleUntil=t+5;}}
@@ -1345,7 +1350,7 @@ function myStats(){
 }
 function sendPresence(){
   if(!MP.gr)return;
-  const pr={p:[r3(P.pos.x),r3(P.pos.y),r3(P.pos.z)],yaw:r3(P.yaw),mv:r3(Math.hypot(P.vel.x,P.vel.z)),air:!P.onGround,dead:P.dead,sh:P.shirtOverride||WALLET.av.shirt,av:WALLET.av,
+  const pr={p:[r3(P.pos.x),r3(P.pos.y),r3(P.pos.z)],yaw:r3(P.yaw),mv:r3(Math.hypot(P.vel.x,P.vel.z)),air:!P.onGround,dead:P.dead,sh:P.shirtOverride||WALLET.av.shirt,av:WALLET.av,lv:lvlOf(WALLET.xp),
     ...(P.shirtOverride?{sh:P.shirtOverride}:{}),tool:P.equipped?{n:P.equipped.name.slice(0,40),c:P.equipped.color}:null,sw:MP.swWall,hp:Math.round(P.health),st:myStats(),em:P.anim&&!P.anim.out?P.anim.net:'',inv:!!P.hidden,say:P.sayText||'',jt:RT.joinT||0,lb:LOBBY.on?{r:LOBBY.inRound?LOBBY.idx:-1,s:LOBBY.cfg.score?r3(+(RT.stats.get(LOBBY.cfg.score)||0)):0,o:LOBBY.out}:null,rg:P.rag?P.rag.q.toArray().map(v=>Math.round(v*100)/100):null};
   if(MP.p2p||(MP.gr&&MP.gr.link))pr.nm=MP.gr&&MP.gr.link&&!ACC.doc&&!TESTCLIENT?'Player 1':myName();
   const j=JSON.stringify(pr);if(j===MP.lastSent)return;MP.lastSent=j;MP.gr.presence(pr).catch(()=>{});
@@ -4296,7 +4301,7 @@ function lobbyEnd(){const c=LOBBY.cfg;LOBBY.inRound=false;rtFire('msg','round en
   if(c.score){const rows=[{n:myName(),s:+(RT.stats.get(c.score)||0),me:true}];
     for(const r of MP.remotes.values())if(r.lb&&r.lb.r===LOBBY.idx)rows.push({n:nameOf(r.by),s:num(r.lb.s,0)});
     rows.sort((a,b)=>c.low?a.s-b.s:b.s-a.s);const best=rows[0].s,won=rows.length>0&&rows.find(r=>r.me).s===best&&(c.low||best>0);
-    if(won&&rows.length>1){changeStat('Wins',1);questBump('win',game.id,1);}questBump('match',game.id,1);earnCoins(won&&rows.length>1?40:10,won&&rows.length>1?'you won!':'match played');
+    if(won&&rows.length>1){changeStat('Wins',1);questBump('win',game.id,1);gainXP(40);}questBump('match',game.id,1);gainXP(20);earnCoins(won&&rows.length>1?40:10,won&&rows.length>1?'you won!':'match played');
     $('#lobbyRes').innerHTML=`<h3>${won?(rows.length>1?'You win!':'Match over'):'Match over'}</h3><ol>${rows.slice(0,8).map((r,i)=>`<li class="${r.me?'me':''}"><span>${['🥇','🥈','🥉'][i]||(i+1)+'.'} ${esc(r.n)}</span><span>${r3(r.s)}</span></li>`).join('')}</ol><p class="sub">${esc(c.score)} · next match soon</p>`;
     $('#lobbyRes').hidden=false;LOBBY.resUntil=t+6;SFX[won?'win':'check']();}
   else{toast('Match over!','#ffd75e',2);questBump('match',game.id,1);earnCoins(10,'match played');}
@@ -4329,7 +4334,7 @@ $('#btnStop').addEventListener('click',()=>stopGame());
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&running&&!paused)pause();});
 
 function finish(){
-  if(state.over)return;state.over=true;SFX.win();if(!game.fromEditor){earnCoins(25,'finished!');questBump('finish',game.id,1);}if(game.project)saveFlush(false,true);
+  if(state.over)return;state.over=true;SFX.win();if(!game.fromEditor){earnCoins(25,'finished!');questBump('finish',game.id,1);gainXP(40);}if(game.project)saveFlush(false,true);
   mpEmit('fin',{time:r3(state.time)});
   const bests=store.get('bests',{});let html='';
   if(game.mode==='race'||game.mode==='project'){const prev=bests[game.id];const nb=prev==null||state.time<prev;if(nb&&!game.fromEditor){bests[game.id]=state.time;store.set('bests',bests);ghostSave();}

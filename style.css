@@ -29,6 +29,7 @@ input,select,textarea{font:inherit;color:var(--fg)}
 h1{font-family:var(--display);font-weight:400;font-size:clamp(30px,5vw,42px);letter-spacing:.5px;line-height:1}
 .lede{color:var(--muted);font-size:16px;max-width:60ch;line-height:1.5;margin-top:-14px}
 .avbtn{cursor:pointer;color:inherit;font:inherit;font-weight:800}
+.avbtn .lvl{background:#3949ab;color:#fff;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:900}
 .avbtn .coins,.avhead .coins{color:#ffd54f;font-weight:800;font-variant-numeric:tabular-nums}
 #avatarPanel{position:fixed;inset:0;z-index:70;background:rgba(5,9,16,.72);display:grid;place-items:center;padding:12px}
 .avcard{background:var(--panel);border:1px solid var(--line);border-radius:18px;width:min(980px,100%);height:min(640px,calc(100vh - 24px));display:flex;flex-direction:column;overflow:hidden}
