@@ -2849,9 +2849,20 @@ function freezeTagDef(){const G=GK;const p=G.proj('freezetag','Freeze Tag',{sky:
   for(let i=0;i<12;i++){const a=i*.52,r=20+(i%3)*14;G.part(p,A.id,{name:'IceBlock',pos:[r3(Math.cos(a)*r),2.5,r3(Math.sin(a)*r)],size:[5,5,5],color:'#bbdefb',material:'Ice',transparency:.2});}
   G.part(p,A.id,{name:'Bench',pos:[0,1,82],size:[64,2,4],color:'#90a4ae',material:'Metal',label:'WAITING'});
   [[-50,-50],[50,50]].forEach(([x,z])=>G.part(p,A.id,{name:'SpeedPad',pos:[x,.3,z],size:[5,.4,5],color:'#ffd400',material:'Neon',behavior:'speed',value:1.5}));
+  // second map: Sunny Beach, 300 studs east
+  const FOX='vfox',FV=[['map x',FOX]];const ox=v=>G.arith('ADD',typeof v==='number'?G.num(v):v,G.vget(FOX));
+  {const OX=300,B2=G.folder(p,'Sunny Beach').id;const Q=o=>G.part(p,B2,o);
+    Q({name:'Sand',pos:[OX,-1,0],size:[180,2,200],color:'#ffe082',material:'Sand'});Q({name:'Sea',pos:[OX,-.6,-80],size:[180,1,40],color:'#4fc3f7',material:'Glass',transparency:.3,canCollide:false});
+    [[-70,0,1,140],[70,0,1,140],[0,70,140,1]].forEach(([x,z2,w,d])=>Q({name:'Fence',pos:[OX+x,2,z2],size:[w,4,d],color:'#a1887f',material:'Wood'}));
+    for(let i=0;i<10;i++){const x=((i*47)%120)-60,z2=((i*31)%110)-50;Q({name:'PalmTrunk',pos:[OX+x,4,z2],size:[1.4,8,1.4],color:'#8d6e63',material:'Wood'});Q({name:'PalmLeaves',pos:[OX+x,8.3,z2],size:[7,.6,7],color:'#43a047',material:'Grass'});}
+    [[-30,20,'#e53935'],[30,-20,'#1e88e5'],[0,40,'#fdd835']].forEach(([x,z2,c])=>{Q({name:'Umbrella',shape:'cyl',pos:[OX+x,5,z2],size:[9,.6,9],color:c,material:'Fabric'});Q({name:'Pole',pos:[OX+x,2.5,z2],size:[.4,5,.4],color:'#eeeeee'});});
+    [[-45,-30],[45,30],[0,-10]].forEach(([x,z2])=>Q({name:'Sandcastle',pos:[OX+x,2,z2],size:[6,4,6],color:'#ffca28',material:'Sand'}));
+    Q({name:'Bench',pos:[OX,1,82],size:[64,2,4],color:'#90a4ae',material:'Metal',label:'WAITING'});}
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(FOX,G.num(0)),blk('g_sky',null,{COLOUR:'#d7f0ff'})],[G.vset(FOX,G.num(300)),blk('g_sky',null,{COLOUR:'#81d4fa'}),G.msg('Map: SUNNY BEACH',2)]),
+    blk('pl_tpxyz',{X:ox(G.rnd(-10,10)),Y:bn(3),Z:G.rnd(0,20)})),FV);
   const N=10,ACT='vactive',FZ='vfrozen',RD='vround',LV='vlevel',TL='vtime',FK=k=>'vfz'+k;
   const MV=G.matchFlags(p);
-  const VARS=[['active runners',ACT],['frozen',FZ],['round on',RD],['level',LV],['level time',TL],...Array.from({length:N},(_,i)=>['frozen'+(i+1),FK(i+1)]),...MV];
+  const VARS=[['active runners',ACT],['frozen',FZ],['round on',RD],['level',LV],['level time',TL],...Array.from({length:N},(_,i)=>['frozen'+(i+1),FK(i+1)]),...MV,...FV];
   const eq=(id,n)=>G.cmp(G.vget(id),'EQ',G.num(n)),prop=G.prop;
   const COLS=['#e53935','#8e24aa','#43a047','#fb8c00','#1e88e5','#00acc1','#f06292','#6d4c41','#fdd835','#5c6bc0'];
   const inactive=k=>G.cmp(G.num(k),'GT',G.vget(ACT));
@@ -2867,7 +2878,7 @@ function freezeTagDef(){const G=GK;const p=G.proj('freezetag','Freeze Tag',{sky:
   G.script(p,'player','TagPlayers',blk('ev_touch_player'),G.sadd('Tags',1),blk('pl_as',{WHO:{block:{type:'pl_touched'}},DO:doIn(blk('pl_freeze',null,{B:'TRUE'}),blk('pl_say',{TEXT:bt('Frozen!'),S:bn(3)}),G.wait(3),blk('pl_freeze',null,{B:'FALSE'}))}));
   const setup=()=>[G.ifElse(G.cmp(G.vget(LV),'GTE',G.num(7)),[G.vset(ACT,G.num(10))],[G.vset(ACT,G.arith('ADD',G.vget(LV),G.arith('ADD',G.num(2),G.players())))]),G.iff(G.cmp(G.vget(ACT),'GT',G.num(10)),G.vset(ACT,G.num(10))),G.vset(FZ,G.num(0)),
     ...Array.from({length:N},(_,i)=>{const k=i+1;return [G.vset(FK(k),G.num(0)),blk('rig_speed',{PART:G.pnamed('Runner'+k),N:G.arith('ADD',G.num(10.5),G.vget(LV))}),
-      G.ifElse(inactive(k),[blk('p_setpos',{PART:G.pnamed('Runner'+k),X:bn(-30+k*6),Y:bn(4.6),Z:bn(82)})],[blk('p_setpos',{PART:G.pnamed('Runner'+k),X:G.rnd(-60,60),Y:bn(2.6),Z:G.rnd(-60,0)})])];}).flat()];
+      G.ifElse(inactive(k),[blk('p_setpos',{PART:G.pnamed('Runner'+k),X:ox(-30+k*6),Y:bn(4.6),Z:bn(82)})],[blk('p_setpos',{PART:G.pnamed('Runner'+k),X:ox(G.rnd(-60,60)),Y:bn(2.6),Z:G.rnd(-60,0)})])];}).flat()];
   G.vars(G.hscript(p,'sss','Rounds',G.onMsg('round start'),G.vset(LV,G.num(1)),G.vset(RD,G.num(0)),
     G.msg('Most freezes wins! Freeze every runner before the level timer runs out.',4),G.wait(2),
     G.whileDo(G.inMatch(),...setup(),G.vset(TL,G.num(45)),G.vset(RD,G.num(1)),G.sound('check'),G.msg(G.join('Level ',G.vget(LV),': freeze all ',G.vget(ACT),' runners!'),2.5),
