@@ -2925,7 +2925,11 @@ function targetsDef(){const G=GK;const p=G.proj('targets','Target Range',{sky:'#
   G.script(p,clk.id,'Appear',blk('ev_start'),G.forever(G.wait(G.rnd(12,20)),blk('p_setpos',{PART:bme(),X:G.rnd(-35,35),Y:G.rnd(8,16),Z:G.rnd(-70,-40)}),G.wait(4),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-30),Z:bn(-60)})));
   const ufo=G.part(p,R.id,{name:'UFO',shape:'ball',pos:[-90,-30,-70],size:[6,1.6,6],color:'#b0bec5',material:'Metal',label:'👽 +5'});p.nodes.push(emitterNode({parent:ufo.id,name:'Beam',enabled:false},'confetti'));
   G.script(p,ufo.id,'Fly',blk('ev_start'),G.forever(G.wait(G.rnd(14,22)),G.sound('boost'),blk('p_setpos',{PART:bme(),X:bn(-70),Y:G.rnd(18,26),Z:G.rnd(-80,-50)}),blk('p_glide',{PART:bme(),X:bn(140),Y:bn(0),Z:bn(0),S:bn(5)}),blk('p_setpos',{PART:bme(),X:bn(-90),Y:bn(-30),Z:bn(-70)})));
-  G.vars(G.script(p,'sss','Frenzy reset',G.onMsg('round start'),G.vset('vfrenzy',G.num(0))),[['frenzy','vfrenzy']]);
+  // every match rolls a mode: Classic, Night Shift (dark range) or Frenzy Match (the whole match counts double)
+  G.vars(G.script(p,'sss','Frenzy reset',G.onMsg('round start'),G.vset('vfrenzy',G.num(0)),G.vset('vtmode',G.rnd(1,3)),
+    G.ifElse(G.cmp(G.vget('vtmode'),'EQ',G.num(2)),[blk('g_sky',null,{COLOUR:'#0b1026'}),G.msg('🌙 NIGHT SHIFT: the range is dark. Look for the glow!',3)],
+      [G.ifElse(G.cmp(G.vget('vtmode'),'EQ',G.num(3)),[blk('g_sky',null,{COLOUR:'#ffe082'}),G.vset('vfrenzy',G.num(1)),G.msg('⚡ FRENZY MATCH: every target counts double all match!',3)],[blk('g_sky',null,{COLOUR:'#cfe8ff'})])])),[['frenzy','vfrenzy'],['mode','vtmode']]);
+  G.script(p,'sss','Clock frenzy fix',G.onMsg('round end'),G.vset('vfrenzy',G.num(0)),blk('g_sky',null,{COLOUR:'#cfe8ff'}));
   G.welcome(p,G.msg('Equip the blaster (1). Most hits in 60 seconds wins! Gold = 3, balloons = 2, the blue clock starts a FRENZY, and never shoot the black bombs.',5));
   G.script(p,'sss','Time up',G.onMsg('round end'),G.msg(G.join('Time! You scored ',G.stat('Score'),'.'),3));
   G.best(p,'Score','targets_score');
