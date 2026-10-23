@@ -3402,12 +3402,24 @@ function murderDef(){const G=GK;const p=G.proj('murder','Murder Mystery',{sky:'#
   const VARS=[['murderer',MU],['sheriff',SH],['bots',NB],['game over',OV],['pick',VK],['murderer kills',KL],...[1,2,3,4,5].map(k=>['bot dead '+k,D(k)]),...MV];
   const eq=(id,v)=>G.cmp(G.vget(id),'EQ',typeof v==='number'?G.num(v):v);
   const BCOLS=['#e57373','#64b5f6','#81c784','#ffb74d','#ba68c8'];
+  // second map: the Ice Palace, 300 studs east. Every round picks a map (the same for everyone)
+  {const OX=300,M2=G.folder(p,'Ice Palace').id;const Q=o=>G.part(p,M2,o);
+    Q({name:'IceGround',pos:[OX,-1,0],size:[140,2,120],color:'#e3f2fd',material:'Snow'});Q({name:'Floor',pos:[OX,.1,0],size:[96,.2,72],color:'#b3e5fc',material:'Ice'});
+    const w2=(x,z2,w,d,col)=>Q({name:'Wall',pos:[OX+x,5,z2],size:[w,10,d],color:col||'#81d4fa',material:'Ice',transparency:.15});
+    w2(0,-36,96,1);w2(0,36,96,1);w2(-48,0,1,72);w2(48,0,1,72);
+    [[-24,-20],[24,-20],[-24,20],[24,20]].forEach(([x,z2])=>{w2(x,z2,14,1,'#4fc3f7');w2(x,z2,1,14,'#4fc3f7');});
+    [['Throne',0,-30,8,6,4,'#e1f5fe'],['IceSculpture',-36,-6,4,7,4,'#b2ebf2'],['IceSculpture',36,6,4,7,4,'#b2ebf2'],['Snowman',-10,24,4,6,4,'#fafafa'],['Sled',30,30,6,1.4,3,'#d32f2f'],
+     ['Igloo',-36,28,10,5,10,'#ffffff'],['Crystal',10,-10,3,9,3,'#80deea'],['Crystal',-12,8,3,6,3,'#80deea'],['Table',36,-28,8,3,5,'#90a4ae'],['Presents',0,10,4,3,4,'#ab47bc']].forEach(([nm,x,z2,w,h,d,c])=>Q({name:nm,pos:[OX+x,h/2,z2],size:[w,h,d],color:c,material:nm==='Crystal'?'Neon':'Ice'}));
+    for(let i=0;i<10;i++)Q({name:'Lamp',pos:[OX-40+i*9,9.6,i%2?-30:30],size:[1.2,.6,1.2],color:'#b3e5fc',material:'Neon'});}
+  const MOX='vmox',MOXV=[['map x',MOX]];
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(MOX,G.num(0))],[G.vset(MOX,G.num(300))])),MOXV);
+  const ox=v=>G.arith('ADD',typeof v==='number'?G.num(v):v,G.vget(MOX));VARS.push(...MOXV);
   const SPOTS=[[-34,-28],[34,-24],[-34,24],[34,28],[0,-2]];
   for(let k=1;k<=5;k++){const r=rigNode({name:'Bot'+k,pos:[SPOTS[k-1][0],2.6,SPOTS[k-1][1]],health:100,respawn:2,walkSpeed:13,colors:{head:'#ffcc80',torso:BCOLS[k-1],arms:'#ffcc80',legs:'#37474f'}});p.nodes.push(r);
     const isMurd=eq(MU,G.txt('Bot'+k));
     G.vars(G.hscript(p,r.id,'Think',blk('ev_start'),G.forever(G.ifElse(G.OR(eq(D(k),1),G.cmp(G.num(k),'GT',G.vget(NB))),[G.wait(.5)],
-      [G.ifElse(G.AND(isMurd,eq(OV,0)),[G.ifElse(G.cmp(G.nearD(bme()),'LT',G.num(45)),[G.walkN(bme()),G.wait(.2)],[blk('rig_walk',{PART:bme(),X:G.rnd(-44,44),Z:G.rnd(-34,34)})])],
-        [blk('rig_walk',{PART:bme(),X:G.rnd(-44,44),Z:G.rnd(-34,34)}),G.wait(G.rnd(0,3))])]))),VARS);
+      [G.ifElse(G.AND(isMurd,eq(OV,0)),[G.ifElse(G.cmp(G.nearD(bme()),'LT',G.num(45)),[G.walkN(bme()),G.wait(.2)],[blk('rig_walk',{PART:bme(),X:ox(G.rnd(-44,44)),Z:G.rnd(-34,34)})])],
+        [blk('rig_walk',{PART:bme(),X:ox(G.rnd(-44,44)),Z:G.rnd(-34,34)}),G.wait(G.rnd(0,3))])]))),VARS);
     // a murderer bot stabs whoever it touches
     G.vars(G.script(p,r.id,'Stab',blk('ev_touch'),G.iff(G.AND(G.AND(isMurd,eq(OV,0)),G.aliveIn()),G.sound('explode'),G.msg('The murderer got you!',2.5),blk('pl_damage',{N:bn(1000)}))),VARS);
     G.vars(G.hscript(p,r.id,'Down',blk('ev_rig_died'),G.vset(D(k),G.num(1)),G.iff(isMurd,G.bc('murderer down')),G.wait(2.5),blk('p_setpos',{PART:bme(),X:bn(k*5),Y:bn(2.6),Z:bn(60)}),blk('p_visible',{PART:bme()},{B:'FALSE'})),VARS);}
@@ -3437,7 +3449,7 @@ function murderDef(){const G=GK;const p=G.proj('murder','Murder Mystery',{sky:'#
   G.vars(G.hscript(p,'sss','Roles',G.onMsg('round start'),G.vset(OV,G.num(0)),G.vset(MU,G.txt('-')),G.vset(SH,G.txt('-')),G.vset(MB,G.num(0)),
     G.ifElse(G.cmp(G.players(),'GTE',G.num(6)),[G.vset(NB,G.num(0))],[G.vset(NB,G.arith('MINUS',G.num(6),G.players()))]),
     ...[1,2,3,4,5].map(k=>[G.vset(D(k),G.num(0)),blk('rig_heal',{PART:G.pnamed('Bot'+k),N:bn(1000)}),
-      G.ifElse(G.cmp(G.num(k),'LTE',G.vget(NB)),[blk('p_setpos',{PART:G.pnamed('Bot'+k),X:bn(SPOTS[k-1][0]),Y:bn(2.6),Z:bn(SPOTS[k-1][1])}),blk('p_visible',{PART:G.pnamed('Bot'+k)},{B:'TRUE'})],
+      G.ifElse(G.cmp(G.num(k),'LTE',G.vget(NB)),[blk('p_setpos',{PART:G.pnamed('Bot'+k),X:ox(SPOTS[k-1][0]),Y:bn(2.6),Z:bn(SPOTS[k-1][1])}),blk('p_visible',{PART:G.pnamed('Bot'+k)},{B:'TRUE'})],
         [blk('p_setpos',{PART:G.pnamed('Bot'+k),X:bn(k*5),Y:bn(2.6),Z:bn(60)}),blk('p_visible',{PART:G.pnamed('Bot'+k)},{B:'FALSE'})])]).flat(),
     ...pickAny(MU,MB),G.vset(SH,G.vget(MU)),blk('controls_whileUntil',{BOOL:G.cmp(G.vget(SH),'NEQ',G.vget(MU)),DO:doIn(...pickAny(SH,null))},{MODE:'UNTIL'}),
     ...countBots(),G.wait(1),G.bc('roles'),G.wait(4),
@@ -3445,7 +3457,7 @@ function murderDef(){const G=GK;const p=G.proj('murder','Murder Mystery',{sky:'#
       G.iff(G.AND(eq(MB,1),G.cmp(G.arith('ADD',nPl,G.arith('MINUS',G.vget(AB),G.num(1))),'LTE',G.num(0))),G.vset(OV,G.num(1)),G.msg('Everyone is gone. The murderer bot wins!',4)))},{MODE:'UNTIL'})),VARS);
   G.vars(G.hscript(p,'sss','Murderer down',G.onMsg('murderer down'),G.iff(eq(OV,0),G.vset(OV,G.num(1)),G.msg('The murderer is down! Innocents win!',4),G.bc('innocents win'))),VARS);
   G.vars(G.script(p,'sss','Murderer died',blk('ev_died'),G.iff(G.AND(eq(MU,G.myId()),eq(OV,0)),G.shSet(OV,G.num(1)),G.msg('You were caught! Innocents win.',3),G.bc('innocents win'))),VARS);
-  G.vars(G.script(p,'sss','Your role',G.onMsg('roles'),
+  G.vars(G.script(p,'sss','Your role',G.onMsg('roles'),blk('pl_tpxyz',{X:ox(G.rnd(-30,30)),Y:bn(3),Z:G.rnd(-20,20)}),G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#22253a'})],[blk('g_sky',null,{COLOUR:'#4a6fa5'}),G.msg('Map: ICE PALACE',2)]),
     G.ifElse(eq(MU,G.myId()),[G.sound('die'),G.msg('You are the MURDERER! Knife (1). Take everyone out without the sheriff catching you.',5),blk('tool_give',null,{NAME:'Knife'})],
       [G.ifElse(eq(SH,G.myId()),[G.sound('check'),G.msg('You are the SHERIFF! Gun (1). Find and shoot the murderer, but never an innocent.',5),blk('tool_give',null,{NAME:'Gun'})],
         [G.msg('You are INNOCENT. Stay alive and help the sheriff find the murderer!',5)])])),VARS);
@@ -3460,7 +3472,7 @@ function murderDef(){const G=GK;const p=G.proj('murder','Murder Mystery',{sky:'#
   CSP.forEach(([x,z],i)=>{const c=P({name:'MCoin'+i,shape:'cylinder',pos:[x,1.4,z],size:[1.4,.3,1.4],rot:[90,0,0],color:'#ffd54f',material:'Neon',canCollide:false});
     G.script(p,c.id,'Spin',blk('ev_start'),G.forever(blk('p_rotate',{PART:bme(),DEG:bn(8)},{AXIS:'y'}),G.wait(.05)));
     G.vars(G.script(p,c.id,'Take',blk('ev_touch'),G.iff(G.aliveIn(),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_collide',{PART:bme()},{B:'FALSE'}),G.sadd('Coins',1),G.sound('coin'),blk('pl_coins',{N:bn(1)}),blk('p_setpos',{PART:bme(),X:bn(x),Y:bn(-40),Z:bn(z)}))),VARS);
-    G.script(p,c.id,'Reset',G.onMsg('round start'),blk('p_setpos',{PART:bme(),X:bn(x),Y:bn(1.4),Z:bn(z)}),blk('p_visible',{PART:bme()},{B:'TRUE'}));});
+    G.vars(G.script(p,c.id,'Reset',G.onMsg('round start'),G.wait(.1),blk('p_setpos',{PART:bme(),X:ox(x),Y:bn(1.4),Z:bn(z)}),blk('p_visible',{PART:bme()},{B:'TRUE'})),MOXV);});
   // when the sheriff goes down, the gun drops. Any innocent can pick it up and become the new sheriff
   const GD='vgundrop',GX='vgunx',GZ='vgunz',GV=[[ 'gun dropped',GD],['gun x',GX],['gun z',GZ]];VARS.push(...GV);
   const gdp=G.part(p,'workspace',{name:'GunDrop',pos:[0,-40,0],size:[2.4,1,1],color:'#ffd54f',material:'Neon',canCollide:false,label:'🔫 GUN'});
