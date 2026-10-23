@@ -3764,13 +3764,24 @@ function evadeDef(){const G=GK;const p=G.proj('evade','Evade',{sky:'#4a148c',fog
   [[-45,-20],[45,20],[-20,-80],[20,80],[-85,40],[85,-40]].forEach(([x,z])=>{const c=P({name:'Cola',shape:'cylinder',pos:[x,1.2,z],size:[1.2,2,1.2],color:'#d50000',material:'Neon',canCollide:false,label:'🥤'});
     G.script(p,c.id,'Drink',blk('ev_touch'),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_collide',{PART:bme()},{B:'FALSE'}),G.sound('pad'),G.msg('Cola! Super speed for 6 seconds',1.5),blk('pl_speed',{V:bn(27)}),
       G.wait(6),blk('pl_speed',{V:bn(16)}),G.wait(14),blk('p_visible',{PART:bme()},{B:'TRUE'}));});
+  // second map: the Backrooms, 400 studs east. Endless yellow rooms with low walls to juke around
+  const EOX='veox',EV=[['map x',EOX]];const ox=v=>G.arith('ADD',typeof v==='number'?G.num(v):v,G.vget(EOX));
+  {const OX=400,B2=G.folder(p,'Backrooms').id;const Q=o=>G.part(p,B2,o);let sd=31;const r2=()=>{sd=(sd*16807)%2147483647;return sd/2147483647;};
+    Q({name:'Carpet',pos:[OX,-1,0],size:[220,2,220],color:'#c8b560',material:'Fabric'});Q({name:'Ceiling',pos:[OX,14,0],size:[220,1,220],color:'#e6dc9a',material:'Plastic',transparency:.35});
+    [[0,-108,220,2],[0,108,220,2],[-108,0,2,220],[108,0,2,220]].forEach(([x,z2,w,d])=>Q({name:'Wall',pos:[OX+x,7,z2],size:[w,14,d],color:'#d4c66a',material:'Plastic'}));
+    for(let i=0;i<46;i++){const x=r3((r2()-.5)*190),z2=r3((r2()-.5)*190);if(Math.hypot(x,z2-40)<14)continue;const along=r2()<.5;Q({name:'Wall',pos:[OX+x,5,z2],size:along?[18,10,1.2]:[1.2,10,18],color:'#d4c66a',material:'Plastic'});}
+    for(let i=0;i<20;i++)Q({name:'Light',pos:[OX+r3((r2()-.5)*180),13.4,r3((r2()-.5)*180)],size:[4,.3,2],color:'#fffde7',material:'Neon'});
+    [[-30,30],[30,-30],[0,0],[-60,-60],[60,60]].forEach(([x,z2])=>Q({name:'JumpPad',pos:[OX+x,.3,z2],size:[5,.4,5],color:'#00e5ff',material:'Neon',behavior:'jump',value:90}));}
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(EOX,G.num(0)),blk('g_sky',null,{COLOUR:'#4a148c'})],[G.vset(EOX,G.num(400)),blk('g_sky',null,{COLOUR:'#bfae5a'}),G.msg('Map: THE BACKROOMS',2)]),
+    blk('pl_tpxyz',{X:ox(G.rnd(-5,5)),Y:bn(3),Z:bn(40)})),EV);
   const MV=G.matchFlags(p),NA='vnextbots',DN='vdowned',RV='vrevives';
-  const VARS=[['active nextbots',NA],...MV];
+  const VARS=[['active nextbots',NA],...MV,...EV];
   const NBS=[['Grinner','😁','#ffeb3b'],['Screamer','😱','#ff5252'],['Stare','😐','#b0bec5'],['Jester','🤡','#e040fb'],['Ghast','👻','#eeeeee'],['Toothy','😬','#ff9800']];
   NBS.forEach(([nm,face,col],k)=>{const r=rigNode({name:nm,pos:[-80+k*30,4,-90],scale:1.9,health:99999,respawn:0,walkSpeed:15+k*.8,throughWalls:false,colors:{head:col,torso:col,arms:col,legs:col}});p.nodes.push(r);
     G.vars(G.hscript(p,r.id,'Chase',blk('ev_start'),blk('rig_say',{PART:bme(),TEXT:bt(face+face+face),S:bn(99999)}),G.forever(G.ifElse(G.cmp(G.num(k+1),'GT',G.vget(NA)),[blk('p_setpos',{PART:bme(),X:bn(-80+k*30),Y:bn(4),Z:bn(-300)}),G.until(G.cmp(G.num(k+1),'LTE',G.vget(NA))),
-        blk('p_setpos',{PART:bme(),X:bn(-80+k*30),Y:bn(4),Z:bn(-90)}),G.sound('die')],
-      [G.ifElse(G.cmp(G.nearD(bme()),'LT',G.num(70)),[G.walkN(bme()),G.wait(.2)],[blk('rig_walk',{PART:bme(),X:G.rnd(-90,90),Z:G.rnd(-90,90)}),G.wait(1)])]))),VARS);
+        blk('p_setpos',{PART:bme(),X:ox(-80+k*30),Y:bn(4),Z:bn(-90)}),G.sound('die')],
+      [G.iff(G.OR(G.cmp(G.prop(bme(),'x'),'GT',ox(150)),G.cmp(G.prop(bme(),'x'),'LT',ox(-150))),blk('p_setpos',{PART:bme(),X:ox(-80+k*30),Y:bn(4),Z:bn(-90)})),
+       G.ifElse(G.cmp(G.nearD(bme()),'LT',G.num(70)),[G.walkN(bme()),G.wait(.2)],[blk('rig_walk',{PART:bme(),X:ox(G.rnd(-90,90)),Z:G.rnd(-90,90)}),G.wait(1)])]))),VARS);
     G.vars(G.script(p,r.id,'Down',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.cmp(G.vget(DN),'EQ',G.num(0))),G.vset(DN,G.num(1)),G.sound('explode'),blk('pl_knock',{WHO:bme(),P:bn(60)},{RAG:'TRUE'}),G.bc('downed'))),[...VARS,['downed',DN]]);});
   // downed: frozen, calling for help; 20s to be picked up or you are out
   G.vars(G.script(p,'sss','Downed',G.onMsg('downed'),G.iff(G.cmp(G.vget(DN),'EQ',G.num(1)),blk('pl_freeze',null,{B:'TRUE'}),blk('pl_say',{TEXT:bt('HELP! Pick me up!'),S:bn(3)}),G.msg('You are DOWNED! A teammate can pick you up by touching you.',3),
@@ -3781,7 +3792,7 @@ function evadeDef(){const G=GK;const p=G.proj('evade','Evade',{sky:'#4a148c',fog
   G.vars(G.script(p,'sss','Picked',G.onMsg('round start'),G.vset(DN,G.num(0)),blk('pl_freeze',null,{B:'FALSE'})),[['downed',DN]]);
   // survival points every second you are up
   G.vars(G.script(p,'sss','Points',G.onMsg('round start'),G.wait(1),G.whileDo(G.aliveIn(),G.iff(G.cmp(G.vget(DN),'EQ',G.num(0)),G.sadd('Score',1)),G.wait(1))),[...VARS,['downed',DN]]);
-  G.vars(G.hscript(p,'sss','Waves',G.onMsg('round start'),G.vset(NA,G.num(0)),G.msg('Nextbots are coming. Keep moving, use jump pads and pick up downed friends!',4),G.wait(5),
+  G.vars(G.hscript(p,'sss','Waves',G.onMsg('round start'),G.vset(NA,G.num(0)),...NBS.flatMap(([nm],k)=>[blk('p_setpos',{PART:G.pnamed(nm),X:ox(-80+k*30),Y:bn(4),Z:bn(-90)}),blk('rig_walk',{PART:G.pnamed(nm),X:ox(-80+k*30),Z:bn(-90)})]),G.msg('Nextbots are coming. Keep moving, use jump pads and pick up downed friends!',4),G.wait(5),
     G.whileDo(G.AND(G.inMatch(),G.cmp(G.vget(NA),'LT',G.num(6))),G.vchg(NA,1),G.msg(G.join('A nextbot has appeared! (',G.vget(NA),')'),2),G.wait(20))),VARS);
   G.vars(G.hscript(p,'sss','Clear',G.onMsg('round end'),G.vset(NA,G.num(0))),VARS);
   // the Ghast blinks next to a random runner every 15 seconds; the Screamer gets a burst of speed
