@@ -2702,8 +2702,21 @@ function sumoDef(){const G=GK;const p=G.proj('sumo','Sumo Smash',{sky:'#ffcf9f',
   G.script(p,sw.id,'Sweep',blk('ev_touch'),blk('pl_launch',{P:bn(40)}),blk('pl_knock',{WHO:bme(),P:bn(60)},{RAG:'TRUE'}),G.sound('pad'),G.wait(1));
   const MV=G.matchFlags(p);const SC='vsumos',ON=k=>'vsumo'+k;const SV=[['sumos',SC],...[1,2,3].map(k=>['sumo '+k+' on',ON(k)]),...MV];
   const START=[[-16,-16],[16,16],[16,-16]];
+  // second arena: the Floating Dojo, 300 studs east. Smaller, with bouncy bumpers and a spinning floor
+  const SOX='vsox';SV.push(['map x',SOX]);const ox=v=>G.arith('ADD',typeof v==='number'?G.num(v):v,G.vget(SOX));
+  {const OX=300,D2=G.folder(p,'Floating Dojo').id;const Q=o=>G.part(p,D2,o);
+    Q({name:'DojoFloor',pos:[OX,29,0],size:[44,2,44],color:'#d7ccc8',material:'Wood'});Q({name:'DojoTrim',pos:[OX,28.9,0],size:[46,1.8,46],color:'#b71c1c',material:'Wood'});
+    [[-22,-22],[22,22],[22,-22],[-22,22]].forEach(([x,z2])=>{Q({name:'Pillar',pos:[OX+x,36,z2],size:[2,14,2],color:'#4e342e',material:'Wood'});});
+    Q({name:'Roof',pos:[OX,43.5,0],size:[50,1,50],color:'#263238',material:'Wood',transparency:.4,canCollide:false});
+    [[0,-14],[0,14],[-14,0],[14,0]].forEach(([x,z2])=>Q({name:'Bumper',shape:'cyl',pos:[OX+x,30.3,z2],size:[4,.6,4],color:'#ffeb3b',material:'Neon',behavior:'jump',value:70}));
+    const disk=Q({name:'SpinDisk',shape:'cyl',pos:[OX,30.15,0],size:[10,.3,10],color:'#e53935',material:'Plastic'});
+    const bar=Q({name:'DojoBar',pos:[OX,31.4,0],size:[40,1,1],color:'#ff9800',material:'Neon'});G.script(p,bar.id,'Spin',...SCR.spin(1.6).blocks.blocks);
+    G.script(p,bar.id,'Hit',blk('ev_touch'),blk('pl_launch',{P:bn(30)}),blk('pl_knock',{WHO:bme(),P:bn(45)},{RAG:'TRUE'}),G.wait(1));}
+  G.vars(G.script(p,'sss','Pick arena',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(SOX,G.num(0)),blk('g_sky',null,{COLOUR:'#ffcf9f'})],[G.vset(SOX,G.num(300)),blk('g_sky',null,{COLOUR:'#90a4ae'}),G.msg('Arena: FLOATING DOJO',2)]),
+    blk('pl_tpxyz',{X:ox(G.rnd(-4,4)),Y:bn(32),Z:G.rnd(-4,4)})),[['map x',SOX]]);
   const mk=(name,parent,pos,spd,k)=>{const r=rigNode({name,parent,pos,scale:1.5,health:999,respawn:3,walkSpeed:spd,colors:{head:'#ffcc80',torso:'#ef5350',arms:'#ffcc80',legs:'#3949ab'}});p.nodes.push(r);
     G.vars(G.hscript(p,r.id,'Chase',blk('ev_start'),G.wait(3),G.forever(G.ifElse(k?G.cmp(G.vget(ON(k)),'EQ',G.num(1)):G.cmp(G.num(1),'EQ',G.num(1)),[G.walkN(bme()),G.wait(.3)],[G.wait(.5)]))),SV);
+    if(k)G.vars(G.hscript(p,r.id,'Back to arena',blk('ev_rig_died'),G.wait(3.2),G.iff(G.cmp(G.vget(ON(k)),'EQ',G.num(1)),blk('p_setpos',{PART:bme(),X:ox(START[k-1][0]),Y:bn(32.6),Z:bn(START[k-1][1])}))),SV);
     G.script(p,r.id,'Shove',blk('ev_touch'),blk('pl_knock',{WHO:bme(),P:bn(70)},{RAG:'TRUE'}),G.sound('pad'),G.wait(1.2));};
   START.forEach(([x,z],i)=>mk('Sumo'+(i+1),'workspace',[x,32.6,z],8+i*2,i+1));mk('Extra Sumo','rs',[0,32.6,0],14,0);
   const bat={id:uid(),cls:'Tool',name:'Bonk Bat',parent:'pack',tooltip:'Bonk!',cooldown:.5,swing:true};const h=partNode({parent:bat.id,name:'Handle',pos:[0,3,0],size:[.4,.4,1.2],color:'#6d4c41',material:'Wood'});bat.handle=h.id;
@@ -2715,9 +2728,9 @@ function sumoDef(){const G=GK;const p=G.proj('sumo','Sumo Smash',{sky:'#ffcf9f',
   /* host: 3 sumos minus one for every extra player (at least one sumo), more join over time */
   G.vars(G.hscript(p,'sss','Sumo bots',G.onMsg('round start'),G.vset(SC,G.num(0)),blk('controls_repeat_ext',{TIMES:bn(10),DO:doIn(blk('p_destroy',{PART:G.pnamed('Extra Sumo')}))}),
     ...[1,2,3].map(k=>G.ifElse(G.OR(G.cmp(G.num(k),'EQ',G.num(1)),G.cmp(G.arith('ADD',G.players(),G.num(k)),'LTE',G.num(4))),
-      [G.vset(ON(k),G.num(1)),blk('p_setpos',{PART:G.pnamed('Sumo'+k),X:bn(START[k-1][0]),Y:bn(32.6),Z:bn(START[k-1][1])}),blk('p_visible',{PART:G.pnamed('Sumo'+k)},{B:'TRUE'}),G.vchg(SC,1)],
+      [G.vset(ON(k),G.num(1)),blk('p_setpos',{PART:G.pnamed('Sumo'+k),X:ox(START[k-1][0]),Y:bn(32.6),Z:bn(START[k-1][1])}),blk('p_visible',{PART:G.pnamed('Sumo'+k)},{B:'TRUE'}),G.vchg(SC,1)],
       [G.vset(ON(k),G.num(0)),blk('p_setpos',{PART:G.pnamed('Sumo'+k),X:bn(k*8),Y:bn(32.6),Z:bn(150)}),blk('p_visible',{PART:G.pnamed('Sumo'+k)},{B:'FALSE'})])),
-    G.whileDo(G.inMatch(),G.wait(18),G.iff(G.AND(G.inMatch(),G.cmp(G.vget(SC),'LT',G.num(8))),blk('rs_copy',{X:G.rnd(-15,15),Y:bn(32.6),Z:G.rnd(-15,15)},{NAME:'Extra Sumo'}),G.vchg(SC,1),G.sound('pad'),G.msg('Another sumo joins the ring!',2)))),SV);
+    G.whileDo(G.inMatch(),G.wait(18),G.iff(G.AND(G.inMatch(),G.cmp(G.vget(SC),'LT',G.num(8))),blk('rs_copy',{X:ox(G.rnd(-15,15)),Y:bn(32.6),Z:G.rnd(-15,15)},{NAME:'Extra Sumo'}),G.vchg(SC,1),G.sound('pad'),G.msg('Another sumo joins the ring!',2)))),SV);
   G.vars(G.hscript(p,'sss','Ring events',G.onMsg('round start'),blk('p_collide',{PART:G.mnamed('OuterRing')},{B:'TRUE'}),blk('p_transp',{PART:G.mnamed('OuterRing')},{V:bn(0)}),
     blk('p_setpos',{PART:G.pnamed('Sweeper'),X:bn(0),Y:bn(-30),Z:bn(0)}),G.wait(40),G.iff(G.inMatch(),G.bc('ring shrink'),G.wait(3),blk('p_collide',{PART:G.mnamed('OuterRing')},{B:'FALSE'}),blk('p_transp',{PART:G.mnamed('OuterRing')},{V:bn(.85)})),
     G.wait(15),G.iff(G.inMatch(),G.bc('sweeper'),blk('p_setpos',{PART:G.pnamed('Sweeper'),X:bn(0),Y:bn(31.6),Z:bn(0)}))),SV);
