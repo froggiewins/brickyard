@@ -4060,7 +4060,17 @@ function evadeDef(){const G=GK;const p=G.proj('evade','Evade',{sky:'#4a148c',fog
     for(let i=0;i<46;i++){const x=r3((r2()-.5)*190),z2=r3((r2()-.5)*190);if(Math.hypot(x,z2-40)<14)continue;const along=r2()<.5;Q({name:'Wall',pos:[OX+x,5,z2],size:along?[18,10,1.2]:[1.2,10,18],color:'#d4c66a',material:'Plastic'});}
     for(let i=0;i<20;i++)Q({name:'Light',pos:[OX+r3((r2()-.5)*180),13.4,r3((r2()-.5)*180)],size:[4,.3,2],color:'#fffde7',material:'Neon'});
     [[-30,30],[30,-30],[0,0],[-60,-60],[60,60]].forEach(([x,z2])=>Q({name:'JumpPad',pos:[OX+x,.3,z2],size:[5,.4,5],color:'#00e5ff',material:'Neon',behavior:'jump',value:90}));}
-  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.vset(EOX,G.num(0)),blk('g_sky',null,{COLOUR:'#4a148c'})],[G.vset(EOX,G.num(400)),blk('g_sky',null,{COLOUR:'#bfae5a'}),G.msg('Map: THE BACKROOMS',2)]),
+  // third map: the Shopping Mall, 800 studs east. Two floors joined by escalator ramps
+  {const OX=800,M3=G.folder(p,'Shopping Mall').id;const Q=o=>G.part(p,M3,o);
+    Q({name:'MallFloor',pos:[OX,-1,0],size:[220,2,220],color:'#eceff1',material:'Marble'});
+    [[0,-108,220,2],[0,108,220,2],[-108,0,2,220],[108,0,2,220]].forEach(([x,z2,w,d])=>Q({name:'Wall',pos:[OX+x,12,z2],size:[w,24,d],color:'#b0bec5',material:'Concrete'}));
+    [[-70,0],[70,0]].forEach(([x])=>Q({name:'UpperFloor',pos:[OX+x,12,0],size:[60,1,200],color:'#cfd8dc',material:'Marble'}));
+    [[-38,-60,180],[38,60,0],[-38,60,0],[38,-60,180]].forEach(([x,z2,r])=>Q({name:'Escalator',shape:'wedge',pos:[OX+x,6,z2],size:[8,12,24],rot:[0,r,0],color:'#78909c',material:'Metal'}));
+    for(let i=0;i<8;i++){const sd=i%2?1:-1;Q({name:'Shop',pos:[OX+sd*95,4,-84+i*24],size:[22,8,18],color:['#ef9a9a','#90caf9','#a5d6a7','#fff59d'][i%4],material:'Plastic',label:['TOYS','PIZZA','SHOES','GAMES','BOOKS','TECH','CANDY','PETS'][i]});}
+    Q({name:'Fountain',shape:'cyl',pos:[OX,1,0],size:[16,2,16],color:'#4fc3f7',material:'Glass',transparency:.3});
+    [[0,-50],[0,50],[-20,0],[20,0]].forEach(([x,z2])=>Q({name:'Planter',pos:[OX+x,1.5,z2],size:[8,3,4],color:'#558b2f',material:'Grass'}));
+    [[0,-80],[0,80]].forEach(([x,z2])=>Q({name:'JumpPad',pos:[OX+x,.3,z2],size:[5,.4,5],color:'#00e5ff',material:'Neon',behavior:'jump',value:100}));}
+  G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.vset(EOX,G.arith('MULTIPLY',G.rnd(0,2),G.num(400))),G.ifElse(G.cmp(G.vget(EOX),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#4a148c'})],[G.ifElse(G.cmp(G.vget(EOX),'EQ',G.num(400)),[blk('g_sky',null,{COLOUR:'#bfae5a'}),G.msg('Map: THE BACKROOMS',2)],[blk('g_sky',null,{COLOUR:'#90a4ae'}),G.msg('Map: SHOPPING MALL',2)])]),
     blk('pl_tpxyz',{X:ox(G.rnd(-5,5)),Y:bn(3),Z:bn(40)})),EV);
   const MV=G.matchFlags(p),NA='vnextbots',DN='vdowned',RV='vrevives';
   const VARS=[['active nextbots',NA],...MV,...EV];
@@ -4088,7 +4098,7 @@ function evadeDef(){const G=GK;const p=G.proj('evade','Evade',{sky:'#4a148c',fog
     G.vset('vgt',G.idOf(G.pref('randplaying'))),blk('p_setpos',{PART:G.pnamed('Ghast'),X:G.arith('ADD',G.axOf(G.byId(G.vget('vgt')),'x'),G.rnd(-25,25)),Y:bn(4),Z:G.arith('ADD',G.axOf(G.byId(G.vget('vgt')),'z'),G.rnd(-25,25))}),G.bc('ghast blink')))),VARS);
   G.script(p,'sss','Blink msg',G.onMsg('ghast blink'),G.sound('die'),G.msg('👻 The Ghast blinked somewhere nearby...',2));
   G.vars(G.hscript(p,'sss','Screamer burst',G.onMsg('round start'),G.whileDo(G.inMatch(),G.wait(G.rnd(8,14)),G.iff(G.cmp(G.vget(NA),'GTE',G.num(2)),blk('rig_speed',{PART:G.pnamed('Screamer'),N:bn(24)}),blk('rig_say',{PART:G.pnamed('Screamer'),TEXT:bt('AAAAAAAAA!'),S:bn(2)}),G.wait(2.5),blk('rig_speed',{PART:G.pnamed('Screamer'),N:bn(15.8)})))),VARS);
-  gkPowerups(p,[[-45,45],[45,-45],[0,-80],[355,45],[445,-45],[400,-80]]);
+  gkPowerups(p,[[-45,45],[45,-45],[0,-80],[355,45],[445,-45],[400,-80],[770,30],[830,-30]]);
   G.welcome(p,G.sset('Score',0),G.msg('Evade: run from the nextbots! Downed players can be picked up by teammates.',5));
   G.best(p,'Score','evade_best');
   return G.def(p,'evade','Evade');}
