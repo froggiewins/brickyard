@@ -2844,6 +2844,7 @@ function sumoDef(){const G=GK;const p=G.proj('sumo','Sumo Smash',{sky:'#ffcf9f',
   G.script(p,'sss','Shrink msg',G.onMsg('ring shrink'),G.sound('die'),G.msg('⚠ The outer ring is falling away in 3 seconds! Get to the middle!',3));
   G.script(p,'sss','Sweeper msg',G.onMsg('sweeper'),G.sound('check'),G.msg('The SWEEPER is spinning! Jump over it!',3));
   G.script(p,'sss','Survivor coins',G.onMsg('round end'),G.iff(G.aliveIn(),blk('pl_coins',{N:bn(5)})));
+  gkPowerups(p,[[-10,10],[10,-10],[290,10],[310,-10],[590,8],[610,-8]],{y:31.5});
   G.welcome(p,G.sset('Time',0),G.sset('Falls',0),G.sset('Bonks',0),G.msg('Last one on the ring wins! Bonk sumos and players off with your bat (1).',4),
     G.forever(G.wait(1),G.iff(G.AND(G.aliveIn(),G.AND({block:{type:'s_pl_alive'}},G.cmp(G.ppos('y'),'GT',G.num(25)))),G.sadd('Time',1))));
   G.vars(p.nodes.find(n=>n.name==='Welcome'),MV);
@@ -3884,6 +3885,11 @@ function doorsDef(){const G=GK;const p=G.proj('doors','Doors',{sky:'#07080d',fog
   G.vars(G.script(p,'sss','Screech',blk('ev_start'),G.wait(15),G.forever(G.wait(G.rnd(25,45)),G.iff(G.AND(G.cmp(G.stat('Door'),'GTE',G.num(8)),G.cmp(G.stat('Door'),'LT',G.num(20))),
     G.vset('vscreech',G.num(1)),blk('p_setpos',{PART:G.pnamed('Screech'),X:G.arith('ADD',G.ppos('x'),G.rnd(-5,5)),Y:G.arith('ADD',G.ppos('y'),G.num(3)),Z:G.arith('ADD',G.ppos('z'),G.rnd(-6,6))}),G.sound('click'),G.msg('Psst! 👁️ (shine your flashlight at it!)',2),
     G.wait(3),G.iff(G.cmp(G.vget('vscreech'),'EQ',G.num(1)),G.vset('vscreech',G.num(0)),G.sound('die'),G.msg('SCREECH bit you!',2),blk('pl_damage',{N:bn(40)}),blk('p_setpos',{PART:G.pnamed('Screech'),X:bn(0),Y:bn(-60),Z:bn(0)}))))),[['screech','vscreech']]);
+  // HALT haunts room 33: when the hallway turns blue and it says TURN AROUND, walk backwards or get hurt
+  {const zc=-32*L-L/2;P({name:'HaltGlow',pos:[0,9.2,zc],size:[Wd-2,.3,L-2],color:'#1e88e5',material:'Neon',transparency:.5});}
+  G.vars(G.script(p,'sss','Halt',blk('ev_start'),G.forever(G.until(G.cmp(G.stat('Door'),'EQ',G.num(32))),G.msg('Something is in this hallway... listen for HALT',2.5),G.wait(2),
+    G.whileDo(G.cmp(G.stat('Door'),'EQ',G.num(32)),G.wait(G.rnd(2,4)),G.iff(G.cmp(G.stat('Door'),'EQ',G.num(32)),blk('g_sky',null,{COLOUR:'#0d47a1'}),G.sound('click'),G.msg('🛑 TURN AROUND!',1.2),G.vset('vhz',G.ppos('z')),G.wait(1.2),
+      G.ifElse(G.cmp(G.ppos('z'),'LT',G.arith('MINUS',G.vget('vhz'),G.num(1))),[G.sound('die'),G.msg('Halt hit you! Walk BACK when it says turn around.',2),blk('pl_damage',{N:bn(30)})],[G.msg('...go on.',.8)]),blk('g_sky',null,{COLOUR:'#07080d'}))))),[['halt z','vhz']]);
   // vitamins: a short speed boost
   for(let i=6;i<N;i+=7){const zc=-i*L-L/2;const v=P({name:'Vitamins',pos:[(i%2?1:-1)*(Wd/2-3),2.9,zc+6],size:[.8,1,.8],color:'#ff6f00',material:'Neon',canCollide:false,label:'💊'});
     G.script(p,v.id,'Take',blk('ev_touch'),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-70),Z:bn(0)}),G.msg('Vitamins! Speed for 8 seconds',1.5),G.sound('pad'),blk('pl_speed',{V:bn(23)}),G.wait(8),blk('pl_speed',{V:bn(16)}));}
