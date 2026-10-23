@@ -2787,7 +2787,16 @@ function mazeDef(){const G=GK;const p=G.proj('maze','Maze Escape',{sky:'#b9c7d9'
     if(dx===1)right[x][y]=false;if(dx===-1)right[a][b]=false;if(dy===1)down[x][y]=false;if(dy===-1)down[a][b]=false;vis[a][b]=true;st.push([a,b]);}
   const wall=(x,z,w,d)=>G.part(p,Mz.id,{name:'Wall',pos:[r3(x),4,r3(z)],size:[w,8,d],color:'#e0e0e0',material:'Brick'});
   wall(0,o,n*S+1,1);wall(0,-o,n*S+1,1);wall(o,0,1,n*S+1);wall(-o,0,1,n*S+1);
-  for(let x=0;x<n;x++)for(let y=0;y<n;y++){if(right[x][y]&&x<n-1)wall(o+(x+1)*S,o+y*S+S/2,1,S+1);if(down[x][y]&&y<n-1)wall(o+x*S+S/2,o+(y+1)*S,S+1,1);}
+  // shifting walls: every half minute some walls sink into the floor and some gates rise up, changing the maze
+  let wi=0,gi=0;const SH=G.model(p,'ShiftWalls').id,GT=G.model(p,'ShiftGates').id;
+  for(let x=0;x<n;x++)for(let y=0;y<n;y++){
+    if(x<n-1){if(right[x][y]){if(rr()<.09&&wi<10){wi++;G.part(p,SH,{name:'ShiftWall',pos:[r3(o+(x+1)*S),4,r3(o+y*S+S/2)],size:[1,8,S+1],color:'#b39ddb',material:'Brick'});}else wall(o+(x+1)*S,o+y*S+S/2,1,S+1);}
+      else if(rr()<.08&&gi<8){gi++;G.part(p,GT,{name:'ShiftGate',pos:[r3(o+(x+1)*S),-4.2,r3(o+y*S+S/2)],size:[1,8,S+1],color:'#9575cd',material:'Brick'});}}
+    if(y<n-1){if(down[x][y])wall(o+x*S+S/2,o+(y+1)*S,S+1,1);}}
+  G.script(p,'sss','Shift',blk('ev_start'),G.forever(G.wait(28),G.sound('explode'),G.msg('🧱 The walls are shifting!',2),
+    blk('p_glide',{PART:G.mnamed('ShiftWalls'),X:bn(0),Y:bn(-8.2),Z:bn(0),S:bn(1.2)}),blk('p_glide',{PART:G.mnamed('ShiftGates'),X:bn(0),Y:bn(8.2),Z:bn(0),S:bn(1.2)}),
+    G.wait(28),G.sound('explode'),G.msg('🧱 The walls are shifting back!',2),
+    blk('p_glide',{PART:G.mnamed('ShiftGates'),X:bn(0),Y:bn(-8.2),Z:bn(0),S:bn(1.2)}),blk('p_glide',{PART:G.mnamed('ShiftWalls'),X:bn(0),Y:bn(8.2),Z:bn(0),S:bn(1.2)})));
   G.spawnAt(p,o+S/2,.5,o+S/2,{size:[6,1,6]});
   const ex=G.part(p,'workspace',{name:'Exit',pos:[-o-S/2,.5,-o-S/2],size:[6,1,6],color:'#ffc93c',material:'Neon',canCollide:false});
   const C=[[o+S/2,o+S/2],[-o-S/2,o+S/2],[-o-S/2,-o-S/2],[o+S/2,-o-S/2]],CV='vcorner',ET='vesc';
