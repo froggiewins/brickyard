@@ -3280,7 +3280,7 @@ function freezeTagDef(){const G=GK;const p=G.proj('freezetag','Freeze Tag',{sky:
     G.whileDo(G.inMatch(),...setup(),G.vset(TL,G.num(45)),G.vset(RD,G.num(1)),G.sound('check'),G.msg(G.join('Level ',G.vget(LV),': freeze all ',G.vget(ACT),' runners!'),2.5),
       blk('controls_whileUntil',{BOOL:G.OR(G.NOT(G.inMatch()),G.OR(G.cmp(G.vget(TL),'LTE',G.num(0)),G.cmp(G.vget(FZ),'GTE',G.vget(ACT)))),DO:doIn(G.wait(1),G.vchg(TL,-1))},{MODE:'UNTIL'}),
       G.vset(RD,G.num(0)),
-      G.ifElse(G.cmp(G.vget(FZ),'GTE',G.vget(ACT)),[G.sound('win'),G.msg(G.join('All frozen with ',G.vget(TL),' seconds left! Level up!'),3),G.vchg(LV,1),G.wait(3)],
+      G.ifElse(G.cmp(G.vget(FZ),'GTE',G.vget(ACT)),[G.sound('win'),blk('g_callout',{TEXT:G.txt('LEVEL UP!')}),G.msg(G.join('All frozen with ',G.vget(TL),' seconds left! Level up!'),3),G.vchg(LV,1),G.wait(3)],
         [G.iff(G.inMatch(),G.sound('die'),G.msg(G.join('Level time is up! ',G.vget(FZ),' of ',G.vget(ACT),' frozen. Back to level 1.'),4),G.vset(LV,G.num(1)),G.wait(4))])),G.vset(RD,G.num(0))),VARS);
   G.vars(G.script(p,'sss','Show level',blk('ev_start'),G.forever(G.iff(G.cmp(G.vget(LV),'GT',G.num(0)),G.sset('Level',G.vget(LV)),G.sset('Time',G.vget(TL))),G.wait(.5))),VARS);
   // the snowball launcher freezes runners from range (3 second reload)
@@ -3564,7 +3564,7 @@ function disastersDef(){const G=GK;const p=G.proj('disasters','Disaster Zone',{s
   const NAMES=['','FLOOD! The water is rising. Get to high ground!','TSUNAMI! Giant waves are coming. Climb something tall!','METEOR SHOWER! Watch for red circles!',
     'TORNADO! Stay away from the funnel!','VOLCANO! Dark cracks turn into lava!','EARTHQUAKE! Buildings are crumbling!','LIGHTNING STORM! Move away from the glowing rings!','BLIZZARD! Freezing wind slows you down. Watch for hail!','SANDSTORM! The wind pushes you east. Hide behind a wall!','ALIEN INVASION! Stay out of the green tractor beams!'];
   const SKY=['#8ec9ff','#6f8fb0','#6aa5d8','#ff9e80','#9e9e9e','#bf360c','#a1887f','#2b2f45','#eceff1','#c8a165','#1a237e'];
-  const say=v=>[1,2,3,4,5,6,7,8,9,10].map(k=>G.iff(G.cmp(G.vget(v),'EQ',G.num(k)),G.msg('⚠ '+NAMES[k],3.5),blk('g_sky',null,{COLOUR:SKY[k]})));
+  const say=v=>[1,2,3,4,5,6,7,8,9,10].map(k=>G.iff(G.cmp(G.vget(v),'EQ',G.num(k)),G.msg('⚠ '+NAMES[k],3.5),blk('g_callout',{TEXT:G.txt(String(NAMES[k]).split(/[!.:]/)[0].toUpperCase().slice(0,22))}),blk('g_shake',null,{POW:'.3'}),blk('g_sky',null,{COLOUR:SKY[k]})));
   G.vars(G.script(p,'sss','Match',blk('ev_msg',null,{MSG:'round start'}),G.vset(D,G.num(0)),G.vset(D2,G.num(0)),G.sset('Survived',1),G.vset(MP_,G.rnd(1,MAPS.length)),
     ...MAPS.map((m,i)=>G.iff(G.cmp(G.vget(MP_),'EQ',G.num(i+1)),blk('rs_copy',{X:bn(centers[i][0]),Y:bn(centers[i][1]),Z:bn(centers[i][2])},{NAME:m.name}),G.msg('Map: '+m.name,3))),
     G.wait(5),G.vset(D,G.rnd(1,10)),G.sound('check'),...say(D),
