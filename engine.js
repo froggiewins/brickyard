@@ -3677,6 +3677,7 @@ function bombTagDef(){const G=GK;const p=G.proj('bombtag','Bomb Tag',{sky:'#ffd9
   G.vars(G.hscript(p,'sss','Match over',G.onMsg('round end'),G.vset(VH,G.txt('-')),G.vset(VB,G.num(-1))),VARS);
   G.vars(G.welcome(p,G.vset(VC,G.num(0)),G.msg('Bomb Tag! Whoever holds the bomb when it blows is out. Touch anyone to pass it on, and run when they have it! Bots fill empty spots.',5)),VARS);
   G.best(p,'Rounds','bombtag_rounds');
+  G.hud(p,'Bomb','#bf360c',G.join('💣 Fuse ',G.vget(VF),'s   ·   🤖 ',G.vget(VLF),' bots left'));
   return G.def(p,'bombtag','Bomb Tag');}
 
 /* 19. Flag Raid: shared guards */
@@ -3749,6 +3750,7 @@ function flagRaidDef(){const G=GK;const p=G.proj('flagraid','Flag Raid',{sky:'#9
   G.vars(G.script(p,'sss','Match over',G.onMsg('round end'),G.vset(CARRY,G.num(0)),home(),blk('p_label',{PART:G.pnamed('RedFlag'),TEXT:bt('FLAG')})),VARS);
   G.vars(G.welcome(p,G.vset(CARRY,G.num(0)),G.sset('Captures',0),G.sset('KOs',0),G.msg('Sneak into the red base, grab the flag and bring it home. Guards hit hard: use your sword (1), hedges, the tunnel and the tower!',5)),VARS);
   G.best(p,'Captures','flag_captures');
+  G.hud(p,'Raid','#c62828',G.join('🚩 Captures ',G.stat('Captures'),'   ·   🎯 ',G.round(G.arith('ADD',G.arith('MULTIPLY',{block:{type:'s_distance',inputs:{PART:G.pnamed('RedFlag')}}},G.arith('MINUS',G.num(1),G.vget(CARRY))),G.arith('MULTIPLY',{block:{type:'s_distance',inputs:{PART:G.pnamed('CapturePad')}}},G.vget(CARRY)))),' studs to go'));
   // smoke bomb gadget: shield and a burst of speed to escape the guards
   const smk={id:uid(),cls:'Tool',name:'Smoke Bomb',parent:'pack',tooltip:'Escape! 3s shield and speed (15s recharge)',cooldown:15,swing:false};
   const sh=partNode({parent:smk.id,name:'Handle',pos:[0,3,0],size:[.8,.8,.8],shape:'ball',color:'#607d8b',material:'Metal'});smk.handle=sh.id;p.nodes.push(smk,sh);
