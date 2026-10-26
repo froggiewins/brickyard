@@ -4950,7 +4950,7 @@ function lobbyTick(){
   let txt;
   if(phase==='lobby')txt=`Lobby · match starts in ${mm(left)} · ${np} player${np>1?'s':''}`;
   else if(LOBBY.inRound&&!LOBBY.out)txt=`Match · ${mm(left)} left`+(c.score?` · ${c.score}: ${r3(RT.stats.get(c.score)||0)}`:'');
-  else txt=(LOBBY.out?'You are out':'Match in progress')+` · next match in ${mm(left+c.wait)}`;
+  else txt=(LOBBY.out?'You are out':'Match on')+` · next in ${mm(left+c.wait)}`;
   const solo=MP.remotes.size===0,canGo=solo&&(phase==='lobby'||!LOBBY.inRound||LOBBY.out);
   const key=txt+'|'+canGo+'|'+phase;
   {const canSpec=LOBBY.out&&LOBBY.inRound&&[...MP.remotes.values()].some(r=>!r.dead&&r.lb&&r.lb.r===LOBBY.idx&&!r.lb.o);const sb=$('#lobbySpec');if(sb&&sb.hidden===canSpec){sb.hidden=!canSpec;}if(!canSpec&&SPEC.on){SPEC.on=false;}
@@ -4962,6 +4962,7 @@ function lobbyTick(){
 function lobbySkip(){if(!LOBBY.on)return;const c=LOBBY.cfg,{per,ph}=lobbyPhase();LOBBY.off+=ph<c.wait?(c.wait-ph+.02):(per-ph+c.wait+.02);lobbyTick();}
 $('#skipBtn').addEventListener('click',()=>{skipStage();cv.focus({preventScroll:true});});
 $('#lobbyGo').addEventListener('click',()=>{lobbySkip();cv.focus({preventScroll:true});});
+$('#lobbyInvite').addEventListener('click',()=>{copyInvite();cv.focus({preventScroll:true});});
 $('#lobbySpec').addEventListener('click',()=>{if(SPEC.on)SPEC.i++;else{SPEC.on=true;SPEC.i=0;}const r=specTarget();if(r)toast('Watching '+nameOf(r.by),'#9fe3ff',1.5);cv.focus({preventScroll:true});});
 function lobbyToLobby(){if(!LOBBY.spot)return;W.checkpoint=LOBBY.spot.clone();state.stage=0;
   if(!P.dead){if(P.rag)ragEndPlayer();P.pos.copy(LOBBY.spot).add(new V3((Math.random()-.5)*10,0,(Math.random()-.5)*6));P.vel.set(0,0,0);P.boost=0;}P.health=P.maxHealth;}
@@ -7413,6 +7414,10 @@ async function showPublish(){
 const fileName=n=>(String(n).replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-')||'my-game').slice(0,50);
 $('#stPublish').addEventListener('click',showPublish);
 let SHARED=null;
+function bootPlayLink(){const m=location.hash.match(/^#play=([a-z0-9]+)/);if(!m)return;const gm=GAMES.find(g=>g.id===m[1]);if(!gm)return;
+  history.replaceState(null,'',location.pathname+location.search);setTimeout(()=>{try{if(!running)startGame(gm.make?gm.make():gm);}catch(e){}},600);}
+function inviteLink(){return SITE_URL+'#play='+encodeURIComponent(game&&game.id||'');}
+async function copyInvite(){const url=inviteLink();try{await navigator.clipboard.writeText(url);toast('📨 Invite link copied! Send it to a friend to play together.','#9fe3ff',3);}catch(e){toast('Invite link: '+url,'#9fe3ff',6);}}
 async function bootShared(){
   let code=null;const embed=window.BY_EMBED&&typeof window.BY_EMBED.code==='string';
   if(embed)code=window.BY_EMBED.code;else if(location.hash.startsWith('#g='))code=location.hash.slice(3);
@@ -7441,6 +7446,6 @@ renderToolbox();renderSwatches();renderCards();
 loop();
 if(TESTCLIENT){muted=true;MP.me={name:'Player 2',id:null};document.documentElement.classList.add('testclient');$('#menu').hidden=true;
   window.parent.postMessage({by2:1,k:'ready'},'*');}
-else{initMP();bootShared();}
+else{initMP();bootShared();bootPlayLink();}
 window.__by={toast,MUSIC,musicStart,musicTick,setActx:a=>{actx=a;},JU,juiceKO,juiceRigHit,damageRig,makeRag,ragStep,SB,SAVE,findAnim,playAnim,BD,openAnim,AE,ACC,renderGuiEditor,showAccountModal,MP,arenaDef,packProject,unpackProject,standaloneHtml,get SHARED(){return SHARED},IDB,MESHCACHE,uploadMesh,finalizeMesh,get ecam(){return ecam},get tc(){return tc},cam,ED,W,RT,P,state:()=>state,startGame,openStudio,newProjectObj,saveProject,insert,select,doAct,openScript,playtest,stopGame,exportRbxlx,luaForScript,parseRbxlx,listProjects,GAMES,projectDef,running:()=>running,_t:{WALLET,earnCoins,LOBBY,lobbySkip,breakAt,OUT,equipTool,activateTool,AIM,aimRay,physics,keys,PH,PHYS,setPaused:v=>{paused=v;},handleTouch,get t(){return t}}};
 })();
