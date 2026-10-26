@@ -376,7 +376,7 @@ function setSkyColor(c){c=new THREE.Color(c);const lum=c.r*.3+c.g*.59+c.b*.11;co
   u.cloud.value=lum>.42?1:lum>.28?.45:0;u.stars.value=lum<.16?1:lum<.24?.4:0;}
 function newScene(o){o=o||{};
   W.labels=[];
-  W.anims=new Map();W.baseAnims=null;W.emotes=[];P.anim=null;Object.assign(P,{frozen:false,hidden:false,shieldUntil:0,airJumps:0,airLeft:0,shirtOverride:null,airT:0,sayText:''});$('#emoteMenu').hidden=true;
+  W.anims=new Map();W.baseAnims=null;W.emotes=[];P.anim=null;Object.assign(P,{magnetUntil:0,frozen:false,hidden:false,shieldUntil:0,airJumps:0,airLeft:0,shirtOverride:null,airT:0,sayText:''});$('#emoteMenu').hidden=true;
   const gl=$('#guiLayer');if(gl)gl.innerHTML='';W.gui=new Map();W.guiByName=new Map();
   if(scene)disposeScene();
   scene=new THREE.Scene();
@@ -2230,6 +2230,7 @@ function handleTouch(p){
       break;
     case 'jump': if(P.padCool<=0){P.vel.y=d.power||100;P.padCool=.35;P.onGround=false;P.coyote=0;SFX.pad();}break;
     case 'speed': if(P.boost<1.6)SFX.boost();P.boost=d.boost||2.6;break;
+    case 'magnet': if(!(d.cool>t)){d.cool=t+25;P.magnetUntil=t+8;SFX.boost();toast('🧲 COIN MAGNET for 8 seconds!','#f3b0ff',2);p.mesh.visible=false;setTimeout(()=>{if(!p.destroyed)p.mesh.visible=true;},25000);}break;
     case 'finish': finish();break;
   }
 }
@@ -2461,6 +2462,8 @@ function buildCoins(rnd){
   // a treasure raft drifts between the islands carrying coins
   addPart({pos:[60,1.6,-60],size:[10,1,10],color:0x8d6e63,move:{axis:new V3(1,0,1).normalize(),dist:30,speed:.35}});
   put(60,3.6,-60);
+  // coin magnets: stand on one to pull in nearby coins for 8 seconds
+  [[18,3,18],[100,6,5],[-100,4,-5]].forEach(([x,y,z])=>{const m=pad(x,y+.2,z,4,4,0xe040fb,{kind:'magnet',h:.4,neon:true});setPartLabel(m,'🧲 MAGNET');});
   W.spawn.set(0,3+PH.y+.2,0);W.killY=-30;
   state.total=W.coins.length;
 }
@@ -5114,7 +5117,7 @@ function update(dt){
     for(const p of W.special){if(p.active&&partOverlap(p,-.12)){handleTouch(p);if(P.dead||state.over)break;}}
     if(!P.dead)for(const s of W.spinners){tmp.copy(P.pos);s.pivot.worldToLocal(tmp);if(Math.abs(tmp.x)<s.len/2+.6&&Math.abs(tmp.z)<1.4&&Math.abs(tmp.y)<3){die('kill');break;}}
     if(!P.dead&&P.pos.y<W.killY)die('kill');
-    for(const c of W.coins){if(c.got)continue;if(c.mesh.position.distanceToSquared(P.pos)<10.5){c.got=true;c.pop=.3;state.coins++;SFX.coin();try{juicePop(c.mesh.position.clone().add(new V3(0,-2,0)),'+1','big',.7);}catch(e){}
+    const magR=P.magnetUntil>t?150:10.5;for(const c of W.coins){if(c.got)continue;if(c.mesh.position.distanceToSquared(P.pos)<magR){c.got=true;c.pop=.3;state.coins++;SFX.coin();try{juicePop(c.mesh.position.clone().add(new V3(0,-2,0)),'+1','big',.7);}catch(e){}
       if(game.mode==='project')changeStat('Coins',1);
       if(game.mode==='coins'&&state.coins>=state.total)finish();}}
     const m=P.model,u=m.userData;m.position.copy(P.pos);
