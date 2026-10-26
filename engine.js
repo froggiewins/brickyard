@@ -697,6 +697,10 @@ const QUESTS=[
   {id:'laps3',g:'turbo',k:'stat',st:'Laps',n:3,r:100,t:'Finish 3 laps of Turbo Track'},
   {id:'targets25',g:'targets',k:'stat',st:'Score',n:25,r:90,t:'Score 25 in Target Range'},
   {id:'colordrop5',g:'colordrop',k:'stat',st:'Rounds',n:5,r:90,t:'Survive 5 rounds of Color Drop'},
+  {id:'maze2',g:'maze',k:'stat',st:'Escapes',n:2,r:100,t:'Escape 2 mazes in Maze Escape'},
+  {id:'lava3',g:'lavarise',k:'stat',st:'Round',n:3,r:110,t:'Reach the Crystal Spire (round 3) in Lava Rising'},
+  {id:'cloud',g:'cloudhop',k:'finish',n:1,r:110,t:'Finish Cloud Hop'},
+  {id:'bounty',g:'arena',k:'stat',st:'KOs',n:5,r:100,t:'Get 5 knockouts in Brick Battle'},
   {id:'matches',g:'',k:'match',n:3,r:80,t:'Play 3 lobby matches in any game'},
   {id:'win',g:'',k:'win',n:1,r:150,t:'Win a match against another player'},
   {id:'minutes',g:'',k:'minutes',n:10,r:80,t:'Play for 10 minutes'}];
