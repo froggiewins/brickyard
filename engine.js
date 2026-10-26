@@ -4827,7 +4827,7 @@ const LOBBY={on:false};
 function lobbyCfg(){const S=game&&game.project&&game.project.settings;if(!S||!S.lobby)return null;
   return {wait:Math.max(5,Math.min(120,+S.lobbyWait||15)),round:Math.max(15,Math.min(900,+S.lobbyRound||90)),score:String(S.lobbyScore||'').trim().slice(0,40),elim:!!S.lobbyElim,low:!!S.lobbyLow};}
 function lobbyInit(){
-  const c=lobbyCfg();Object.assign(LOBBY,{on:!!c,cfg:c,off:0,idx:-1,phase:'',inRound:false,out:false,late:false,resUntil:0,txt:'',seed:0,sign:null});
+  const c=lobbyCfg();Object.assign(LOBBY,{on:!!c,cfg:c,off:0,idx:-1,phase:'',inRound:false,out:false,late:false,resUntil:0,txt:'',seed:0,sign:null,initT:t,quick:false});
   $('#lobbyBar').hidden=!c;$('#lobbyRes').hidden=true;$('#game').classList.toggle('haslobby',!!c);if(!c)return;
   let top=0;for(const p of W.parts){if(!p.rig&&p.max.y<5000)top=Math.max(top,p.max.y);}
   const cx=W.spawn.x,cz=W.spawn.z,y=Math.max(60,top+60);
@@ -4844,6 +4844,9 @@ function lobbyPhase(){const c=LOBBY.cfg,per=c.wait+c.round,now=lobbyNow(),idx=Ma
 function lobbyTick(){
   if(!LOBBY.on||!running)return;const c=LOBBY.cfg;
   if(LOBBY.off&&MP.remotes.size&&!LOBBY.inRound&&lobbyPhase().phase==='lobby'){LOBBY.off=0;}
+  // playing alone: no need to wait out a match in progress or a long lobby, start in about 5 seconds
+  if(!LOBBY.quick&&t-LOBBY.initT>2.5){LOBBY.quick=true;if(!MP.remotes.size){const q=lobbyPhase(),want=Math.max(0,c.wait-5);
+    if(q.phase==='play'&&!LOBBY.inRound)LOBBY.off+=q.per-q.ph+want;else if(q.phase==='lobby'&&q.ph<want)LOBBY.off+=want-q.ph;}}
   const {per,idx,ph,phase}=lobbyPhase();
   if(LOBBY.phase===''){LOBBY.phase=phase;LOBBY.idx=idx;LOBBY.late=phase==='play';lobbyToLobby();}
   else if(phase!==LOBBY.phase||idx!==LOBBY.idx){
