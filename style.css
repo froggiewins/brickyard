@@ -297,6 +297,7 @@ kbd{font-family:var(--body);font-weight:800;font-size:12px;background:var(--pane
 #jhit:before{transform:rotate(45deg)}#jhit:after{transform:rotate(-45deg)}
 #jhit.on{opacity:1;transition:none}#jhit.kill:before,#jhit.kill:after{background:linear-gradient(#ff3d3d 0 35%,transparent 35% 65%,#ff3d3d 65%)}
 #jcall{position:absolute;left:50%;top:33%;transform:translate(-50%,-50%) scale(.6);font:900 38px/1 system-ui,sans-serif;color:#fff;letter-spacing:.04em;text-shadow:0 3px 0 #b71c1c,0 0 18px rgba(255,80,40,.7);opacity:0;transition:opacity .4s,transform .4s;white-space:nowrap}
+#jcall.danger{text-shadow:0 3px 0 #000,0 0 22px rgba(255,40,40,.9);color:#ffdede}
 #jcall.on{opacity:1;transform:translate(-50%,-50%) scale(1);transition:transform .12s cubic-bezier(.3,1.8,.5,1)}
 #jboss{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 128px);transform:translateX(-50%);width:min(440px,80vw);text-align:center;opacity:0;transition:opacity .3s}
 #jboss.on{opacity:1}#jboss b{display:block;font:900 15px/1.2 system-ui,sans-serif;color:#fff;letter-spacing:.08em;text-shadow:0 2px 0 #000;margin-bottom:4px}

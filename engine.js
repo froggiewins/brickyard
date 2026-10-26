@@ -5242,7 +5242,9 @@ function juiceKO(r,force){if(!r)return;if(!force&&!juiceLocal())return;
   if(call)juiceCall(call);
   juiceFeed('<b>You</b> knocked out '+escH(botDisp(r.name||'a bot')));}
 function juiceCall(txt){const e=$('#jcall');if(!e)return;e.textContent=txt;e.classList.remove('on');void e.offsetWidth;e.classList.add('on');JU.callT=t;
-  [880,1175,1568].forEach((f,i)=>setTimeout(()=>beep(f,f*1.01,.09,'square',.04),i*70));
+  const danger=/FLOOD|TSUNAMI|METEOR|TORNADO|VOLCANO|EARTHQUAKE|QUAKE|LIGHTNING|ACID|BLIZZARD|FIRE|STORM|SINKHOLE|WIND/.test(txt);
+  (danger?[392,330,262]:[880,1175,1568]).forEach((f,i)=>setTimeout(()=>beep(f,f*(danger?.98:1.01),danger?.16:.09,danger?'sawtooth':'square',.04),i*(danger?120:70)));
+  e.classList.toggle('danger',danger);
   clearTimeout(JU.callTO);JU.callTO=setTimeout(()=>e.classList.remove('on'),1300);}
 function juiceFeed(html){const f=$('#jfeed');if(!f)return;const d=document.createElement('div');d.innerHTML=html;f.appendChild(d);while(f.children.length>4)f.firstChild.remove();setTimeout(()=>d.remove(),4100);}
 function escH(x){return String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);}
