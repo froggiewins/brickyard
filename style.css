@@ -139,6 +139,7 @@ button.card:hover{transform:translateY(-3px);border-color:var(--accent)}
 #emoteMenu p{grid-column:1/-1;margin:2px 4px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin:-4px 0 2px}
 .chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer}
+.chip.cont{background:linear-gradient(90deg,#3ddc84,#22b8cf);color:#06221a;border-color:transparent}
 .chip:hover{border-color:var(--sky)}
 .chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#1a0e00}
 .acct{cursor:pointer;font-weight:800;font-size:13px}

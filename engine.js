@@ -4823,7 +4823,7 @@ function projectDef(proj,fromEditor){
 
 /* ---------- start / stop ---------- */
 function startGame(def){
-  mpLeave();try{juiceReset();}catch(e){}
+  mpLeave();try{if(def&&!def.fromEditor&&GAMES.some(g=>g.id===def.id))store.set('lastGame',def.id);}catch(e){}try{juiceReset();}catch(e){}
   if(def.room===undefined)def.room=def.id;
   game=def;t=0;GAMECOINS.left=150;
   PHYS.gravity=196.2;PHYS.walk=16;PHYS.jump=50;
@@ -7138,6 +7138,7 @@ const THUMBS={
 };
 const ago=ms=>{const s=(Date.now()-ms)/1000;if(s<60)return 'just now';if(s<3600)return Math.floor(s/60)+' min ago';if(s<86400)return Math.floor(s/3600)+' h ago';return Math.floor(s/86400)+' d ago';};
 let delArm=null;
+document.addEventListener('click',e=>{const k=e.target.closest('#gameChips [data-cont]');if(k){const gm=GAMES.find(g=>g.id===k.dataset.cont);if(gm)startGame(gm.make?gm.make():gm);return;}});
 document.addEventListener('click',e=>{const c=e.target.closest('#gameChips [data-cat]');if(!c)return;GAME_CAT=c.dataset.cat;store.set('gameCat',GAME_CAT);renderCards();});
 const NEW_GAMES=new Set(['towerhell','murder','doors','arsenal','deathrun','hideseek','evade','planecrash']);
 function renderBadges(){const g=$('#badgeGrid');if(!g)return;const got=BADGES.filter(b=>WALLET.badges.has(b[0])).length;
@@ -7148,10 +7149,13 @@ function renderCards(){
   {const d=new Date(),m=d.getMonth()+1,dd=d.getDate();const on=(m===10&&dd>=15)||(m===11&&dd<=2);const eb=$('#eventBanner');if(eb)eb.hidden=!on;}
   renderQuests();renderBadges();
   const grid=$('#grid');grid.innerHTML='';const bests=store.get('bests',{});
-  const chips=$('#gameChips');if(chips){const cats=['All',...new Set(GAMES.map(g=>g.cat))];chips.innerHTML=cats.map(c=>`<button type="button" class="chip" aria-pressed="${c===GAME_CAT}" data-cat="${c}">${c}${c==='All'?' ('+GAMES.length+')':''}</button>`).join('');}
+  const chips=$('#gameChips');if(chips){const cats=['All',...new Set(GAMES.map(g=>g.cat))];chips.innerHTML=cats.map(c=>`<button type="button" class="chip" aria-pressed="${c===GAME_CAT}" data-cat="${c}">${c}${c==='All'?' ('+GAMES.length+')':''}</button>`).join('');
+    const lg=GAMES.find(g=>g.id===store.get('lastGame',''));if(lg)chips.insertAdjacentHTML('afterbegin',`<button type="button" class="chip cont" data-cont="${lg.id}">▶ Play again: ${esc(lg.name)}</button>`);}
   GAMES.filter(gm=>GAME_CAT==='All'||gm.cat===GAME_CAT).forEach(gm=>{const b=document.createElement('button');b.type='button';b.className='card';
     const bv=bests[gm.id];let best='';
-    if(gm.id==='arena')best='Online PvP';
+    const lb=store.get('lbBest:'+gm.id,null);
+    if(lb!=null&&gm.mode==='project'&&gm.cat!=='Obby')best=`Your best <b>${r3(lb)}</b>`;
+    else if(gm.id==='arena')best='Online PvP';
     else if(gm.mode==='project')best=gm.cat==='Obby'?(bv!=null?`Best <b>${fmt(bv)}</b>`:'Not finished yet'):'Endless';
     else if(gm.mode==='race')best=bv!=null?`Best <b>${fmt(bv)}</b>`:'No time yet';
     else if(gm.mode==='coins')best=bv?`Best <b>${bv.coins}</b> coins`:'No score yet';
