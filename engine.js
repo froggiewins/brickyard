@@ -3009,6 +3009,7 @@ function sumoDef(){const G=GK;const p=G.proj('sumo','Sumo Smash',{sky:'#ffcf9f',
     G.forever(G.wait(1),G.iff(G.AND(G.aliveIn(),G.AND({block:{type:'s_pl_alive'}},G.cmp(G.ppos('y'),'GT',G.num(25)))),G.sadd('Time',1))));
   G.vars(p.nodes.find(n=>n.name==='Welcome'),MV);
   G.best(p,'Time','sumo_time');
+  G.hud(p,'Ring','#bf360c',G.join('🥋 Sumos on the ring: ',G.vget(SC),'   ·   ⏱ ',G.stat('Time'),'s'));
   return G.def(p,'sumo','Sumo Smash');}
 
 /* 7. Color Drop */
@@ -4360,6 +4361,7 @@ function hideSeekDef(){const G=GK;const p=G.proj('hideseek','Hide and Seek',{sky
   G.script(p,spr.id,'Go',blk('ev_tool_act'),G.sound('boost'),blk('pl_speed',{V:bn(30)}),G.wait(3),blk('pl_speed',{V:bn(16)}));
   G.vars(G.script(p,'sss','Give sprint',G.onMsg('seek'),blk('tool_take',null,{NAME:'Sprint'}),G.iff(amSeeker(),blk('tool_give',null,{NAME:'Sprint'}))),VARS);
   G.script(p,'sss','Take sprint',G.onMsg('round end'),blk('tool_take',null,{NAME:'Sprint'}));
+  G.hud(p,'Hiders','#2e7d32',G.join('🙈 Hiders left: ',G.vget(HL),'   ·   ⭐ ',G.stat('Score')));
   G.welcome(p,G.sset('Score',0),G.msg('Hide and Seek: one seeker, everyone else hides. Bots join when players are short, and playing alone you take turns hiding and seeking.',5));
   return G.def(p,'hideseek','Hide and Seek');}
 
