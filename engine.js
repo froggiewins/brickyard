@@ -4249,7 +4249,9 @@ function deathrunDef(){const G=GK;const p=G.proj('deathrun','Trap Run',{sky:'#26
   G.vars(G.script(p,'sss','Runner down',blk('ev_died'),G.iff(G.NOT(G.cmp(G.vget(ROLE),'EQ',G.myId())),G.shChg('vdeathkills',1))),[['death kills','vdeathkills'],...KV]);
   G.vars(G.script(p,'sss','Death score',G.onMsg('round end'),G.iff(G.cmp(G.vget(ROLE),'EQ',G.myId()),G.sset('Score',G.arith('MULTIPLY',G.vget('vdeathkills'),G.num(4))))),[['death kills','vdeathkills'],...KV]);
   G.vars(G.hscript(p,'sss','Reset kills',G.onMsg('round start'),G.vset('vdeathkills',G.num(0))),[['death kills','vdeathkills']]);
-  G.welcome(p,G.sset('Score',0),G.sset('Finished',0),G.msg('Trap Run: reach the end of the course while Death springs the traps! Two courses take turns.',5));
+  G.welcome(p,G.sset('Score',0),G.sset('Finished',0),G.msg('Trap Run: reach the end of the course while Death springs the traps! Three courses take turns.',5));
+  {const dsel=(ox,S)=>G.arith('MULTIPLY',{block:{type:'s_distance',inputs:{PART:G.pnamed('Finish'+S)}}},G.cmp(G.vget('vdox'),'EQ',G.num(ox)));
+   G.hud(p,'Finish','#455a64',G.join('🏁 ',G.round(G.arith('ADD',G.arith('ADD',dsel(0,''),dsel(300,'B')),dsel(600,'C'))),' studs to the finish   ·   ⭐ ',G.stat('Score')));}
   return G.def(p,'deathrun','Trap Run');}
 
 /* 25. Hide and Seek: one seeker, everyone else hides. Bots hide (or seek) when players are short */
