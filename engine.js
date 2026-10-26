@@ -4798,7 +4798,7 @@ function startGame(def){
   lobbyStop();
   if(def.project){buildRuntimeGui(def.project);startScripts(def.project);giveStarterTools(def.project);saveBegin(def);}
   renderHotbar();$('#hp').hidden=!def.project;
-  cam.yaw=def.id==='sky'?0:def.id==='tower'?Math.PI/2+.4:.6;cam.pitch=.3;cam.dist=coarse?22:20;cam.cur=cam.dist;
+  cam.yaw=def.id==='sky'?0:def.id==='tower'?Math.PI/2+.4:def.id==='maze'?-2.36:.6;cam.pitch=def.id==='maze'?.85:.3;cam.dist=coarse?22:20;cam.cur=cam.dist;
   $('#menu').hidden=true;$('#game').hidden=false;$('#overlay').hidden=true;$('#gcon').innerHTML='';
   hud.name.textContent=def.name;
   hud.timer.hidden=!(def.mode==='race'||def.mode==='coins'||(def.mode==='project'&&def.project.settings.timer));
@@ -4851,7 +4851,7 @@ function lobbyTick(){
   if(LOBBY.phase===''){LOBBY.phase=phase;LOBBY.idx=idx;LOBBY.late=phase==='play';lobbyToLobby();}
   else if(phase!==LOBBY.phase||idx!==LOBBY.idx){
     if(LOBBY.inRound)lobbyEnd();
-    if(phase==='play')lobbyStart(idx);else LOBBY.late=false;
+    if(phase==='play')lobbyStart(idx);else{LOBBY.late=false;if(!MP.remotes.size&&c.wait-ph>7){LOBBY.off+=(c.wait-7)-ph;}}
     LOBBY.phase=phase;LOBBY.idx=idx;}
   const left=Math.max(0,Math.ceil(phase==='lobby'?c.wait-ph:per-ph)),mm=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0'),np=1+MP.remotes.size;
   let txt;
@@ -5021,7 +5021,7 @@ function update(dt){
     for(const p of W.special){if(p.active&&p.kind==='kill'&&partOverlap(p,-.12)){die('kill');break;}}
     if(!P.dead&&P.pos.y<W.killY)die('kill');
     if(!P.dead&&t>=P.rag.until&&(P.rag.rest>.25||t>P.rag.until+2))ragEndPlayer();
-    if(P.model)P.model.visible=cam.dist>1&&!P.hidden;
+    if(P.model)P.model.visible=cam.dist>1&&!P.hidden&&!(cam.cur<1.9&&cam.dist>2.5);
   }else if(!P.dead&&!state.over){
     if(P.ground&&(P.ground.move||W.dyn.has(P.ground)))P.pos.add(P.ground.delta);
     let ix=(keys.has('KeyD')||keys.has('ArrowRight')?1:0)-(keys.has('KeyA')||keys.has('ArrowLeft')?1:0)+joy.x;
