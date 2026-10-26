@@ -941,6 +941,7 @@ function respawn(){
 function die(kind){
   if(P.dead||state.over)return;
   JU.deaths.push(t);JU.streak=0;juiceShake(.8);
+  if(W.stages>0&&!LOBBY.on&&state.stage<W.stages){JU.stageDeaths=(JU.stageDeaths||0)+1;if(JU.stageDeaths>=8)setTimeout(()=>skipBtnShow(true),1600);}
   if(LOBBY.on&&LOBBY.inRound&&LOBBY.cfg.elim&&!LOBBY.out){LOBBY.out=true;W.checkpoint=LOBBY.spot.clone();setTimeout(()=>toast('You are out! Watch from the lobby.','#ffb4b4',2.5),900);MP.lastSent='';}
   if(P.equipped)unequipTool();
   P.dead=true;P.health=0;
@@ -2144,7 +2145,8 @@ function handleTouch(p){
     case 'water': die('water');break;
     case 'check':
       if(d.stage>state.stage){state.stage=d.stage;W.checkpoint=new V3(p.pos.x,p.max.y+PH.y+.2,p.pos.z);
-        p.mesh.material=mat(0x9dffb8,{neon:true});SFX.check();toast((game.stageWord||'Checkpoint')+' '+d.stage+' reached','#9dffb8');}
+        p.mesh.material=mat(0x9dffb8,{neon:true});SFX.check();toast((game.stageWord||'Checkpoint')+' '+d.stage+' reached','#9dffb8');
+        try{burstAt(new V3(p.pos.x,p.max.y+1,p.pos.z),'#9dffb8');juicePop(new V3(p.pos.x,p.max.y,p.pos.z),'✓ '+d.stage,'big',1);JU.stageDeaths=0;skipBtnShow(false);}catch(e){}}
       break;
     case 'jump': if(P.padCool<=0){P.vel.y=d.power||100;P.padCool=.35;P.onGround=false;P.coyote=0;SFX.pad();}break;
     case 'speed': if(P.boost<1.6)SFX.boost();P.boost=d.boost||2.6;break;
@@ -3679,7 +3681,7 @@ function gkPowerups(p,spots,o){const G=GK;o=o||{};const y=o.y||1.5;
         [G.ifElse(G.cmp(G.vget('vpwr'),'EQ',G.num(3)),[G.msg('🛡️ SHIELD for 6 seconds!',1.5),blk('pl_shield',{S:bn(6)}),G.wait(6)],
          [G.ifElse(G.cmp(G.vget('vpwr'),'EQ',G.num(4)),[G.msg('❤️ Full heal!',1.5),blk('pl_heal',{N:bn(200)}),G.wait(1)],[G.msg('🪶 FEATHER: low gravity for 8 seconds!',1.5),blk('pl_gravity',{V:bn(80)}),G.wait(8),blk('pl_gravity',{V:bn(196.2)})])])])]),
       G.wait(9),blk('p_visible',{PART:bme()},{B:'TRUE'})),[['power','vpwr']]);});}
-function towerHellDef(){const G=GK;const p=G.proj('towerhell','Tower of Chaos',{sky:'#1b1f3b',fog:700,brightness:.95,timer:false,saveStats:false,saveCheckpoint:false,lobby:true,lobbyWait:12,lobbyRound:300,lobbyScore:'Height'});
+function towerHellDef(){const G=GK;const p=G.proj('towerhell','Tower of Chaos',{sky:'#1b1f3b',fog:700,brightness:.95,timer:false,saveStats:false,saveCheckpoint:false,lobby:true,lobbyWait:12,lobbyRound:240,lobbyScore:'Height'});
   const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[90,2,90],color:'#2b2f4a',material:'Slate'});
   G.spawnAt(p,0,.5,0,{size:[5,1,5],color:'#ffc93c'});
   const H=14,COLS=['#ff5252','#ffab40','#ffd740','#69f0ae','#40c4ff','#7c4dff','#ff4081','#b2ff59','#ff6e40','#e0e0e0','#64ffda','#ea80fc','#ffd180','#ff8a80'];
@@ -3717,9 +3719,10 @@ function towerHellDef(){const G=GK;const p=G.proj('towerhell','Tower of Chaos',{
        [G.ifElse(G.cmp(G.vget('vmod'),'EQ',G.num(5)),[blk('pl_jump',{V:bn(62)}),G.msg('A new tower! Modifier: HIGH JUMP 🚀',4)],
         [G.msg('A new tower! No modifier this time. Climb as high as you can!',3)])])])])),VARS);
   G.matchFlags(p);
-  G.script(p,FIN.id,'Top',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.cmp(G.stat('Height'),'LT',G.num(999))),G.sset('Height',999),G.sound('win'),G.msg('YOU BEAT THE TOWER OF CHAOS!',4),blk('pe_emit',{N:bn(60),PART:bme()})));
+  G.script(p,FIN.id,'Top',blk('ev_touch'),G.iff(G.AND(G.aliveIn(),G.cmp(G.stat('Height'),'LT',G.num(999))),G.sset('Height',999),G.sound('win'),G.msg('YOU BEAT THE TOWER OF CHAOS! +15 coins',4),blk('pl_coins',{N:bn(15)}),blk('pe_emit',{N:bn(60),PART:bme()})));
   p.nodes.push(emitterNode({parent:FIN.id,name:'Party',enabled:false},'confetti'));
   G.vars(G.script(p,'sss','Height',blk('ev_start'),G.forever(G.iff(G.AND(G.aliveIn(),G.cmp(G.round(G.ppos('y')),'GT',G.stat('Height'))),G.sset('Height',G.round(G.ppos('y')))),G.wait(.3))),G.MV);
+  G.hud(p,'Climb','#283593',G.join('🗼 Floors climbed: ',{block:{type:'math_round',fields:{OP:'ROUNDDOWN'},inputs:{NUM:G.arith('DIVIDE',G.ppos('y'),G.num(H))}}},' / ',String(LEVELS)));
   G.welcome(p,G.msg('Tower of Chaos: no checkpoints! Climb the random tower before time runs out. Highest climber wins.',5));
   return G.def(p,'towerhell','Tower of Chaos');}
 
@@ -4713,6 +4716,7 @@ function lobbyTick(){
   if(phase==='lobby'&&left<=3&&left>=1&&LOBBY.cd!==LOBBY.idx+':'+left){LOBBY.cd=LOBBY.idx+':'+left;juiceCall(String(left));}
   if(LOBBY.resUntil&&t>LOBBY.resUntil){LOBBY.resUntil=0;$('#lobbyRes').hidden=true;}}
 function lobbySkip(){if(!LOBBY.on)return;const c=LOBBY.cfg,{per,ph}=lobbyPhase();LOBBY.off+=ph<c.wait?(c.wait-ph+.02):(per-ph+c.wait+.02);lobbyTick();}
+$('#skipBtn').addEventListener('click',()=>{skipStage();cv.focus({preventScroll:true});});
 $('#lobbyGo').addEventListener('click',()=>{lobbySkip();cv.focus({preventScroll:true});});
 $('#lobbySpec').addEventListener('click',()=>{if(SPEC.on)SPEC.i++;else{SPEC.on=true;SPEC.i=0;}const r=specTarget();if(r)toast('Watching '+nameOf(r.by),'#9fe3ff',1.5);cv.focus({preventScroll:true});});
 function lobbyToLobby(){if(!LOBBY.spot)return;W.checkpoint=LOBBY.spot.clone();state.stage=0;
@@ -4763,7 +4767,7 @@ function finish(){
   if(state.over)return;state.over=true;SFX.win();if(!game.fromEditor){earnCoins(25,'finished!');questBump('finish',game.id,1);gainXP(40);}if(game.project)saveFlush(false,true);
   mpEmit('fin',{time:r3(state.time)});
   const bests=store.get('bests',{});let html='';
-  if(game.mode==='race'||game.mode==='project'){const prev=bests[game.id];const nb=prev==null||state.time<prev;if(nb&&!game.fromEditor){bests[game.id]=state.time;store.set('bests',bests);ghostSave();}
+  if(game.mode==='race'||game.mode==='project'){const prev=bests[game.id];const nb=!state.skipped&&(prev==null||state.time<prev);if(nb&&!game.fromEditor){bests[game.id]=state.time;store.set('bests',bests);ghostSave();}
     const stats=[...RT.stats].map(([k,v])=>esc(k)+' '+r3(v)).join(' · ');
     html=`<h2>${game.mode==='project'?'You win!':'Course complete!'}</h2><div class="big">${fmt(state.time)}</div><div class="sub">${game.fromEditor?'Playtest':nb?'<span class="badge">New best</span>':'Best '+fmt(prev)} · ${state.deaths} ${state.deaths===1?'fall':'falls'}${stats?' · '+stats:''}</div>`;}
   else if(game.mode==='coins'){const all=state.coins>=state.total;const prev=bests[game.id];
@@ -4916,7 +4920,7 @@ function update(dt){
   if(!state.over&&game.mode!=='build'&&game.mode!=='free')state.time+=dt;
   if(game.mode==='race'||game.mode==='project'){const s=fmt(state.time);if(s!==lastTimerTxt){hud.timer.textContent=s;lastTimerTxt=s;}hud.timer.style.color='';}
   if(game.mode==='race')setStat((game.stageWord||'Stage')+' '+state.stage+'/'+W.stages);
-  else if(game.mode==='project'){const s=[...RT.stats].map(([k,v])=>k+' '+r3(v)).join(' · ');if(s!==lastStatTxt){setStat(s);lastStatTxt=s;}}
+  else if(game.mode==='project'){let s=[...RT.stats].map(([k,v])=>k+' '+r3(v)).join(' · ');if(W.stages>1&&!LOBBY.on&&!RT.stats.has('Stage'))s=('Stage '+state.stage+'/'+W.stages)+(s?' · '+s:'');if(s!==lastStatTxt){setStat(s);lastStatTxt=s;}}
   else if(game.mode==='coins'){const rem=game.limit-state.time;const s=fmt(rem);if(s!==lastTimerTxt){hud.timer.textContent=s;lastTimerTxt=s;}
     hud.timer.style.color=rem<20?'#ff7a85':'';setStat('Coins '+state.coins+'/'+state.total);if(rem<=0)finish();}
   if(toastT>0){toastT-=dt;if(toastT<=0)$('#toast').classList.remove('show');}
@@ -4984,7 +4988,10 @@ function juiceFeed(html){const f=$('#jfeed');if(!f)return;const d=document.creat
 function escH(x){return String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);}
 function juiceAssist(n){const now=t;JU.deaths=JU.deaths.filter(x=>now-x<180);const d=JU.deaths.length;
   if(n>=100)return n;return n*(d>=6?.7:d>=4?.8:d>=2?.9:1);}
-function juiceReset(){JU.bossOn=false;JU.bossR=null;{const b=$('#jboss');if(b)b.classList.remove('on');}JU.nums.forEach(n=>n.el.remove());JU.nums=[];JU.kos=[];JU.streak=0;JU.deaths=[];JU.shake=0;const f=$('#jfeed');if(f)f.textContent='';}
+function skipBtnShow(on){const b=$('#skipBtn');if(b)b.hidden=!on;}
+function skipStage(){const next=state.stage+1;const cp=W.parts.find(p=>p.kind==='check'&&p.data&&p.data.stage===next&&!p.destroyed);skipBtnShow(false);JU.stageDeaths=0;
+  if(!cp||P.dead)return;state.skipped=true;P.pos.set(cp.pos.x,cp.max.y+PH.y+.5,cp.pos.z);P.vel.set(0,0,0);toast('Skipped to stage '+next+'. You can do it!','#ffd75e',2);}
+function juiceReset(){JU.stageDeaths=0;skipBtnShow(false);JU.bossOn=false;JU.bossR=null;{const b=$('#jboss');if(b)b.classList.remove('on');}JU.nums.forEach(n=>n.el.remove());JU.nums=[];JU.kos=[];JU.streak=0;JU.deaths=[];JU.shake=0;const f=$('#jfeed');if(f)f.textContent='';}
 function loop(){
   requestAnimationFrame(loop);
   const dt=Math.min(clock.getDelta(),.05);
