@@ -2226,7 +2226,7 @@ function handleTouch(p){
     case 'check':
       if(d.stage>state.stage){state.stage=d.stage;W.checkpoint=new V3(p.pos.x,p.max.y+PH.y+.2,p.pos.z);
         p.mesh.material=mat(0x9dffb8,{neon:true});SFX.check();
-        {let extra='',col='#9dffb8';if(game.mode==='race'&&!state.skipped){state.splits=state.splits||{};state.splits[d.stage]=state.time;const prev=(store.get('splits:'+game.id,{})||{})[d.stage];
+        {let extra='',col='#9dffb8';if((game.mode==='race'||(game.mode==='project'&&W.stages>1&&!LOBBY.on&&!game.fromEditor))&&!state.skipped){state.splits=state.splits||{};state.splits[d.stage]=state.time;const prev=(store.get('splits:'+game.id,{})||{})[d.stage];
           if(prev!=null){const df=state.time-prev;extra=' · '+fmt(state.time)+' ('+(df<=0?'−':'+')+Math.abs(df).toFixed(1)+'s)';col=df<=0?'#7dffa8':'#ffb4b4';}else extra=' · '+fmt(state.time);}
          toast((game.stageWord||'Checkpoint')+' '+d.stage+' reached'+extra,col);}
         try{burstAt(new V3(p.pos.x,p.max.y+1,p.pos.z),'#9dffb8');juicePop(new V3(p.pos.x,p.max.y,p.pos.z),'✓ '+d.stage,'big',1);JU.stageDeaths=0;skipBtnShow(false);}catch(e){}}
