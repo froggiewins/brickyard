@@ -32,7 +32,8 @@ const SFX={
   del:()=>beep(160,90,.08,'square',.045),
   nope:()=>beep(140,120,.12,'square',.04),
   click:()=>beep(700,500,.05,'square',.04),
-  explode:()=>{beep(160,35,.55,'sawtooth',.05);boomNoise(.6,900,.22);}
+  explode:()=>{beep(160,35,.55,'sawtooth',.05);boomNoise(.6,900,.22);},
+  heart:()=>{beep(95,55,.13,'sine',.16);setTimeout(()=>beep(85,50,.11,'sine',.12),150);}
 };
 function boomNoise(dur,freq,vol){if(muted)return;try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const n=actx.currentTime,len=Math.floor(actx.sampleRate*dur),b=actx.createBuffer(1,len,actx.sampleRate),d=b.getChannelData(0);
   for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2);const src=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();src.buffer=b;f.type='lowpass';f.frequency.setValueAtTime(freq,n);f.frequency.exponentialRampToValueAtTime(120,n+dur);
@@ -3643,6 +3644,9 @@ function ghostDef(){const G=GK;const p=G.proj('ghost','Escape the Ghost',{sky:'#
   p.nodes.push(emitterNode({parent:lan.id,name:'Light',rate:8},'sparkles'));
   G.vars(G.script(p,lan.id,'Use',blk('ev_touch'),G.msg('Lantern! The ghosts are scared and slow for 8 seconds.',2.5),G.sound('win'),blk('p_visible',{PART:bme()},{B:'FALSE'}),G.shSet(SC,G.num(1)),
     G.wait(28),blk('p_visible',{PART:bme()},{B:'TRUE'})),GV);
+  // heartbeat: the closer the ghost, the faster your heart beats
+  G.script(p,'sss','Heartbeat',blk('ev_start'),G.wait(4),G.forever(G.ifElse(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('Ghost')}}},'LT',G.num(22)),
+    [G.sound('heart'),G.wait(G.arith('DIVIDE',{block:{type:'s_distance',inputs:{PART:G.pnamed('Ghost')}}},G.num(25))),G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('Ghost')}}},'LT',G.num(10)),blk('g_shake',null,{POW:'.3'}))],[G.wait(.5)])));
   return G.def(p,'ghost','Escape the Ghost');}
 
 /* 17. Mega Obby: 30 stages */
@@ -7078,7 +7082,7 @@ function defineBlocks(){
     S_({type:'g_stat_change',message0:'change stat %1 by %2',args0:[{type:'field_input',name:'STAT',text:'Coins'},N('N')],tooltip:'Stats show at the top of the screen, like leaderstats.'},'game_blocks'),
     S_({type:'g_stat_set',message0:'set stat %1 to %2',args0:[{type:'field_input',name:'STAT',text:'Coins'},N('N')]},'game_blocks'),
     S_({type:'g_win',message0:'win the game'},'game_blocks'),
-    S_({type:'g_sound',message0:'play sound %1',args0:[{type:'field_dropdown',name:'SND',options:[['coin','coin'],['jump','jump'],['boing','pad'],['checkpoint','check'],['victory','win'],['whoosh','boost'],['click','click'],['boom','explode'],['oof','die']]}]},'game_blocks'),
+    S_({type:'g_sound',message0:'play sound %1',args0:[{type:'field_dropdown',name:'SND',options:[['coin','coin'],['jump','jump'],['boing','pad'],['checkpoint','check'],['victory','win'],['whoosh','boost'],['click','click'],['boom','explode'],['oof','die'],['heartbeat','heart']]}]},'game_blocks'),
     S_({type:'g_sky',message0:'set sky color to %1',args0:[{type:'field_colour',name:'COLOUR',colour:'#1a1f3d'}]},'game_blocks'),
     S_({type:'g_callout',message0:'show big callout %1',args0:[{type:'input_value',name:'TEXT'}],tooltip:'A big bouncy message in the middle of the screen, like DOUBLE KO!'},'game_blocks'),
     S_({type:'g_music',message0:'play music %1',args0:[{type:'field_dropdown',name:'STYLE',options:[['battle','battle'],['party','party'],['obby','obby'],['race','race'],['spooky','horror'],['survival','survival'],['chill build','build'],['off','off']]}],tooltip:'Background music for this player. Choose off to stop it.'},'game_blocks'),
