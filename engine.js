@@ -4254,9 +4254,9 @@ function arsenalDef(){const G=GK;const p=G.proj('arsenal','Weapon Ladder',{sky:'
       G.iff(G.cmp(G.vget('vstk'),'EQ',G.num(3)),G.sound('win'),G.msg('⚡ 3 streak: SPEED!',1.5),blk('pl_speed',{V:bn(22)})),
       G.iff(G.cmp(G.vget('vstk'),'EQ',G.num(5)),G.sound('win'),G.msg('🛡️ 5 streak: 8 second SHIELD!',1.5),blk('pl_shield',{S:bn(8)}))),G.wait(.3))),[['last kos','vlk'],['streak','vstk'],...G.MV]);
   G.vars(G.script(p,'sss','Streak lost',blk('ev_died'),G.vset('vstk',G.num(0)),blk('pl_speed',{V:bn(16)})),[['streak','vstk']]);
-  // the rival bot climbs its own ladder: one step every 20 seconds and one each time you are knocked out
+  // the rival bot climbs its own ladder: one step every 24 seconds and one each time you are knocked out
   const RV='vrival',RVV=[['rival tier',RV],['bots',NB],['tier',TI],...G.MV];
-  G.vars(G.script(p,'sss','Rival ladder',G.onMsg('round start'),G.vset(RV,G.num(0)),G.wait(1),G.whileDo(G.AND(G.inMatch(),G.cmp(G.vget(RV),'LT',G.num(NAMES.length))),G.wait(20),
+  G.vars(G.script(p,'sss','Rival ladder',G.onMsg('round start'),G.vset(RV,G.num(0)),G.wait(1),G.whileDo(G.AND(G.inMatch(),G.cmp(G.vget(RV),'LT',G.num(NAMES.length))),G.wait(24),
     G.iff(G.AND(G.inMatch(),G.cmp(G.vget(NB),'GT',G.num(0))),G.vchg(RV,1),G.iff(G.cmp(G.vget(RV),'EQ',G.num(NAMES.length-1)),G.sound('nope'),G.msg('⚠️ The rival bot has the Golden Knife! Hurry!',2.5)),
       G.iff(G.AND(G.cmp(G.vget(RV),'GTE',G.num(NAMES.length)),G.cmp(G.vget(TI),'LT',G.num(NAMES.length))),G.sound('die'),G.msg('Pixel (bot) finished the ladder first! Beat the rival next match.',4))))),RVV);
   G.vars(G.script(p,'sss','Rival gains',blk('ev_died'),G.iff(G.AND(G.inMatch(),G.AND(G.cmp(G.vget(NB),'GT',G.num(0)),G.cmp(G.vget(RV),'LT',G.num(NAMES.length)))),G.vchg(RV,1),
@@ -5262,7 +5262,7 @@ function juiceKO(r,force){if(!r)return;if(!force&&!juiceLocal())return;
   if(call)juiceCall(call);
   juiceFeed('<b>You</b> knocked out '+escH(botDisp(r.name||'a bot')));}
 function juiceCall(txt){const e=$('#jcall');if(!e)return;e.textContent=txt;e.classList.remove('on');void e.offsetWidth;e.classList.add('on');JU.callT=t;
-  const danger=/FLOOD|TSUNAMI|METEOR|TORNADO|VOLCANO|EARTHQUAKE|QUAKE|LIGHTNING|ACID|BLIZZARD|FIRE|STORM|SINKHOLE|WIND/.test(txt);
+  const danger=/FLOOD|TSUNAMI|METEOR|TORNADO|VOLCANO|EARTHQUAKE|QUAKE|LIGHTNING|ACID|BLIZZARD|FIRE|STORM|SINKHOLE|WIND|ALIEN/.test(txt);
   (danger?[392,330,262]:[880,1175,1568]).forEach((f,i)=>setTimeout(()=>beep(f,f*(danger?.98:1.01),danger?.16:.09,danger?'sawtooth':'square',.04),i*(danger?120:70)));
   e.classList.toggle('danger',danger);
   clearTimeout(JU.callTO);JU.callTO=setTimeout(()=>e.classList.remove('on'),1300);}
