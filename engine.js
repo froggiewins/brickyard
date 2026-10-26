@@ -3086,14 +3086,29 @@ function mazeDef(){const G=GK;const p=G.proj('maze','Maze Escape',{sky:'#b9c7d9'
     blk('p_glide',{PART:G.mnamed('ShiftWalls'),X:bn(0),Y:bn(-8.2),Z:bn(0),S:bn(1.2)}),blk('p_glide',{PART:G.mnamed('ShiftGates'),X:bn(0),Y:bn(8.2),Z:bn(0),S:bn(1.2)}),
     G.wait(28),G.sound('explode'),G.msg('🧱 The walls are shifting back!',2),
     blk('p_glide',{PART:G.mnamed('ShiftGates'),X:bn(0),Y:bn(-8.2),Z:bn(0),S:bn(1.2)}),blk('p_glide',{PART:G.mnamed('ShiftWalls'),X:bn(0),Y:bn(8.2),Z:bn(0),S:bn(1.2)})));
+  // second maze: the Hedge Maze, 300 studs east (a new layout every time you escape, the two mazes take turns)
+  {const MX=300,H=G.folder(p,'HedgeMaze').id;let sd=777;const r2=()=>{sd=(sd*16807)%2147483647;return sd/2147483647;};
+    const vis2=Array.from({length:n},()=>Array(n).fill(false)),R2=Array.from({length:n},()=>Array(n).fill(true)),D2=Array.from({length:n},()=>Array(n).fill(true));const st2=[[0,0]];vis2[0][0]=true;
+    while(st2.length){const [x,y]=st2[st2.length-1];const nb=[[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>[x+dx,y+dy,dx,dy]).filter(([a,b])=>a>=0&&b>=0&&a<n&&b<n&&!vis2[a][b]);
+      if(!nb.length){st2.pop();continue;}const [a,b,dx,dy]=nb[Math.floor(r2()*nb.length)];if(dx===1)R2[x][y]=false;if(dx===-1)R2[a][b]=false;if(dy===1)D2[x][y]=false;if(dy===-1)D2[a][b]=false;vis2[a][b]=true;st2.push([a,b]);}
+    const hw=(x,z,w,d)=>G.part(p,H,{name:'Hedge',pos:[r3(MX+x),4,r3(z)],size:[w,8,d],color:'#2e7d32',material:'Grass'});
+    G.part(p,H,{name:'Lawn',pos:[MX,-1,0],size:[130,2,130],color:'#7cb342',material:'Grass'});
+    hw(0,o,n*S+1,1);hw(0,-o,n*S+1,1);hw(o,0,1,n*S+1);hw(-o,0,1,n*S+1);
+    for(let x=0;x<n;x++)for(let y=0;y<n;y++){if(x<n-1&&R2[x][y])hw(o+(x+1)*S,o+y*S+S/2,1,S+1);if(y<n-1&&D2[x][y])hw(o+x*S+S/2,o+(y+1)*S,S+1,1);}
+    for(let i=0;i<8;i++){const cx=Math.floor(r2()*n),cy=Math.floor(r2()*n);G.part(p,H,{name:'Coin',pos:[MX+o+cx*S+S/2,2,o+cy*S+S/2],size:[2,2,2],behavior:'coin',color:'#ffd54f'});}
+    [[3,4],[8,2],[5,9]].forEach(([cx,cy])=>G.part(p,H,{name:'Fountain',shape:'cyl',pos:[r3(MX+o+cx*S+S/2),.8,r3(o+cy*S+S/2)],size:[4,1.6,4],color:'#90caf9',material:'Glass',transparency:.3,canCollide:false}));}
   G.spawnAt(p,o+S/2,.5,o+S/2,{size:[6,1,6]});
   const ex=G.part(p,'workspace',{name:'Exit',pos:[-o-S/2,.5,-o-S/2],size:[6,1,6],color:'#ffc93c',material:'Neon',canCollide:false});
   const C=[[o+S/2,o+S/2],[-o-S/2,o+S/2],[-o-S/2,-o-S/2],[o+S/2,-o-S/2]],CV='vcorner',ET='vesc';
   G.vars(G.script(p,ex.id,'Escape',blk('ev_touch'),G.sadd('Escapes',1),G.vset(ET,{block:{type:'s_timer'}}),G.sound('win'),G.msg(G.join('Escaped in ',G.vget(ET),' s! The exit moved to another corner...'),3),
     G.iff(G.OR(G.cmp(G.stat('Best Time'),'EQ',G.num(0)),G.cmp(G.vget(ET),'LT',G.stat('Best Time'))),G.sset('Best Time',G.vget(ET)),G.dset('maze_best',G.vget(ET))),
-    G.vchg(CV,1),G.iff(G.cmp(G.vget(CV),'GT',G.num(4)),G.vset(CV,G.num(1))),
-    ...C.map(([x,z],k)=>G.iff(G.cmp(G.vget(CV),'EQ',G.num(k+1)),blk('p_setpos',{PART:bme(),X:bn(r3(x)),Y:bn(.5),Z:bn(r3(z))}))),blk('g_reset_timer')),[['corner',CV],['escape time',ET]]);
-  G.vars(G.script(p,ex.id,'Start',blk('ev_start'),G.vset(CV,G.num(3))),[['corner',CV]]);
+    G.vchg(CV,1),G.iff(G.cmp(G.vget(CV),'GT',G.num(4)),G.vset(CV,G.num(1))),G.vset('vmz',G.arith('MINUS',G.num(300),G.vget('vmz'))),
+    ...C.map(([x,z],k)=>G.iff(G.cmp(G.vget(CV),'EQ',G.num(k+1)),blk('p_setpos',{PART:bme(),X:G.arith('ADD',G.num(r3(x)),G.vget('vmz')),Y:bn(.5),Z:bn(r3(z))}),
+      blk('pl_tpxyz',{X:G.arith('ADD',G.num(r3(C[(k+2)%4][0])),G.vget('vmz')),Y:bn(3),Z:bn(r3(C[(k+2)%4][1]))}))),
+    blk('p_setpos',{PART:G.pnamed('Minotaur'),X:G.vget('vmz'),Y:bn(3),Z:bn(0)}),G.ifElse(G.cmp(G.vget('vmz'),'EQ',G.num(300)),[G.msg('🌿 Next: the HEDGE MAZE!',2)],[G.msg('🧱 Next: the STONE MAZE!',2)]),blk('g_reset_timer')),[['corner',CV],['escape time',ET],['maze x','vmz']]);
+  G.vars(G.script(p,ex.id,'Start',blk('ev_start'),G.vset(CV,G.num(3)),G.vset('vmz',G.num(0))),[['corner',CV],['maze x','vmz']]);
+  G.vars(G.script(p,'sss','Respawn in maze',blk('ev_spawn'),G.wait(.05),G.iff(G.cmp(G.vget('vmz'),'EQ',G.num(300)),
+    ...C.map((c,k)=>G.iff(G.cmp(G.vget(CV),'EQ',G.num(k+1)),blk('pl_tpxyz',{X:bn(r3(C[(k+2)%4][0]+300)),Y:bn(3),Z:bn(r3(C[(k+2)%4][1]))}))))),[['corner',CV],['maze x','vmz']]);
   G.script(p,'sss','BestTime',blk('ev_data_loaded'),G.sset('Best Time',G.dget('maze_best',0)));
   for(let i=0;i<10;i++){const cx=Math.floor(rr()*n),cy=Math.floor(rr()*n);G.part(p,Mz.id,{name:'Coin',pos:[o+cx*S+S/2,2,o+cy*S+S/2],size:[2,2,2],behavior:'coin',color:'#ffd54f'});}
   const tr=G.part(p,Mz.id,{name:'Trap',pos:[o+6*S+S/2,1.4,o+6*S+S/2],size:[8,1,1],color:'#ff3b30',material:'Neon',behavior:'kill'});G.script(p,tr.id,'Spin',...SCR.spin(3).blocks.blocks);
@@ -4583,7 +4598,7 @@ const GAMES=[
   {id:'turbo',cat:'Race',name:'Turbo Track',tag:'Race · 3 tracks',desc:'Most laps in 2:30 wins on a sky racetrack with boost pads, a launcher and spinning sweepers. Beat your best lap too.',mode:'project',make:turboDef},
   {id:'sumo',cat:'Battle',name:'Sumo Smash',tag:'Party · 3 arenas',desc:'Last one on the ring wins! More and more sumos try to shove everyone off. Bonk them, and other players, with your bat.',mode:'project',make:sumoDef},
   {id:'colordrop',cat:'Party',name:'Color Drop',tag:'Party · 3 arenas',desc:'A color is called and every other tile vanishes. Everyone gets the same colors, rounds speed up, and the last one standing wins.',mode:'project',make:colorDropDef},
-  {id:'maze',cat:'Puzzle',name:'Maze Escape',tag:'Puzzle · endless',desc:'Escape the maze, and the exit moves to another corner. How many escapes, and how fast?',mode:'project',make:mazeDef},
+  {id:'maze',cat:'Puzzle',name:'Maze Escape',tag:'Puzzle · 2 mazes',desc:'Escape the maze, and the exit moves to another corner. How many escapes, and how fast?',mode:'project',make:mazeDef},
   {id:'targets',cat:'Battle',name:'Target Range',tag:'Aim · lobby matches',desc:'Most hits in 60 seconds wins. Moving targets, a fast golden target worth 3, and your record is saved.',mode:'project',make:targetsDef},
   {id:'cloudhop',cat:'Obby',name:'Cloud Hop',tag:'Obby · double jump',desc:'Double jump between clouds high in the sky. Grab the purple orb for a triple jump.',mode:'project',make:cloudHopDef},
   {id:'freezetag',cat:'Party',name:'Freeze Tag',tag:'Party · 3 maps',desc:'Most freezes wins! Runners flee from you; freeze them all before the level timer runs out to add a faster runner.',mode:'project',make:freezeTagDef},
@@ -7161,7 +7176,7 @@ const ago=ms=>{const s=(Date.now()-ms)/1000;if(s<60)return 'just now';if(s<3600)
 let delArm=null;
 document.addEventListener('click',e=>{const k=e.target.closest('#gameChips [data-cont]');if(k){const gm=GAMES.find(g=>g.id===k.dataset.cont);if(gm)startGame(gm.make?gm.make():gm);return;}});
 document.addEventListener('click',e=>{const c=e.target.closest('#gameChips [data-cat]');if(!c)return;GAME_CAT=c.dataset.cat;store.set('gameCat',GAME_CAT);renderCards();});
-const NEW_GAMES=new Set(['lavarise','zombies','turbo','colordrop','murder','arena','arsenal','sandbox','boss']);
+const NEW_GAMES=new Set(['lavarise','zombies','turbo','colordrop','murder','arena','arsenal','sandbox','boss','maze']);
 function renderBadges(){const g=$('#badgeGrid');if(!g)return;const got=BADGES.filter(b=>WALLET.badges.has(b[0])).length;
   g.innerHTML=BADGES.map(([id,ic,nm,ds,fn,r])=>`<span class="bdg${WALLET.badges.has(id)?' got':''}" data-bdg="${id}" title="${esc(ds)} · ${r} coins"><span class="bi">${ic}</span><span class="bn">${esc(nm)}</span></span>`).join('');
   $('#badgeNote').textContent=got+' of '+BADGES.length+' earned · hover for how to get each one';}
