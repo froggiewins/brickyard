@@ -4608,7 +4608,7 @@ const GAMES=[
     build:buildCoins,mode:'coins',limit:190,scene:{sky:0x9fd8ff,fogNear:180,fogFar:620},seed:21,objective:'Collect every coin'},
   {id:'sky',name:'Skyline Sprint',tag:'Race · 4 checkpoints',desc:'A speedrun course above the clouds. Hit speed pads to clear big gaps, dodge spinners, beat your best time.',
     build:buildSky,mode:'race',stageWord:'Checkpoint',scene:{sky:0x7fb8ff,fogNear:150,fogFar:560,ground:0x9fb4d6},seed:3,objective:'Cross the finish line'},
-  {id:'sandbox',name:'Free Build',tag:'Sandbox',desc:'Place, paint and delete bricks on a studded baseplate. Your build is saved in this browser for next time.',
+  {id:'sandbox',name:'Free Build',tag:'Sandbox · build challenges',desc:'Place, paint and delete bricks, stamp ready-made builds, and add jump pads, lava and checkpoints to make your own obby. Saved in this browser.',
     build:buildSandbox,mode:'build',scene:{sky:0xa7d8ff,fogNear:220,fogFar:800},seed:1,objective:'Tap or click to build'},
   {id:'towerhell',cat:'Obby',name:'Tower of Chaos',tag:'Obby · 14 random sections',desc:'A new random tower every round, the same for everyone. No checkpoints! Climb the highest before time runs out.',mode:'project',make:towerHellDef},
   {id:'murder',cat:'Party',name:'Whodunit',tag:'Party · 3 maps',desc:'One murderer with a knife, one sheriff with a gun, everyone else innocent. Bots fill the empty spots.',mode:'project',make:murderDef},
