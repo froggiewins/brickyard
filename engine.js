@@ -2225,7 +2225,10 @@ function handleTouch(p){
     case 'water': die('water');break;
     case 'check':
       if(d.stage>state.stage){state.stage=d.stage;W.checkpoint=new V3(p.pos.x,p.max.y+PH.y+.2,p.pos.z);
-        p.mesh.material=mat(0x9dffb8,{neon:true});SFX.check();toast((game.stageWord||'Checkpoint')+' '+d.stage+' reached','#9dffb8');
+        p.mesh.material=mat(0x9dffb8,{neon:true});SFX.check();
+        {let extra='',col='#9dffb8';if(game.mode==='race'&&!state.skipped){state.splits=state.splits||{};state.splits[d.stage]=state.time;const prev=(store.get('splits:'+game.id,{})||{})[d.stage];
+          if(prev!=null){const df=state.time-prev;extra=' · '+fmt(state.time)+' ('+(df<=0?'−':'+')+Math.abs(df).toFixed(1)+'s)';col=df<=0?'#7dffa8':'#ffb4b4';}else extra=' · '+fmt(state.time);}
+         toast((game.stageWord||'Checkpoint')+' '+d.stage+' reached'+extra,col);}
         try{burstAt(new V3(p.pos.x,p.max.y+1,p.pos.z),'#9dffb8');juicePop(new V3(p.pos.x,p.max.y,p.pos.z),'✓ '+d.stage,'big',1);JU.stageDeaths=0;skipBtnShow(false);}catch(e){}}
       break;
     case 'jump': if(P.padCool<=0){P.vel.y=d.power||100;P.padCool=.35;P.onGround=false;P.coyote=0;SFX.pad();}break;
@@ -5006,7 +5009,7 @@ function finish(){
   if(state.over)return;state.over=true;SFX.win();try{['#ffd54f','#ff5c8a','#5cc8ff','#7dffa8','#b388ff'].forEach((c,i)=>setTimeout(()=>burstAt(P.pos.clone().add(new V3((Math.random()-.5)*6,2+Math.random()*3,(Math.random()-.5)*6)),c),i*90));juiceCall(game.mode==='coins'?(state.coins>=state.total?'EVERY COIN!':'TIME!'):'FINISHED!');setTimeout(()=>{try{if(running&&!P.dead)playAnim('me',BD().dance,'auto',true);}catch(e){}},250);}catch(e){}if(!game.fromEditor){earnCoins(25,'finished!');questBump('finish',game.id,1);gainXP(40);}if(game.project)saveFlush(false,true);
   mpEmit('fin',{time:r3(state.time)});
   const bests=store.get('bests',{});let html='';
-  if(game.mode==='race'||game.mode==='project'){const prev=bests[game.id];const nb=!state.skipped&&(prev==null||state.time<prev);if(nb&&!game.fromEditor){bests[game.id]=state.time;store.set('bests',bests);ghostSave();}
+  if(game.mode==='race'||game.mode==='project'){const prev=bests[game.id];const nb=!state.skipped&&(prev==null||state.time<prev);if(nb&&!game.fromEditor){bests[game.id]=state.time;store.set('bests',bests);ghostSave();if(state.splits)store.set('splits:'+game.id,state.splits);}
     const stats=[...RT.stats].map(([k,v])=>esc(k)+' '+r3(v)).join(' · ');
     html=`<h2>${game.mode==='project'?'You win!':'Course complete!'}</h2><div class="big">${fmt(state.time)}</div><div class="sub">${game.fromEditor?'Playtest':nb?'<span class="badge">New best</span>':'Best '+fmt(prev)} · ${state.deaths} ${state.deaths===1?'fall':'falls'}${stats?' · '+stats:''}</div>`;}
   else if(game.mode==='coins'){const all=state.coins>=state.total;const prev=bests[game.id];
