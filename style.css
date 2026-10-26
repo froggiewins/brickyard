@@ -75,6 +75,7 @@ h2{font-family:var(--display);font-weight:400;font-size:24px;letter-spacing:.3px
 .quest .bar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .3s}
 .quest.done{border-color:var(--good)}.quest.done .bar i{background:var(--good)}.quest.done .qr{color:var(--good)}
 .qbonus{color:var(--muted);font-size:13px}
+.wnew{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 16px;margin-bottom:14px;font-size:14px}.wnew summary{cursor:pointer;list-style:none}.wnew summary::-webkit-details-marker{display:none}.wnew ul{margin:10px 0 2px;padding-left:4px;list-style:none;display:grid;gap:6px;color:var(--muted,#b8c2d6)}
 .evbanner{background:linear-gradient(90deg,#4a148c,#e65100);border-radius:12px;padding:12px 16px;font-size:14px;line-height:1.4}
 .badges{display:flex;flex-wrap:wrap;gap:8px}
 .bdg{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 12px 6px 8px;font-size:13px;font-weight:700;min-width:0}
