@@ -2249,6 +2249,7 @@ function handleTouch(p){
       break;
     case 'jump': if(P.padCool<=0){P.vel.y=d.power||100;P.padCool=.35;P.onGround=false;P.coyote=0;SFX.pad();}break;
     case 'speed': if(P.boost<1.6)SFX.boost();P.boost=d.boost||2.6;break;
+    case 'bcheck':{const cp=new V3(p.pos.x,p.max.y+PH.y+.2,p.pos.z);if(!W.checkpoint||W.checkpoint.distanceToSquared(cp)>1){W.checkpoint=cp;SFX.check();toast('🟩 Checkpoint saved!','#9dffb8',1.2);try{burstAt(new V3(p.pos.x,p.max.y+1,p.pos.z),'#9dffb8');}catch(e){}}break;}
     case 'magnet': if(!(d.cool>t)){d.cool=t+25;P.magnetUntil=t+8;SFX.boost();toast('🧲 COIN MAGNET for 8 seconds!','#f3b0ff',2);p.mesh.visible=false;setTimeout(()=>{if(!p.destroyed)p.mesh.visible=true;},25000);}break;
     case 'finish': finish();break;
   }
@@ -2256,7 +2257,7 @@ function handleTouch(p){
 
 /* ---------- builder (Free Build) ---------- */
 const B={tool:'build',size:2,color:'#e53935',ghost:null,clearArm:0,fin:0,undo:[]};
-const BFIN=[{},{neon:true},{transparency:.45},{metal:.7},{kind:'jump',neon:true,data:{power:95},col:'#22d3ee'},{kind:'kill',neon:true,col:'#ff5a1f'},{kind:'speed',neon:true,data:{boost:2.6},col:'#ffd400'}];
+const BFIN=[{},{neon:true},{transparency:.45},{metal:.7},{kind:'jump',neon:true,data:{power:95},col:'#22d3ee'},{kind:'kill',neon:true,col:'#ff5a1f'},{kind:'speed',neon:true,data:{boost:2.6},col:'#ffd400'},{kind:'bcheck',neon:true,col:'#3ddc84'}];
 const BCOLORS=['#e53935','#fb8c00','#fdd835','#7cb342','#00897b','#1e88e5','#5e35b1','#d81b60','#f5f5f5','#455a64','#6d4c41','#111418'];
 const raycaster=new THREE.Raycaster(),ndc=new THREE.Vector2();
 function pickAt(e,filter){const r=cv.getBoundingClientRect();ndc.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
