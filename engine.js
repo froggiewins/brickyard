@@ -1698,6 +1698,7 @@ function shootFrom(e,color,speed){
   if(P.model&&!P.rag){P.yaw=Math.atan2(-dir.x,-dir.z);P.model.rotation.y=P.yaw;}
   const m=new THREE.Mesh(SPH,mat(color||'#5cc8ff',{neon:true}));m.scale.setScalar(.7);m.position.copy(start);scene.add(m);
   const sp=Math.max(5,Math.min(600,speed||120));
+  try{juiceShake(.07);beep(sp>300?900:620,sp>300?300:240,.07,'square',.03);muzzleAt(start,color||'#5cc8ff');}catch(e){}
   W.projectiles.push({m,v:dir.multiplyScalar(sp),sp,life:3,tool:e,color:color||'#5cc8ff',home:tg?tg.r:null});SFX.boost();
   mpEmit('shot',{o:start.toArray().map(r3),v:W.projectiles[W.projectiles.length-1].v.toArray().map(r3),c:color||'#5cc8ff'});
 }
@@ -1705,6 +1706,8 @@ function pointInPart(p,v,r){
   if(p.obb){const c=Math.cos(p.yaw),sn=Math.sin(p.yaw),dx=v.x-p.pos.x,dz=v.z-p.pos.z;const lx=dx*c-dz*sn,lz=dx*sn+dz*c,ly=v.y-p.pos.y;
     return Math.abs(lx)<p.size.x/2+r&&Math.abs(lz)<p.size.z/2+r&&Math.abs(ly)<p.size.y/2+r;}
   return v.x>p.min.x-r&&v.x<p.max.x+r&&v.y>p.min.y-r&&v.y<p.max.y+r&&v.z>p.min.z-r&&v.z<p.max.z+r;}
+function muzzleAt(v,color){const o=new THREE.Object3D();o.position.copy(v);o.scale.setScalar(.4);o.updateMatrixWorld();
+  const e=new Emitter(Object.assign({},PPRESETS.sparkles,{shape:'spark',color0:color,color1:color,speed:6,spread:60,size0:.6,size1:0,lifeMin:.1,lifeMax:.2,rate:0}),{mesh:o,destroyed:true},scene);e.emit(7);W.emitters.push(e);}
 function burstAt(v,color){const o=new THREE.Object3D();o.position.copy(v);o.scale.setScalar(.6);o.updateMatrixWorld();
   const e=new Emitter(Object.assign({},PPRESETS.sparkles,{shape:'spark',color0:color,color1:color,speed:8,spread:180,size0:.9,size1:0,lifeMin:.25,lifeMax:.5,rate:0}),{mesh:o,destroyed:true},scene);e.emit(24);W.emitters.push(e);}
 function updateTools(dt){
