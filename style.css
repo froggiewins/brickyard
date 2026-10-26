@@ -132,7 +132,7 @@ button.card:hover{transform:translateY(-3px);border-color:var(--accent)}
 .an-key.sel{background:#fff;box-shadow:0 0 0 2px #ff5fa2}
 .an-head{position:absolute;top:0;bottom:0;width:2px;margin-left:7px;background:var(--sky);pointer-events:none}
 #emoteWrap{position:absolute;right:max(12px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 64px);display:flex;flex-direction:column;align-items:flex-end;gap:6px}
-#emoteBtn{height:32px;font-size:12px}
+#emoteBtn,#helpBtn{height:32px;font-size:12px}
 #emoteMenu{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;background:rgba(13,20,32,.88);border:1px solid var(--line);border-radius:12px;padding:6px;width:220px;max-height:50vh;overflow:auto}
 #emoteMenu button{font:inherit;font-size:12px;font-weight:700;color:var(--ink);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 6px;cursor:pointer;text-align:left}
 #emoteMenu button:hover{border-color:var(--sky)}

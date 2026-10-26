@@ -2210,7 +2210,7 @@ function logOut(msg,type){
 let game=null,running=false,paused=false,state={};
 const hud={name:$('#hudName'),timer:$('#hudTimer'),stat:$('#hudStat')};
 let toastT=0;
-function toast(s,color,dur){const el=$('#toast');el.textContent=botDisp(s);{const t0=String(s||'');el.classList.toggle('warn',/^(⚠|💣|😱|👑 THE|🌋|🌪|🌊)/u.test(t0)||/^BOOM/.test(t0));el.classList.toggle('gold',/^(🏆|👑 BOUNTY CLAIMED|YOU BEAT|RESCUED|GOLDEN)/u.test(t0));}el.style.color=color||'#fff';el.classList.add('show');toastT=dur||1.8;}
+function toast(s,color,dur){const el=$('#toast');el.textContent=botDisp(s);if(running&&game&&!game._help&&state&&state.time<10&&String(s).length>45){game._help=botDisp(s);const hb=$('#helpBtn');if(hb)hb.hidden=false;}{const t0=String(s||'');el.classList.toggle('warn',/^(⚠|💣|😱|👑 THE|🌋|🌪|🌊)/u.test(t0)||/^BOOM/.test(t0));el.classList.toggle('gold',/^(🏆|👑 BOUNTY CLAIMED|YOU BEAT|RESCUED|GOLDEN)/u.test(t0));}el.style.color=color||'#fff';el.classList.add('show');toastT=dur||1.8;}
 function setStat(s){hud.stat.hidden=!s;if(hud.stat.textContent!==s)hud.stat.textContent=s;}
 
 function handleTouch(p){
@@ -2486,7 +2486,7 @@ function arenaDef(){
   for(const pf of ['Sword','Blaster']){const nodes=PREFABS.find(x=>x.name===pf).make({x:0,y:0,z:0});nodes.forEach(n=>{if(n.cls==='Tool')n.parent='pack';});N.push(...nodes);}
   [[-20,-55],[20,55],[55,-20]].forEach(([x,z])=>{const nodes=PREFABS.find(x=>x.name==='Training dummy').make({x,y:0,z});nodes[0].parent='workspace';N.push(...nodes);});
   const pot=PREFABS.find(x=>x.name==='Healing potion').make({x:0,y:3,z:-60});pot[0].parent='workspace';N.push(...pot);
-  N.find(n=>n.name==='Welcome').blocks=scriptOf(chain(blk('ev_start'),blk('g_stat_set',{N:bn(0)},{STAT:'KOs'}),blk('g_msg',{TEXT:bt('Matches last 2 minutes: whoever gets the most knockouts wins. Sword (1), blaster (2)!'),S:bn(4)})));
+  N.find(n=>n.name==='Welcome').blocks=scriptOf(chain(blk('ev_start'),blk('g_stat_set',{N:bn(0)},{STAT:'KOs'}),blk('g_msg',{TEXT:bt('Most knockouts in 2 minutes wins! Sword (1), blaster (2). Grab the power orb and the tower snipers, and knock out the 👑 bounty bot for 3.'),S:bn(4)})));
   arenaExtras(p);
   UIDDET=null;const def=projectDef(p,false);return Object.assign(def,{id:'arena',room:'arena',name:'Brick Battle'});
 }
@@ -4950,6 +4950,7 @@ $('#panel').addEventListener('click',e=>{const b=e.target.closest('[data-act]');
   else if(a==='mute'){muted=!muted;store.set('muted',muted);b.textContent=muted?'Off':'On';if(muted)musicStop();else if(MUSIC.on&&running){musicStart(game);musicDuck(true);}}
   else if(a==='music'){MUSIC.on=!MUSIC.on;store.set('musicOn',MUSIC.on);b.textContent=MUSIC.on?'On':'Off';if(!MUSIC.on)musicStop();else if(running){musicStart(game);musicDuck(true);}}});
 $('#btnPause').addEventListener('click',()=>paused?resume():pause());
+$('#helpBtn').addEventListener('click',()=>{if(game&&game._help)toast(game._help,'#fff',7);cv.focus({preventScroll:true});});
 $('#btnStop').addEventListener('click',()=>stopGame());
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&running&&!paused)pause();});
 
@@ -5182,7 +5183,7 @@ function juiceAssist(n){const now=t;JU.deaths=JU.deaths.filter(x=>now-x<180);con
 function skipBtnShow(on){const b=$('#skipBtn');if(b)b.hidden=!on;}
 function skipStage(){const next=state.stage+1;const cp=W.parts.find(p=>p.kind==='check'&&p.data&&p.data.stage===next&&!p.destroyed);skipBtnShow(false);JU.stageDeaths=0;
   if(!cp||P.dead)return;state.skipped=true;P.pos.set(cp.pos.x,cp.max.y+PH.y+.5,cp.pos.z);P.vel.set(0,0,0);toast('Skipped to stage '+next+'. You can do it!','#ffd75e',2);}
-function juiceReset(){{const q=$('#bq');if(q)q.hidden=true;}JU.stageDeaths=0;skipBtnShow(false);JU.bossOn=false;JU.bossR=null;{const b=$('#jboss');if(b)b.classList.remove('on');}JU.nums.forEach(n=>n.el.remove());JU.nums=[];JU.kos=[];JU.streak=0;JU.deaths=[];JU.shake=0;const f=$('#jfeed');if(f)f.textContent='';}
+function juiceReset(){{const hb=$('#helpBtn');if(hb)hb.hidden=true;}if(game)game._help=null;{const q=$('#bq');if(q)q.hidden=true;}JU.stageDeaths=0;skipBtnShow(false);JU.bossOn=false;JU.bossR=null;{const b=$('#jboss');if(b)b.classList.remove('on');}JU.nums.forEach(n=>n.el.remove());JU.nums=[];JU.kos=[];JU.streak=0;JU.deaths=[];JU.shake=0;const f=$('#jfeed');if(f)f.textContent='';}
 function loop(){
   requestAnimationFrame(loop);
   const dt=Math.min(clock.getDelta(),.05);
