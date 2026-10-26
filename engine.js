@@ -640,7 +640,8 @@ async function walletSync(){const be=walletBackend();if(be==='local'){WALLET.loa
       local.owned.forEach(id=>WALLET.owned.add(id));store.set('wallet',walletObj());}
     else if(WALLET.t)saveWrite('wallet',be,walletObj()).catch(()=>{});}catch(e){}
   WALLET.loaded=true;renderCoins();if(P.model&&!running)return;}
-function earnCoins(n,why){n=Math.floor(n);if(!(n>0)||(game&&game.fromEditor)||TESTCLIENT)return;WALLET.coins=Math.min(1e7,WALLET.coins+n);walletSave();
+function featuredId(){const pool=GAMES.filter(g=>g.id!=='sandbox');return pool[(hashStr('feat'+new Date().toISOString().slice(0,10))>>>0)%pool.length].id;}
+function earnCoins(n,why){n=Math.floor(n);if(!(n>0)||(game&&game.fromEditor)||TESTCLIENT)return;if(running&&game&&game.id===featuredId()){n*=2;why=(why?why+' · ':'')+'2× featured';}WALLET.coins=Math.min(1e7,WALLET.coins+n);walletSave();
   coinToast('+'+n+' coins'+(why?' · '+why:''));}
 function coinToast(t){let el=$('#coinToast');if(!el)return;el.textContent='🪙 '+t;el.classList.remove('show');void el.offsetWidth;el.classList.add('show');clearTimeout(coinToast._t);coinToast._t=setTimeout(()=>el.classList.remove('show'),2600);}
 const lvlOf=xp=>Math.floor(Math.sqrt((xp||0)/40))+1;
@@ -7187,7 +7188,7 @@ function renderCards(){
   const grid=$('#grid');grid.innerHTML='';const bests=store.get('bests',{});
   const chips=$('#gameChips');if(chips){const cats=['All',...new Set(GAMES.map(g=>g.cat))];chips.innerHTML=cats.map(c=>`<button type="button" class="chip" aria-pressed="${c===GAME_CAT}" data-cat="${c}">${c}${c==='All'?' ('+GAMES.length+')':''}</button>`).join('');
     const lg=GAMES.find(g=>g.id===store.get('lastGame',''));if(lg)chips.insertAdjacentHTML('afterbegin',`<button type="button" class="chip cont" data-cont="${lg.id}">▶ Play again: ${esc(lg.name)}</button>`);}
-  GAMES.filter(gm=>GAME_CAT==='All'||gm.cat===GAME_CAT).forEach(gm=>{const b=document.createElement('button');b.type='button';b.className='card';
+  const FEAT=featuredId();GAMES.filter(gm=>GAME_CAT==='All'||gm.cat===GAME_CAT).slice().sort((a,b)=>(b.id===FEAT)-(a.id===FEAT)).forEach(gm=>{const b=document.createElement('button');b.type='button';b.className='card'+(gm.id===FEAT?' feat':'');
     const bv=bests[gm.id];let best='';
     const lb=store.get('lbBest:'+gm.id,null);
     if(lb!=null&&gm.mode==='project'&&gm.cat!=='Obby')best=`Your best <b>${r3(lb)}</b>`;
@@ -7197,7 +7198,7 @@ function renderCards(){
     else if(gm.mode==='coins')best=bv?`Best <b>${bv.coins}</b> coins`:'No score yet';
     else{const n=(store.get('build',null)||[]).length;best=n?`<b>${n}</b> blocks saved`:'Fresh baseplate';}
     const qi=questsToday().findIndex(q=>q.g===gm.id),qS=questState();
-    b.innerHTML=`${NEW_GAMES.has(gm.id)?'<span class="newb">UPDATED</span>':''}${qi>=0&&!qS.c[qi]?'<span class="qdot">QUEST</span>':''}<canvas aria-hidden="true"></canvas><div class="body"><span class="tag">${gm.tag}</span><h3>${gm.name}</h3><p>${gm.desc}</p><div class="meta"><span class="best">${best}</span><span class="playpill">Play</span></div></div>`;
+    b.innerHTML=`${gm.id===featuredId()?'<span class="featb">⭐ 2× COINS TODAY</span>':NEW_GAMES.has(gm.id)?'<span class="newb">UPDATED</span>':''}${qi>=0&&!qS.c[qi]?'<span class="qdot">QUEST</span>':''}<canvas aria-hidden="true"></canvas><div class="body"><span class="tag">${gm.tag}</span><h3>${gm.name}</h3><p>${gm.desc}</p><div class="meta"><span class="best">${best}</span><span class="playpill">Play</span></div></div>`;
     (THUMBS[gm.id]||THUMBS_MORE[gm.id]||THUMBS.baseplate)(b.querySelector('canvas'));
     b.dataset.room=gm.id;b.onclick=()=>startGame(gm.make?gm.make():gm);grid.appendChild(b);});
   updateCardCounts();
