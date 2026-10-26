@@ -1010,6 +1010,8 @@ function respawn(){
   if(RT.spawn&&RT.spawn.length)setTimeout(()=>rtFire('spawn'),0);
   P.pos.copy(W.checkpoint||W.spawn);P.vel.set(0,0,0);P.dead=false;P.boost=0;P.onGround=false;P.ground=null;P.health=P.maxHealth;
   P.model.position.copy(P.pos);P.model.rotation.y=P.yaw;
+  P.shieldUntil=Math.max(P.shieldUntil||0,t+1.5);
+  if(coarse)setTimeout(()=>{try{if(running&&!P.dead&&!P.equipped&&P.backpack.length)equipTool(P.backpack[0]);}catch(e){}},400);
 }
 function die(kind){
   if(P.dead||state.over)return;
