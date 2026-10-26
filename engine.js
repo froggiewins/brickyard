@@ -3304,6 +3304,19 @@ function bossDef(){const G=GK;const p=G.proj('boss','Boss Battle',{sky:'#2b1d3a'
   G.script(p,SD.id,'Bite',blk('ev_touch'),blk('pl_damage',{N:bn(30)}),blk('pl_knock',{WHO:bme(),P:bn(100)},{RAG:'TRUE'}),G.sound('explode'),G.wait(1.5));
   G.script(p,SD.id,'Dragon KO',blk('ev_rig_died'),G.sound('win'),G.msg('The Shadow Dragon fades away... for now. +5 coins',3),blk('pl_coins',{N:bn(5)}));
   G.script(p,FQ.id,'Queen KO',blk('ev_rig_died'),G.sound('win'),G.msg('The Frost Queen shattered! She will be back...',2.5),blk('pl_coins',{N:bn(3)}));
+  // level 7: MECHA BRICK. A giant robot with a spinning laser: jump over the beam!
+  const MBk=rigNode({name:'Mecha Brick',pos:[68,7.3,-68],scale:2.8,health:800,respawn:12,walkSpeed:6,colors:{head:'#b0bec5',torso:'#455a64',arms:'#90a4ae',legs:'#263238'}});p.nodes.push(MBk);
+  p.nodes.push(emitterNode({parent:MBk.id,name:'Sparks',rate:10,speed:5},'sparkles'));
+  G.vars(G.hscript(p,MBk.id,'Hunt',blk('ev_start'),G.forever(G.ifElse(G.cmp(G.vget(LV),'LT',G.num(7)),[blk('p_setpos',{PART:bme(),X:bn(68),Y:bn(7.3),Z:bn(-68)}),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('rig_walk',{PART:bme(),X:bn(68),Z:bn(-68)}),G.until(G.cmp(G.vget(LV),'GTE',G.num(7))),
+      blk('p_visible',{PART:bme()},{B:'TRUE'}),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(7.3),Z:bn(40)}),G.bc('mecha arrives')],[G.walkN(bme()),G.wait(.4)]))),VL);
+  G.script(p,'sss','Mecha msg',G.onMsg('mecha arrives'),G.sound('die'),G.msg('🤖 MECHA BRICK has powered on! JUMP over its spinning laser!',3));
+  const lz=G.part(p,'workspace',{name:'MechaLaser',pos:[0,-60,0],size:[44,.8,.8],color:'#ff1744',material:'Neon',canCollide:false,unbreakable:true});
+  G.vars(G.script(p,lz.id,'Sweep',blk('ev_start'),G.forever(G.ifElse(G.AND(G.cmp(G.vget(LV),'GTE',G.num(7)),G.cmp({block:{type:'s_rig_health',inputs:{PART:G.pnamed('Mecha Brick')}}},'GT',G.num(0))),
+      [blk('p_setpos',{PART:bme(),X:G.prop(G.pnamed('Mecha Brick'),'x'),Y:bn(1.3),Z:G.prop(G.pnamed('Mecha Brick'),'z')}),blk('p_rotate',{PART:bme(),DEG:bn(4)},{AXIS:'y'}),G.wait(.03)],
+      [blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-60),Z:bn(0)}),G.wait(.5)]))),VL);
+  G.script(p,lz.id,'Zap',blk('ev_touch'),blk('pl_damage',{N:bn(18)}),blk('pl_knock',{WHO:bme(),P:bn(70)},{RAG:'FALSE'}),G.sound('explode'),G.msg('ZAPPED by the laser! Jump over it!',1.2),G.wait(1));
+  G.script(p,MBk.id,'Stomp',blk('ev_touch'),blk('pl_damage',{N:bn(25)}),blk('pl_knock',{WHO:bme(),P:bn(90)},{RAG:'TRUE'}),G.sound('explode'),G.wait(1.5));
+  G.script(p,MBk.id,'Mecha KO',blk('ev_rig_died'),G.sound('win'),G.msg('MECHA BRICK short-circuited! +8 coins',3),blk('pl_coins',{N:bn(8)}));
   // from level 2 the King calls down fireballs: watch for the red circles on the floor
   for(let k=1;k<=5;k++){const fb=G.part(p,'workspace',{name:'Fireball'+k,shape:'ball',pos:[k*4,-60,0],size:[4,4,4],color:'#ff6d00',material:'Neon',canCollide:false,unbreakable:true});
     p.nodes.push(emitterNode({parent:fb.id,name:'Flames',rate:25,speed:4},'fire'));
@@ -3319,7 +3332,7 @@ function bossDef(){const G=GK;const p=G.proj('boss','Boss Battle',{sky:'#2b1d3a'
     G.until(G.OR(G.cmp({block:{type:'s_rig_health',inputs:{PART:bme()}}},'LTE',G.num(0)),G.cmp({block:{type:'s_rig_health',inputs:{PART:bme()}}},'GT',G.num(400)))),blk('rig_speed',{PART:bme(),N:bn(7)}),G.wait(1)));
   G.script(p,'sss','Enraged',G.onMsg('enraged'),G.sound('die'),blk('g_sky',null,{COLOUR:'#5a0f1e'}),G.msg('The Brick King is ENRAGED! He is faster now.',2.5));
   G.script(p,'sss','Calm',G.onMsg('boss down'),blk('g_sky',null,{COLOUR:'#2b1d3a'}),blk('pl_coins',{N:bn(5)}));
-  G.welcome(p,G.msg('Defeat the Brick King again and again, alone or with friends online. Sword (1), blaster (2), potion (3).',5));
+  G.welcome(p,G.msg('Defeat the Brick King again and again, alone or with friends online. New bosses join at levels 3, 5 and 7! Sword (1), blaster (2), potion (3).',5));
   G.spawnAt(p,0,.5,24);return G.def(p,'boss','Boss Battle');}
 
 /* ---------- bigger games ---------- */
@@ -4571,7 +4584,7 @@ const GAMES=[
   {id:'targets',cat:'Battle',name:'Target Range',tag:'Aim · lobby matches',desc:'Most hits in 60 seconds wins. Moving targets, a fast golden target worth 3, and your record is saved.',mode:'project',make:targetsDef},
   {id:'cloudhop',cat:'Obby',name:'Cloud Hop',tag:'Obby · double jump',desc:'Double jump between clouds high in the sky. Grab the purple orb for a triple jump.',mode:'project',make:cloudHopDef},
   {id:'freezetag',cat:'Party',name:'Freeze Tag',tag:'Party · 3 maps',desc:'Most freezes wins! Runners flee from you; freeze them all before the level timer runs out to add a faster runner.',mode:'project',make:freezeTagDef},
-  {id:'boss',cat:'Battle',name:'Boss Battle',tag:'Co-op · 3 bosses',desc:'Beat the giant Brick King again and again. Each level brings more minions.',mode:'project',make:bossDef}
+  {id:'boss',cat:'Battle',name:'Boss Battle',tag:'Co-op · 4 bosses',desc:'Beat the giant Brick King again and again. Each level brings more minions.',mode:'project',make:bossDef}
 ];
 GAMES.forEach(g=>{if(!g.cat)g.cat={arena:'Battle',tower:'Obby',coins:'Collect',sky:'Race',sandbox:'Build'}[g.id]||'Other';});
 let GAME_CAT=store.get('gameCat','All');
@@ -7145,7 +7158,7 @@ const ago=ms=>{const s=(Date.now()-ms)/1000;if(s<60)return 'just now';if(s<3600)
 let delArm=null;
 document.addEventListener('click',e=>{const k=e.target.closest('#gameChips [data-cont]');if(k){const gm=GAMES.find(g=>g.id===k.dataset.cont);if(gm)startGame(gm.make?gm.make():gm);return;}});
 document.addEventListener('click',e=>{const c=e.target.closest('#gameChips [data-cat]');if(!c)return;GAME_CAT=c.dataset.cat;store.set('gameCat',GAME_CAT);renderCards();});
-const NEW_GAMES=new Set(['lavarise','zombies','turbo','colordrop','murder','arena','arsenal','sandbox']);
+const NEW_GAMES=new Set(['lavarise','zombies','turbo','colordrop','murder','arena','arsenal','sandbox','boss']);
 function renderBadges(){const g=$('#badgeGrid');if(!g)return;const got=BADGES.filter(b=>WALLET.badges.has(b[0])).length;
   g.innerHTML=BADGES.map(([id,ic,nm,ds,fn,r])=>`<span class="bdg${WALLET.badges.has(id)?' got':''}" data-bdg="${id}" title="${esc(ds)} · ${r} coins"><span class="bi">${ic}</span><span class="bn">${esc(nm)}</span></span>`).join('');
   $('#badgeNote').textContent=got+' of '+BADGES.length+' earned · hover for how to get each one';}
