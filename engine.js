@@ -7228,7 +7228,7 @@ const THUMBS={
 };
 const ago=ms=>{const s=(Date.now()-ms)/1000;if(s<60)return 'just now';if(s<3600)return Math.floor(s/60)+' min ago';if(s<86400)return Math.floor(s/3600)+' h ago';return Math.floor(s/86400)+' d ago';};
 let delArm=null;
-document.addEventListener('click',e=>{const k=e.target.closest('#gameChips [data-cont]');if(k){const gm=GAMES.find(g=>g.id===k.dataset.cont);if(gm)startGame(gm.make?gm.make():gm);return;}});
+document.addEventListener('click',e=>{const k=e.target.closest('#gameChips [data-cont]');if(k){const pool=GAMES.filter(g=>g.id!=='sandbox'&&g.id!==store.get('lastGame',''));const gm=k.dataset.cont==='__random'?pool[Math.floor(Math.random()*pool.length)]:GAMES.find(g=>g.id===k.dataset.cont);if(gm)startGame(gm.make?gm.make():gm);return;}});
 document.addEventListener('click',e=>{const c=e.target.closest('#gameChips [data-cat]');if(!c)return;GAME_CAT=c.dataset.cat;store.set('gameCat',GAME_CAT);renderCards();});
 const NEW_GAMES=new Set(['lavarise','zombies','turbo','colordrop','murder','arena','arsenal','sandbox','boss','maze']);
 function renderBadges(){const g=$('#badgeGrid');if(!g)return;const got=BADGES.filter(b=>WALLET.badges.has(b[0])).length;
@@ -7240,7 +7240,7 @@ function renderCards(){
   renderQuests();renderBadges();
   const grid=$('#grid');grid.innerHTML='';const bests=store.get('bests',{});
   const chips=$('#gameChips');if(chips){const cats=['All',...new Set(GAMES.map(g=>g.cat))];chips.innerHTML=cats.map(c=>`<button type="button" class="chip" aria-pressed="${c===GAME_CAT}" data-cat="${c}">${c}${c==='All'?' ('+GAMES.length+')':''}</button>`).join('');
-    const lg=GAMES.find(g=>g.id===store.get('lastGame',''));if(lg)chips.insertAdjacentHTML('afterbegin',`<button type="button" class="chip cont" data-cont="${lg.id}">▶ Play again: ${esc(lg.name)}</button>`);}
+    const lg=GAMES.find(g=>g.id===store.get('lastGame',''));chips.insertAdjacentHTML('afterbegin','<button type="button" class="chip rand" data-cont="__random">🎲 Random game</button>');if(lg)chips.insertAdjacentHTML('afterbegin',`<button type="button" class="chip cont" data-cont="${lg.id}">▶ Play again: ${esc(lg.name)}</button>`);}
   const FEAT=featuredId();GAMES.filter(gm=>GAME_CAT==='All'||gm.cat===GAME_CAT).slice().sort((a,b)=>(b.id===FEAT)-(a.id===FEAT)).forEach(gm=>{const b=document.createElement('button');b.type='button';b.className='card'+(gm.id===FEAT?' feat':'');
     const bv=bests[gm.id];let best='';
     const lb=store.get('lbBest:'+gm.id,null);
