@@ -41,13 +41,13 @@ function boomNoise(dur,freq,vol){if(muted)return;try{actx=actx||new (window.Audi
 /* ---------- background music: a small chiptune band (bass, chords, lead, drums), a different mood per kind of game ---------- */
 const MUSIC={on:store.get('musicOn',true),playing:false,timer:null,step:0,next:0,gain:null,style:null,rng:null,mel:[]};
 const MSTYLES={
-  battle:{bpm:138,minor:true,root:45,prog:[0,5,3,4],drums:'rock',lead:'square',bass:'saw',vol:.055},
-  party:{bpm:126,minor:false,root:48,prog:[0,4,5,3],drums:'bounce',lead:'square',bass:'square',vol:.05},
-  obby:{bpm:112,minor:false,root:50,prog:[0,3,4,0],drums:'light',lead:'triangle',bass:'triangle',vol:.05},
-  race:{bpm:152,minor:true,root:47,prog:[0,5,6,4],drums:'rock',lead:'square',bass:'saw',vol:.05},
-  horror:{bpm:72,minor:true,root:40,prog:[0,1,0,6],drums:'none',lead:'sine',bass:'sine',vol:.06},
-  survival:{bpm:120,minor:true,root:43,prog:[0,6,5,4],drums:'light',lead:'triangle',bass:'saw',vol:.05},
-  build:{bpm:96,minor:false,root:53,prog:[0,5,3,4],drums:'light',lead:'triangle',bass:'triangle',vol:.04}};
+  battle:{bpm:138,minor:true,root:45,prog:[0,5,3,4],drums:'rock',lead:'square',bass:'saw',vol:0.08},
+  party:{bpm:126,minor:false,root:48,prog:[0,4,5,3],drums:'bounce',lead:'square',bass:'square',vol:0.072},
+  obby:{bpm:112,minor:false,root:50,prog:[0,3,4,0],drums:'light',lead:'triangle',bass:'triangle',vol:0.072},
+  race:{bpm:152,minor:true,root:47,prog:[0,5,6,4],drums:'rock',lead:'square',bass:'saw',vol:0.072},
+  horror:{bpm:72,minor:true,root:40,prog:[0,1,0,6],drums:'none',lead:'sine',bass:'sine',vol:0.087},
+  survival:{bpm:120,minor:true,root:43,prog:[0,6,5,4],drums:'light',lead:'triangle',bass:'saw',vol:0.072},
+  build:{bpm:96,minor:false,root:53,prog:[0,5,3,4],drums:'light',lead:'triangle',bass:'triangle',vol:0.058}};
 function musicStyleFor(g){if(!g||g.fromEditor)return null;const id=g.id;const m=GAMES.find(x=>x.id===id);if(!m)return null;
   if(id==='doors'||id==='ghost'||id==='maze')return 'horror';if(id==='sandbox')return 'build';if(id==='sky'||id==='turbo')return 'race';
   const c=m.cat||({tower:'Obby',coins:'Collect',arena:'Battle'})[id]||'Party';
@@ -7329,5 +7329,5 @@ loop();
 if(TESTCLIENT){muted=true;MP.me={name:'Player 2',id:null};document.documentElement.classList.add('testclient');$('#menu').hidden=true;
   window.parent.postMessage({by2:1,k:'ready'},'*');}
 else{initMP();bootShared();}
-window.__by={MUSIC,JU,juiceKO,juiceRigHit,damageRig,makeRag,ragStep,SB,SAVE,findAnim,playAnim,BD,openAnim,AE,ACC,renderGuiEditor,showAccountModal,MP,arenaDef,packProject,unpackProject,standaloneHtml,get SHARED(){return SHARED},IDB,MESHCACHE,uploadMesh,finalizeMesh,get ecam(){return ecam},get tc(){return tc},cam,ED,W,RT,P,state:()=>state,startGame,openStudio,newProjectObj,saveProject,insert,select,doAct,openScript,playtest,stopGame,exportRbxlx,luaForScript,parseRbxlx,listProjects,GAMES,projectDef,running:()=>running,_t:{WALLET,earnCoins,LOBBY,lobbySkip,breakAt,OUT,equipTool,activateTool,AIM,aimRay,physics,keys,PH,PHYS,setPaused:v=>{paused=v;},handleTouch,get t(){return t}}};
+window.__by={MUSIC,musicStart,musicTick,setActx:a=>{actx=a;},JU,juiceKO,juiceRigHit,damageRig,makeRag,ragStep,SB,SAVE,findAnim,playAnim,BD,openAnim,AE,ACC,renderGuiEditor,showAccountModal,MP,arenaDef,packProject,unpackProject,standaloneHtml,get SHARED(){return SHARED},IDB,MESHCACHE,uploadMesh,finalizeMesh,get ecam(){return ecam},get tc(){return tc},cam,ED,W,RT,P,state:()=>state,startGame,openStudio,newProjectObj,saveProject,insert,select,doAct,openScript,playtest,stopGame,exportRbxlx,luaForScript,parseRbxlx,listProjects,GAMES,projectDef,running:()=>running,_t:{WALLET,earnCoins,LOBBY,lobbySkip,breakAt,OUT,equipTool,activateTool,AIM,aimRay,physics,keys,PH,PHYS,setPaused:v=>{paused=v;},handleTouch,get t(){return t}}};
 })();
