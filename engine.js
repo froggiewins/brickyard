@@ -1730,9 +1730,11 @@ function updateTools(dt){
   W.debris=W.debris.filter(d=>d.life>0);
   if(!P.dead&&P.health<P.maxHealth)P.health=Math.min(P.maxHealth,P.health+P.maxHealth*.01*dt);
 }
+const TOOL_EMOJI=[[/knife/i,'🔪'],[/sword|blade|saber/i,'🗡️'],[/rocket|launcher/i,'🚀'],[/sniper|rail/i,'🎯'],[/flame/i,'🔥'],[/scatter|shotgun/i,'💥'],[/snow/i,'❄️'],[/laser/i,'⚡'],[/blaster|gun|pistol|rapid/i,'🔫'],[/flash|lantern|torch/i,'🔦'],[/potion|heal|med/i,'🧪'],[/bat|hammer|bonk/i,'🏏'],[/smoke|bomb/i,'💨'],[/taunt/i,'😜'],[/sprint|boots|speed/i,'👟'],[/flare/i,'🎆'],[/parachute|chute/i,'🪂'],[/key/i,'🔑'],[/shield/i,'🛡️'],[/build|brick/i,'🧱']];
+function toolEmoji(n){for(const [r,e] of TOOL_EMOJI)if(r.test(n||''))return e;return '';}
 function renderHotbar(){
   const hb=$('#hotbar');if(!hb)return;hb.hidden=!P.backpack.length;
-  hb.innerHTML=P.backpack.map((e,i)=>`<button type="button" class="slot" data-slot="${i}" aria-pressed="${P.equipped===e}" title="${esc(e.node.tooltip||e.name)}"><span class="k">${i<9?i+1:''}</span><i style="background:${esc(e.color)}"></i><b>${esc(e.name)}</b></button>`).join('');
+  hb.innerHTML=P.backpack.map((e,i)=>`<button type="button" class="slot" data-slot="${i}" aria-pressed="${P.equipped===e}" title="${esc(e.node.tooltip||e.name)}"><span class="k">${i<9?i+1:''}</span><i style="background:${esc(e.color)}">${toolEmoji(e.name)}</i><b>${esc(e.name)}</b></button>`).join('');
   $('#useBtn').hidden=!(coarse&&P.equipped);$('#xhair').hidden=!(coarse&&P.equipped);
 }
 $('#hotbar').addEventListener('click',e=>{const b=e.target.closest('[data-slot]');if(!b)return;equipTool(P.backpack[+b.dataset.slot]);cv.focus({preventScroll:true});});
@@ -4193,7 +4195,7 @@ function arsenalDef(){const G=GK;const p=G.proj('arsenal','Weapon Ladder',{sky:'
   G.vars(G.script(p,'sss','Pick map',G.onMsg('round start'),G.vset(AOX,G.arith('MULTIPLY',G.rnd(0,2),G.num(300))),G.ifElse(G.cmp(G.vget(AOX),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#ffb74d'})],[G.ifElse(G.cmp(G.vget(AOX),'EQ',G.num(300)),[blk('g_sky',null,{COLOUR:'#b3e5fc'}),G.msg('Map: SNOW FORT',2)],[blk('g_sky',null,{COLOUR:'#ff8a65'}),G.msg('Map: ROOFTOPS',2)])]),
     blk('pl_tpxyz',{X:ox(G.rnd(-55,55)),Y:bn(4),Z:G.rnd(-55,55)})),AV);
   const TIERS=[['Blaster',25,.3,'#5cc8ff',230,0],['Rapid Blaster',12,.1,'#69f0ae',260,0],['Scatter Cannon',45,.8,'#ffab40',200,.6],['Flamethrower',9,.07,'#ff9100',95,.3],['Sniper',100,1.4,'#ea80fc',420,1.6],['Railgun',80,1.0,'#18ffff',600,1.8],['Rocket Launcher',70,1.2,'#ff5252',150,1]];
-  TIERS.forEach(([nm,dmg,cool,col,spd,len],i)=>gkGun(p,i===0?'pack':'rs',nm,{dmg,cool,color:col,speed:spd,len,tip:'Weapon '+(i+1)+' of '+(TIERS.length+1)}));
+  TIERS.forEach(([nm,dmg,cool,col,spd,len],i)=>gkGun(p,i===0?'pack':'rs',nm,{dmg,cool,color:col,speed:spd,len,body:['#37474f','#1b5e20','#e65100','#bf360c','#4a148c','#006064','#b71c1c'][i],tip:'Weapon '+(i+1)+' of '+(TIERS.length+1)}));
   gkMelee(p,'rs','Golden Knife',{dmg:100,cool:.4,color:'#ffd54f',mat:'Neon',tip:'Get one knockout with this to WIN'});
   const NAMES=TIERS.map(t=>t[0]).concat(['Golden Knife']);
   const TI='vtier',MV=G.matchFlags(p),VARS=[['tier',TI],...MV];
