@@ -2799,6 +2799,11 @@ function gemsDef(){const G=GK;const p=G.proj('gems','Gem Hunt',{sky:'#a6e3ff',ti
   G.script(p,'sss','Gem rush msg',G.onMsg('gem rush'),G.sound('check'),G.msg('💎 GEM RUSH! The last 18 seconds: every gem counts double!',3),G.vset('vrush',G.num(1)),G.wait(18),G.vset('vrush',G.num(0)));
   G.script(p,'sss','Rush bonus',blk('ev_start'),G.forever(G.vset('vgl',G.stat('Gems')),G.until(G.cmp(G.stat('Gems'),'NEQ',G.vget('vgl'))),G.iff(G.AND(G.cmp(G.vget('vrush'),'EQ',G.num(1)),G.cmp(G.stat('Gems'),'GT',G.vget('vgl'))),G.sadd('Gems',G.arith('MINUS',G.stat('Gems'),G.vget('vgl'))))));
   G.matchFlags(p);
+  // gem streak: grab gems quickly one after another for bonus gems
+  G.vars(G.script(p,'sss','Gem streak',blk('ev_start'),G.vset('vlg',G.num(0)),G.vset('vgc',G.num(0)),G.forever(
+    G.iff(G.cmp(G.stat('Gems'),'GT',G.vget('vlg')),G.ifElse(G.cmp(G.arith('MINUS',{block:{type:'s_timer'}},G.vget('vlgt')),'LT',G.num(2.5)),[G.vchg('vgc',1)],[G.vset('vgc',G.num(1))]),G.vset('vlgt',{block:{type:'s_timer'}}),
+      G.iff(G.OR(G.cmp(G.vget('vgc'),'EQ',G.num(5)),G.cmp(G.vget('vgc'),'EQ',G.num(10))),G.sadd('Gems',2),G.sound('check'),G.msg(G.join('💎 GEM STREAK x',G.vget('vgc'),'! +2 bonus'),1.2)),G.vset('vlg',G.stat('Gems'))),
+    G.iff(G.cmp(G.stat('Gems'),'LT',G.vget('vlg')),G.vset('vlg',G.stat('Gems'))),G.wait(.1))),[['last gems','vlg'],['gem streak','vgc'],['last gem time','vlgt']]);
   return G.def(p,'gems','Gem Hunt');}
 
 /* 5. Turbo Track */
