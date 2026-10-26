@@ -3003,7 +3003,10 @@ function targetsDef(){const G=GK;const p=G.proj('targets','Target Range',{sky:'#
   const ns=G.prefab(p,'Blaster');ns[0].parent='pack';
   const hp={block:{type:'tool_hitpart'},shadow:{type:'p_this'}};
   G.script(p,ns[0].id,'TargetHit',blk('ev_tool_hit'),G.iff(G.cmp({block:{type:'s_partname',inputs:{PART:hp}}},'EQ',{block:{type:'text',fields:{TEXT:'Target'}}}),
-    G.sadd('Score',1),G.sound('coin'),blk('pe_emit',{N:bn(25),PART:hp}),blk('p_setpos',{PART:hp,X:G.rnd(-40,40),Y:G.rnd(3,14),Z:G.rnd(-80,-25)})),
+    G.sadd('Score',1),G.sound('coin'),blk('pe_emit',{N:bn(25),PART:hp}),blk('p_setpos',{PART:hp,X:G.rnd(-40,40),Y:G.rnd(3,14),Z:G.rnd(-80,-25)}),
+    G.ifElse(G.cmp(G.arith('MINUS',{block:{type:'s_timer'}},G.vget('vlasthit')),'LT',G.num(1.8)),[G.vchg('vcombo',1)],[G.vset('vcombo',G.num(1))]),G.vset('vlasthit',{block:{type:'s_timer'}}),
+    G.iff(G.AND(G.cmp(G.vget('vcombo'),'GTE',G.num(3)),G.cmp(G.arith('MINUS',G.vget('vcombo'),G.arith('MULTIPLY',{block:{type:'math_round',fields:{OP:'ROUNDDOWN'},inputs:{NUM:G.arith('DIVIDE',G.vget('vcombo'),G.num(3))}}},G.num(3))),'EQ',G.num(0))),
+      G.sadd('Score',2),G.sound('check'),G.msg(G.join('🔥 COMBO x',G.vget('vcombo'),'! +2 bonus'),1))),
     G.iff(G.cmp({block:{type:'s_partname',inputs:{PART:hp}}},'EQ',{block:{type:'text',fields:{TEXT:'GoldTarget'}}}),G.sadd('Score',3),G.sound('win'),G.msg('Golden target! +3',1),blk('pe_emit',{N:bn(40),PART:hp}),blk('p_setpos',{PART:hp,X:G.rnd(-40,40),Y:G.rnd(6,16),Z:G.rnd(-85,-45)})),
     G.iff(G.cmp({block:{type:'s_partname',inputs:{PART:hp}}},'EQ',{block:{type:'text',fields:{TEXT:'Balloon'}}}),G.sadd('Score',2),G.sound('pad'),blk('pe_emit',{N:bn(20),PART:hp}),blk('p_setpos',{PART:hp,X:G.rnd(-40,40),Y:bn(-6),Z:G.rnd(-70,-30)})),
     G.iff(G.cmp({block:{type:'s_partname',inputs:{PART:hp}}},'EQ',{block:{type:'text',fields:{TEXT:'BombTarget'}}}),G.sadd('Score',-3),G.sound('explode'),G.msg('BOMB! -3. Do not shoot the black targets!',1.5),blk('p_setpos',{PART:hp,X:G.rnd(-40,40),Y:G.rnd(3,14),Z:G.rnd(-80,-30)})),
