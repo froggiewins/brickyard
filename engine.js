@@ -2256,7 +2256,7 @@ function handleTouch(p){
 
 /* ---------- builder (Free Build) ---------- */
 const B={tool:'build',size:2,color:'#e53935',ghost:null,clearArm:0,fin:0,undo:[]};
-const BFIN=[{},{neon:true},{transparency:.45},{metal:.7}];
+const BFIN=[{},{neon:true},{transparency:.45},{metal:.7},{kind:'jump',neon:true,data:{power:95},col:'#22d3ee'},{kind:'kill',neon:true,col:'#ff5a1f'},{kind:'speed',neon:true,data:{boost:2.6},col:'#ffd400'}];
 const BCOLORS=['#e53935','#fb8c00','#fdd835','#7cb342','#00897b','#1e88e5','#5e35b1','#d81b60','#f5f5f5','#455a64','#6d4c41','#111418'];
 const raycaster=new THREE.Raycaster(),ndc=new THREE.Vector2();
 function pickAt(e,filter){const r=cv.getBoundingClientRect();ndc.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
@@ -2268,7 +2268,7 @@ function canPlace(c,s){const h=s/2-.02;const mn=new V3(c.x-h,c.y-h,c.z-h),mx=new
   for(const p of W.solids){if(p.noCollide)continue;if(mn.x<p.max.x&&mx.x>p.min.x&&mn.y<p.max.y&&mx.y>p.min.y&&mn.z<p.max.z&&mx.z>p.min.z)return false;}
   if(mn.x<P.pos.x+PH.x&&mx.x>P.pos.x-PH.x&&mn.y<P.pos.y+PH.y&&mx.y>P.pos.y-PH.y&&mn.z<P.pos.z+PH.z&&mx.z>P.pos.z-PH.z)return false;
   return c.y>0&&Math.abs(c.x)<128&&Math.abs(c.z)<128;}
-function placeBrick(x,y,z,s,color,fin){fin=BFIN[fin]?+fin:0;const p=block(x,y,z,s,s,s,color,Object.assign({},BFIN[fin]));p.data.built=true;p.data.rec=[x,y,z,s,color,fin];return p;}
+function placeBrick(x,y,z,s,color,fin){fin=BFIN[fin]?+fin:0;const F=BFIN[fin],op=Object.assign({},F);delete op.col;if(F.data)op.data=Object.assign({},F.data);const p=block(x,y,z,s,s,s,F.col||color,op);p.data.built=true;p.data.rec=[x,y,z,s,color,fin];return p;}
 const STAMPS={
   tree:()=>{const o=[];for(let y=0;y<3;y++)o.push([0,y,0,'#6d4c41']);for(let x=-1;x<=1;x++)for(let z=-1;z<=1;z++)for(let y=3;y<5;y++)if(!(y===4&&Math.abs(x)+Math.abs(z)===2))o.push([x,y,z,'#2e7d32']);o.push([0,5,0,'#43a047']);return o;},
   house:()=>{const o=[];for(let x=-2;x<=2;x++)for(let z=-2;z<=2;z++)for(let y=0;y<3;y++){const edge=Math.abs(x)===2||Math.abs(z)===2;if(!edge)continue;if(z===2&&x===0&&y<2)continue;if(y===1&&(x===0||z===0)&&!(z===2))o.push([x,y,z,'#bbdefb',2]);else o.push([x,y,z,'#ef9a9a']);}
@@ -2305,7 +2305,7 @@ function buildQuest(){const el=$('#bq');if(!el)return;if(!game||game.mode!=='bui
   if(bs.length){let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;bs.forEach(p=>{m.h=Math.max(m.h,p.max.y);x0=Math.min(x0,p.min.x);x1=Math.max(x1,p.max.x);z0=Math.min(z0,p.min.z);z1=Math.max(z1,p.max.z);});m.w=Math.round(Math.max(x1-x0,z1-z0));m.h=Math.round(m.h);}
   while(i<BQ.length&&BQ[i][1](m)>=BQ[i][2]){i++;store.set('bqi',i);earnCoins(10,'build challenge');SFX.win();try{juiceCall('CHALLENGE DONE!');}catch(e){}}
   el.hidden=false;el.textContent=i>=BQ.length?'🏆 Every build challenge done! Keep building.':`🎯 Challenge ${i+1}/${BQ.length}: ${BQ[i][0]} (${Math.min(BQ[i][1](m),BQ[i][2])}/${BQ[i][2]}) · +10 🪙`;}
-function removePart(p){scene.remove(p.mesh);removeFrom(W.parts,p);removeFrom(W.solids,p);}
+function removePart(p){scene.remove(p.mesh);removeFrom(W.parts,p);removeFrom(W.solids,p);removeFrom(W.special,p);}
 function builderClick(e){
   const hit=pickAt(e);if(!hit)return;const part=hit.object.userData.part;
   if(MP.world&&B.tool!=='pick'){
