@@ -2670,7 +2670,7 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
     [G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[blk('rs_copy',{X:zox(G.rnd(78,82)),Y:bn(3),Z:G.rnd(-80,80)},{NAME:nm})],[blk('rs_copy',{X:zox(G.rnd(-82,-78)),Y:bn(3),Z:G.rnd(-80,80)},{NAME:nm})])]);
   const eq=(id,n)=>G.cmp(G.vget(id),'EQ',G.num(n));
   G.vars(G.hscript(p,'sss','Waves',blk('ev_start'),G.vset(WV,G.num(0)),G.vset(KG,G.num(0)),G.vset(RS,G.num(0)),G.vset(BR,G.num(0)),G.vset(ZOX,G.arith('MULTIPLY',G.rnd(0,1),G.num(300))),G.wait(.3),G.bc('zmap'),
-    G.msg('Zombies attack in waves: fast runners from wave 3 and a huge Brute every 5th wave. Team up online! Sword (1), blaster (2).',5),G.wait(5),
+    G.msg('Zombies attack in waves from every side: runners from wave 3, a Brute every 5th wave. Spend cash at the ARMORY between waves! Sword (1), blaster (2).',5),G.wait(5),
     G.forever(G.vchg(WV,1),G.msg(G.join('Wave ',G.vget(WV),'!'),2),G.sound('check'),
       G.vset(ZL,G.arith('ADD',G.arith('ADD',G.arith('MULTIPLY',G.vget(WV),G.num(3)),G.num(2)),G.arith('MULTIPLY',G.arith('MINUS',G.players(),G.num(1)),G.num(3)))),G.vset(SP,G.vget(ZL)),
       G.vchg(BR,1),G.iff(G.cmp(G.vget(BR),'GTE',G.num(5)),G.vset(BR,G.num(0)),G.vchg(ZL,1),edge('Brute'),G.msg('A BRUTE is coming! It hits hard: keep your distance.',3)),
@@ -2815,7 +2815,7 @@ function gemsDef(){const G=GK;const p=G.proj('gems','Gem Hunt',{sky:'#a6e3ff',ti
   const sg=guiNode('ScreenGui',{name:'HUD'});const lb=guiNode('TextLabel',{parent:sg.id,name:'GemLabel',text:'Gems: 0',gpos:[.5,0,0,104],anchor:[.5,0],gsize:[0,300,0,46],bg:'#7e57c2',bgT:.05,tc:'#ffffff',font:'Cartoon',ts:24,radius:23,strokeT:1.5,strokeTc:'#311b92'});p.nodes.push(sg,lb);
   G.script(p,lb.id,'Count',blk('ev_start'),G.forever(blk('gui_settext',{GUI:{shadow:{type:'gui_this'}},TEXT:G.join('💎 ',G.stat('Gems'))}),G.wait(.2)));
   G.script(p,'sss','Total',blk('ev_data_loaded'),G.sset('Total',G.dget('gems_total',0)));
-  G.welcome(p,G.sset('Gems',0),G.msg('Most gems in 90 seconds wins! The purple super crystal is worth 5.',4));
+  G.welcome(p,G.sset('Gems',0),G.msg('Most gems in 90 seconds wins! The purple super crystal is worth 5, and grabbing gems quickly builds a streak bonus.',4));
   G.script(p,'sss','Time up',G.onMsg('round end'),blk('data_change',{KEY:bt('gems_total'),N:G.stat('Gems')}),blk('g_stat_change',{N:G.stat('Gems')},{STAT:'Total'}));
   G.best(p,'Gems','gems_best_round');
   // treasure chest on top of the tower (use the jump pad!)
@@ -3145,7 +3145,7 @@ function targetsDef(){const G=GK;const p=G.proj('targets','Target Range',{sky:'#
     G.ifElse(G.cmp(G.vget('vtmode'),'EQ',G.num(2)),[blk('g_sky',null,{COLOUR:'#0b1026'}),G.msg('🌙 NIGHT SHIFT: the range is dark. Look for the glow!',3)],
       [G.ifElse(G.cmp(G.vget('vtmode'),'EQ',G.num(3)),[blk('g_sky',null,{COLOUR:'#ffe082'}),G.vset('vfrenzy',G.num(1)),G.msg('⚡ FRENZY MATCH: every target counts double all match!',3)],[blk('g_sky',null,{COLOUR:'#cfe8ff'})])])),[['frenzy','vfrenzy'],['mode','vtmode']]);
   G.script(p,'sss','Clock frenzy fix',G.onMsg('round end'),G.vset('vfrenzy',G.num(0)),blk('g_sky',null,{COLOUR:'#cfe8ff'}));
-  G.welcome(p,G.msg('Equip the blaster (1). Most hits in 60 seconds wins! Gold = 3, balloons = 2, the blue clock starts a FRENZY, and never shoot the black bombs.',5));
+  G.welcome(p,G.msg('Equip the blaster (1). Most hits in 60 seconds wins! Quick hits build combos. Gold = 3, balloons = 2, the blue clock starts a FRENZY, and never shoot the black bombs.',5));
   G.script(p,'sss','Time up',G.onMsg('round end'),G.msg(G.join('Time! You scored ',G.stat('Score'),'.'),3));
   G.best(p,'Score','targets_score');
   G.spawnAt(p,0,1.5,10,{size:[6,1,4]});
@@ -4354,7 +4354,7 @@ function hideSeekDef(){const G=GK;const p=G.proj('hideseek','Hide and Seek',{sky
   G.script(p,spr.id,'Go',blk('ev_tool_act'),G.sound('boost'),blk('pl_speed',{V:bn(30)}),G.wait(3),blk('pl_speed',{V:bn(16)}));
   G.vars(G.script(p,'sss','Give sprint',G.onMsg('seek'),blk('tool_take',null,{NAME:'Sprint'}),G.iff(amSeeker(),blk('tool_give',null,{NAME:'Sprint'}))),VARS);
   G.script(p,'sss','Take sprint',G.onMsg('round end'),blk('tool_take',null,{NAME:'Sprint'}));
-  G.welcome(p,G.sset('Score',0),G.msg('Hide and Seek: one seeker, everyone else hides. Bots join when players are short.',5));
+  G.welcome(p,G.sset('Score',0),G.msg('Hide and Seek: one seeker, everyone else hides. Bots join when players are short, and playing alone you take turns hiding and seeking.',5));
   return G.def(p,'hideseek','Hide and Seek');}
 
 /* 26. Panic Run: chasers chase everyone. Get downed, and a teammate can pick you up */
