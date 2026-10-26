@@ -2651,7 +2651,7 @@ function lavaRiseDef(){const G=GK;const p=G.proj('lavarise','Lava Rising',{sky:'
       G.msg('❄ Lava frozen for 6 seconds!',2),blk('p_color',{PART:G.pnamed('Lava')},{COLOUR:'#4dd0e1'}),G.wait(6),blk('p_color',{PART:G.pnamed('Lava')},{COLOUR:'#ff5a1f'}))),VL);});
   const reset=()=>[blk('p_setpos',{PART:G.pnamed('Lava'),X:bn(140),Y:bn(-3),Z:bn(0)}),G.vset(GR,G.num(5)),blk('p_visible',{PART:G.mnamed('IceCrystals')},{B:'TRUE'}),blk('p_transp',{PART:G.mnamed('IceCrystals')},{V:bn(0)})];
   G.vars(G.script(p,goal.id,'NextRound',blk('ev_touch'),G.bc('lava top')),VL);
-  G.vars(G.script(p,'sss','Round up',G.onMsg('lava top'),G.sadd('Round',1),G.sound('win'),blk('pl_coins',{N:bn(3)}),G.iff(G.cmp(G.stat('Round'),'EQ',G.num(3)),G.msg('Round 3: fire geysers start erupting from the pillar!',3),G.wait(3)),G.msg(G.join('Round ',G.stat('Round'),'! The lava gets faster...'),3),G.vchg('vtower',1),G.iff(G.cmp(G.vget('vtower'),'GT',G.num(2)),G.vset('vtower',G.num(0))),G.ifElse(G.cmp(G.vget('vtower'),'EQ',G.num(1)),[G.tp(144,4,26),G.msg('Now climb the SCAFFOLD!',2)],[G.ifElse(G.cmp(G.vget('vtower'),'EQ',G.num(2)),[G.tp(284,4,30),G.msg('Now climb the CRYSTAL SPIRE! Bouncy crystals ahead.',2.5)],[G.tp(4,4,26),G.msg('Back to the TOWER!',2)])]),...reset()),[...VL,['tower','vtower']]);
+  G.vars(G.script(p,'sss','Round up',G.onMsg('lava top'),G.sadd('Round',1),G.sound('win'),blk('g_callout',{TEXT:G.join('ROUND ',G.stat('Round'))}),blk('pl_coins',{N:bn(3)}),G.iff(G.cmp(G.stat('Round'),'EQ',G.num(3)),G.msg('Round 3: fire geysers start erupting from the pillar!',3),G.wait(3)),G.msg(G.join('Round ',G.stat('Round'),'! The lava gets faster...'),3),G.vchg('vtower',1),G.iff(G.cmp(G.vget('vtower'),'GT',G.num(2)),G.vset('vtower',G.num(0))),G.ifElse(G.cmp(G.vget('vtower'),'EQ',G.num(1)),[G.tp(144,4,26),G.msg('Now climb the SCAFFOLD!',2)],[G.ifElse(G.cmp(G.vget('vtower'),'EQ',G.num(2)),[G.tp(284,4,30),G.msg('Now climb the CRYSTAL SPIRE! Bouncy crystals ahead.',2.5)],[G.tp(4,4,26),G.msg('Back to the TOWER!',2)])]),...reset()),[...VL,['tower','vtower']]);
   G.vars(G.script(p,'sss','LavaGotYou',blk('ev_died'),G.msg(G.join('The lava got you on round ',G.stat('Round'),'. Back to round 1!'),3),G.sset('Round',1),G.vset('vtower',G.num(0)),...reset()),[...VL,['tower','vtower']]);
   G.welcome(p,G.sset('Round',1),G.sset('Height',0),G.msg('Reach the gold top, then climb again. The lava gets faster every round!',4),G.forever(G.sset('Height',G.ppos('y')),G.wait(.25)));
   G.best(p,'Round','lava_round');
@@ -2750,6 +2750,7 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
       [G.ifElse(G.cmp(G.vget('vsr'),'EQ',G.num(2)),[blk('tool_take',null,{NAME:'Scatter Gun'}),blk('tool_give',null,{NAME:'Scatter Gun'}),G.msg('SUPPLIES: a free Scatter Gun!',3)],[blk('pl_heal',{N:bn(500)}),G.sadd('Cash',100),G.msg('SUPPLIES: full heal and +100 cash!',3)])]))),[['supply open','vsupopen'],['supply roll','vsr']]);
   G.vars(G.hscript(p,'sss','Supply taken',blk('ev_start'),G.forever(G.until(G.cmp(G.vget('vsupopen'),'EQ',G.num(1))),G.vset('vsupopen',G.num(0)),blk('p_setpos',{PART:G.pnamed('SupplyCrate'),X:bn(0),Y:bn(-50),Z:bn(0)}))),[['supply open','vsupopen']]);
   G.script(p,'sss','Stomped',G.onMsg('king stomp'),blk('g_shake',null,{POW:'.7'}),G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('King')}}},'LT',G.num(30)),blk('pl_launch',{P:bn(55)}),blk('pl_damage',{N:bn(15)}),G.msg('The ground shakes!',1)));
+  G.vars(G.script(p,'sss','Wave callout',blk('ev_start'),G.vset('vwseen',G.num(0)),G.forever(G.until(G.cmp(G.vget(WV),'GT',G.vget('vwseen'))),G.vset('vwseen',G.vget(WV)),blk('g_callout',{TEXT:G.join('WAVE ',G.vget(WV))}))),[...ZV,['wave seen','vwseen']]);
   G.hud(p,'Horde','#33691e',G.join('🧟 Wave ',G.vget(WV),'  ·  ',G.vget(ZL),' zombies left  ·  💰 ',G.stat('Cash')));
   G.vars(G.script(p,'sss','Night falls',G.onMsg('wave cleared'),G.iff(G.cmp(G.vget(KG),'GT',G.num(0)),G.iff(G.cmp(G.vget(WV),'EQ',G.num(4)),blk('g_sky',null,{COLOUR:'#3c4656'}),G.msg('🌙 Night is falling... the zombies get bolder.',2.5)),
     G.iff(G.cmp(G.vget(WV),'EQ',G.num(7)),blk('g_sky',null,{COLOUR:'#232a38'})))),ZV);
@@ -3085,7 +3086,7 @@ function colorDropDef(){const G=GK;const p=G.proj('colordrop','Color Drop',{sky:
         G.vset(CO(k),G.num(1)),G.vchg(CBL,-1),blk('rig_fling',{PART:G.pnamed('Bot'+k),P:bn(40)}),G.msg(G.join('Bot'+k+' slipped off! ',G.vget(CBL),' bots left.'),2),
         G.wait(1.5),blk('p_visible',{PART:G.pnamed('Bot'+k)},{B:'FALSE'}),blk('p_setpos',{PART:G.pnamed('Bot'+k),X:bn(k*6),Y:bn(2.6),Z:bn(-200)}))),
       G.iff(G.AND(G.cmp(G.vget(NBC),'GT',G.num(0)),G.cmp(G.vget(CBL),'EQ',G.num(0))),G.vset(NBC,G.num(0)),G.bc('bots beaten')))),[...CBV,['rounds seen','vcrseen']]);
-  G.script(p,'sss','Beat the bots',G.onMsg('bots beaten'),G.iff(G.aliveIn(),G.sound('win'),G.sadd('Rounds',2),G.msg('🏆 You outlasted every bot! +10 coins. Keep going for a high score!',3.5),blk('pl_coins',{N:bn(10)})));
+  G.script(p,'sss','Beat the bots',G.onMsg('bots beaten'),G.iff(G.aliveIn(),G.sound('win'),blk('g_callout',{TEXT:G.txt('LAST ONE STANDING!')}),G.sadd('Rounds',2),G.msg('🏆 You outlasted every bot! +10 coins. Keep going for a high score!',3.5),blk('pl_coins',{N:bn(10)})));
   G.vars(G.script(p,'sss','Bots home',G.onMsg('round end'),...[1,2,3,4].map(k=>blk('p_setpos',{PART:G.pnamed('Bot'+k),X:bn(k*6),Y:bn(2.6),Z:bn(-200)}))),[]);
   G.welcome(p,G.msg('Rounds get faster the longer you survive! Outlast the bots.',2));
   return G.def(p,'colordrop','Color Drop');}
@@ -3315,7 +3316,7 @@ function bossDef(){const G=GK;const p=G.proj('boss','Boss Battle',{sky:'#2b1d3a'
   G.vars(G.hscript(p,B.id,'Minions',blk('ev_start'),G.vset(LV,G.num(1)),G.wait(10),G.forever(blk('rig_say',{PART:bme(),TEXT:bt('Minions, attack!'),S:bn(2)}),
     blk('controls_repeat_ext',{TIMES:G.arith('ADD',G.vget(LV),G.arith('MINUS',G.players(),G.num(1))),DO:doIn(blk('rs_copy',{X:bn(-30),Y:bn(2.6),Z:bn(-40)},{NAME:'Minion'}),blk('rs_copy',{X:bn(30),Y:bn(2.6),Z:bn(-40)},{NAME:'Minion'}),G.wait(.6))}),G.wait(14))),VL);
   G.vars(G.hscript(p,B.id,'Defeat',blk('ev_rig_died'),G.vchg(LV,1),G.bc('boss down')),VL);
-  G.vars(G.script(p,'sss','Victory',G.onMsg('boss down'),G.sound('win'),G.msg(G.join('The Brick King is down! Level ',G.vget(LV),': he returns in 6 seconds with more minions...'),4),blk('pl_heal',{N:bn(50)})),VL);
+  G.vars(G.script(p,'sss','Victory',G.onMsg('boss down'),G.sound('win'),blk('g_callout',{TEXT:G.txt('BOSS DOWN!')}),G.msg(G.join('The Brick King is down! Level ',G.vget(LV),': he returns in 6 seconds with more minions...'),4),blk('pl_heal',{N:bn(50)})),VL);
   const Mi=rigNode({name:'Minion',parent:'rs',pos:[0,2.6,0],scale:.8,health:30,respawn:0,walkSpeed:12,colors:{head:'#b39ddb',torso:'#4527a0',arms:'#b39ddb',legs:'#212121'}});p.nodes.push(Mi);
   G.hscript(p,Mi.id,'Chase',blk('ev_start'),G.forever(G.walkN(bme()),G.wait(.2)));
   G.script(p,Mi.id,'Bite',blk('ev_touch'),blk('pl_damage',{N:bn(6)}),G.wait(1));
@@ -4134,7 +4135,7 @@ function doorsDef(){const G=GK;const p=G.proj('doors','Haunted Hotel',{sky:'#070
   // elevator checkpoints at doors 10, 20 and 30
   [10,20,30].forEach(d=>{const z=-d*L-3;G.part(p,R,{name:'Elevator',pos:[0,.15,z-1],size:[8,.3,4],color:'#ffd54f',material:'Neon',canCollide:false,label:'⬆ SAVED'});});
   G.script(p,'sss','Elevator save',blk('ev_start'),G.vset('vsafe',G.num(0)),G.forever(G.iff(G.AND(G.cmp(G.stat('Door'),'GT',G.vget('vsafe')),G.OR(G.OR(G.cmp(G.stat('Door'),'EQ',G.num(10)),G.cmp(G.stat('Door'),'EQ',G.num(20))),G.cmp(G.stat('Door'),'EQ',G.num(30)))),
-    G.vset('vsafe',G.stat('Door')),G.sound('check'),G.msg(G.join('💾 Elevator checkpoint! If you get caught you come back to door ',G.vget('vsafe'),'.'),3)),G.wait(.3)));
+    G.vset('vsafe',G.stat('Door')),G.sound('check'),blk('g_callout',{TEXT:G.txt('SAVED!')}),G.msg(G.join('💾 Elevator checkpoint! If you get caught you come back to door ',G.vget('vsafe'),'.'),3)),G.wait(.3)));
   G.script(p,'sss','Back to elevator',blk('ev_spawn'),G.wait(.05),G.iff(G.cmp(G.vget('vsafe'),'GT',G.num(0)),blk('pl_tpxyz',{X:bn(0),Y:bn(3),Z:G.arith('MINUS',G.arith('MULTIPLY',G.vget('vsafe'),G.num(-L)),G.num(5))})));
   G.hud(p,'Hotel','#4e342e',G.join('🚪 Door ',G.stat('Door'),' / ',String(N),'   ·   💰 ',G.stat('Gold')));
   // THE WATCHER: eyes appear on the walls from room 20, then at door 25 it chases you through four rooms
@@ -4206,7 +4207,7 @@ function arsenalDef(){const G=GK;const p=G.proj('arsenal','Weapon Ladder',{sky:'
   G.vars(G.script(p,'sss','Gun game',G.onMsg('round start'),G.vset(TI,G.num(0)),...NAMES.map(n=>blk('tool_take',null,{NAME:n})),blk('tool_give',null,{NAME:'Blaster'}),
     G.whileDo(G.inMatch(),G.iff(G.AND(G.cmp(G.stat('KOs'),'GT',G.vget(TI)),G.cmp(G.vget(TI),'LT',G.num(NAMES.length))),G.vchg(TI,1),
       ...NAMES.map((n,k)=>G.iff(G.cmp(G.vget(TI),'EQ',G.num(k+1)),blk('tool_take',null,{NAME:n}))),
-      ...NAMES.map((n,k)=>G.iff(G.cmp(G.vget(TI),'EQ',G.num(k+1)),...(k+1<NAMES.length?[blk('tool_give',null,{NAME:NAMES[k+1]}),G.msg('New weapon: '+NAMES[k+1]+'! Press 1',1.6),G.sound('check')]:[]))),
+      ...NAMES.map((n,k)=>G.iff(G.cmp(G.vget(TI),'EQ',G.num(k+1)),...(k+1<NAMES.length?[blk('tool_give',null,{NAME:NAMES[k+1]}),G.msg('New weapon: '+NAMES[k+1]+'! Press 1',1.6),G.sound('check'),blk('g_callout',{TEXT:G.txt(k+1===NAMES.length-1?'GOLDEN KNIFE!':'WEAPON '+(k+2)+'!')})]:[]))),
       G.iff(G.cmp(G.vget(TI),'EQ',G.num(NAMES.length)),G.sset('KOs',99),G.sound('win'),G.msg('GOLDEN KNIFE KNOCKOUT! YOU WIN! +20 coins',5),blk('pl_coins',{N:bn(20)}))),G.wait(.2))),VARS);
   // medkits and jump pads around the map
   [[-40,0],[40,0],[0,-40],[0,40]].forEach(([x,z],i)=>{const mk=P({name:'Medkit'+i,pos:[x,1.2,z],size:[2,1.4,2],color:'#ef5350',material:'Neon',canCollide:false,label:'+'});
