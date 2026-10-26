@@ -1665,7 +1665,7 @@ function activateTool(){
   if(e.node.swing!==false)swingTool(e);
   e.handlers.act.forEach(h=>spawnRun(h.body,h));
 }
-function swingTool(e){e.swingT0=t;e.swingUntil=t+.35;e.hitSet=new Set();SFX.click();MP.swWall=Date.now();}
+function swingTool(e){e.swingT0=t;e.swingUntil=t+.35;e.hitSet=new Set();beep(520,170,.13,'triangle',.05);try{boomNoise(.12,2600,.05);}catch(_){}MP.swWall=Date.now();}
 function fireToolHit(e,p){if(!p||p.destroyed)return;if(p.rig){JU.lastLocal=t;JU.lastPart=p;}e.handlers.hit.forEach(h=>spawnRun(h.body,Object.assign({},h,{hit:p})));}
 /* aiming: shots go toward the tapped/clicked point (or the mouse, or the screen centre for the Use button),
    with gentle aim assist toward characters near that line, and bolts that curve a little toward them */
@@ -4965,7 +4965,7 @@ function lobbyTick(){
   {const canSpec=LOBBY.out&&LOBBY.inRound&&[...MP.remotes.values()].some(r=>!r.dead&&r.lb&&r.lb.r===LOBBY.idx&&!r.lb.o);const sb=$('#lobbySpec');if(sb&&sb.hidden===canSpec){sb.hidden=!canSpec;}if(!canSpec&&SPEC.on){SPEC.on=false;}
     if(sb){const t2=SPEC.on?'👁 Next player':'👁 Spectate';if(sb.textContent!==t2)sb.textContent=t2;}}
   if(key!==LOBBY.txt){LOBBY.txt=key;$('#lobbyTxt').textContent=txt;$('#lobbyGo').hidden=!canGo;$('#lobbyBar').classList.toggle('play',phase==='play'&&LOBBY.inRound&&!LOBBY.out);
-    if(LOBBY.sign)setPartLabel(LOBBY.sign,phase==='lobby'?'NEXT MATCH IN '+left:LOBBY.inRound&&!LOBBY.out?'MATCH ON':'NEXT MATCH IN '+(left+c.wait));}
+    if(LOBBY.sign)setPartLabel(LOBBY.sign,(game&&game.name?game.name.toUpperCase()+' · ':'')+(phase==='lobby'?'NEXT MATCH IN '+left:LOBBY.inRound&&!LOBBY.out?'MATCH ON':'NEXT MATCH IN '+(left+c.wait)));}
   if(phase==='lobby'&&left<=3&&left>=1&&LOBBY.cd!==LOBBY.idx+':'+left){LOBBY.cd=LOBBY.idx+':'+left;juiceCall(String(left));}
   if(LOBBY.resUntil&&t>LOBBY.resUntil){LOBBY.resUntil=0;$('#lobbyRes').hidden=true;}}
 function lobbySkip(){if(!LOBBY.on)return;const c=LOBBY.cfg,{per,ph}=lobbyPhase();LOBBY.off+=ph<c.wait?(c.wait-ph+.02):(per-ph+c.wait+.02);lobbyTick();}
