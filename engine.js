@@ -4530,6 +4530,7 @@ function planeCrashDef(){const G=GK;const p=G.proj('planecrash','Plane Crash',{s
         :[blk('pl_heal',{N:bn(50)}),G.sound('coin'),G.msg('Food! +50 health',2),blk('p_visible',{PART:bme()},{B:'FALSE'}),G.wait(30),blk('p_visible',{PART:bme()},{B:'TRUE'})]))),[...VARS,['flare','vflare']]);});
   G.welcome(p,G.sset('Points',0),G.msg('Plane Crash: grab a parachute, stay in your seat during turbulence, and survive the crash!',5));
   G.best(p,'Points','plane_best');
+  G.hud(p,'Altitude','#0277bd',G.join('✈ Altitude ',G.round(G.ppos('y')),' studs   ·   ⭐ ',G.stat('Points'),' points'));
   return G.def(p,'planecrash','Plane Crash');}
 
 const GAMES=[
@@ -7140,7 +7141,7 @@ const ago=ms=>{const s=(Date.now()-ms)/1000;if(s<60)return 'just now';if(s<3600)
 let delArm=null;
 document.addEventListener('click',e=>{const k=e.target.closest('#gameChips [data-cont]');if(k){const gm=GAMES.find(g=>g.id===k.dataset.cont);if(gm)startGame(gm.make?gm.make():gm);return;}});
 document.addEventListener('click',e=>{const c=e.target.closest('#gameChips [data-cat]');if(!c)return;GAME_CAT=c.dataset.cat;store.set('gameCat',GAME_CAT);renderCards();});
-const NEW_GAMES=new Set(['towerhell','murder','doors','arsenal','deathrun','hideseek','evade','planecrash']);
+const NEW_GAMES=new Set(['lavarise','zombies','turbo','colordrop','murder','arena','arsenal','sandbox']);
 function renderBadges(){const g=$('#badgeGrid');if(!g)return;const got=BADGES.filter(b=>WALLET.badges.has(b[0])).length;
   g.innerHTML=BADGES.map(([id,ic,nm,ds,fn,r])=>`<span class="bdg${WALLET.badges.has(id)?' got':''}" data-bdg="${id}" title="${esc(ds)} · ${r} coins"><span class="bi">${ic}</span><span class="bn">${esc(nm)}</span></span>`).join('');
   $('#badgeNote').textContent=got+' of '+BADGES.length+' earned · hover for how to get each one';}
@@ -7161,7 +7162,7 @@ function renderCards(){
     else if(gm.mode==='coins')best=bv?`Best <b>${bv.coins}</b> coins`:'No score yet';
     else{const n=(store.get('build',null)||[]).length;best=n?`<b>${n}</b> blocks saved`:'Fresh baseplate';}
     const qi=questsToday().findIndex(q=>q.g===gm.id),qS=questState();
-    b.innerHTML=`${NEW_GAMES.has(gm.id)?'<span class="newb">NEW</span>':''}${qi>=0&&!qS.c[qi]?'<span class="qdot">QUEST</span>':''}<canvas aria-hidden="true"></canvas><div class="body"><span class="tag">${gm.tag}</span><h3>${gm.name}</h3><p>${gm.desc}</p><div class="meta"><span class="best">${best}</span><span class="playpill">Play</span></div></div>`;
+    b.innerHTML=`${NEW_GAMES.has(gm.id)?'<span class="newb">UPDATED</span>':''}${qi>=0&&!qS.c[qi]?'<span class="qdot">QUEST</span>':''}<canvas aria-hidden="true"></canvas><div class="body"><span class="tag">${gm.tag}</span><h3>${gm.name}</h3><p>${gm.desc}</p><div class="meta"><span class="best">${best}</span><span class="playpill">Play</span></div></div>`;
     (THUMBS[gm.id]||THUMBS_MORE[gm.id]||THUMBS.baseplate)(b.querySelector('canvas'));
     b.dataset.room=gm.id;b.onclick=()=>startGame(gm.make?gm.make():gm);grid.appendChild(b);});
   updateCardCounts();
