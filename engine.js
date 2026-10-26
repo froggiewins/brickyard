@@ -4884,7 +4884,7 @@ function lobbyEnd(){const c=LOBBY.cfg;LOBBY.inRound=false;rtFire('msg','round en
     rows.sort((a,b)=>c.low?a.s-b.s:b.s-a.s);const best=rows[0].s,won=rows.length>0&&rows.find(r=>r.me).s===best&&(c.low||best>0);
     if(won&&rows.length>1){changeStat('Wins',1);questBump('win',game.id,1);gainXP(40);WALLET.wins=(WALLET.wins||0)+1;}questBump('match',game.id,1);gainXP(20);earnCoins(won&&rows.length>1?40:newPB?25:10,won&&rows.length>1?'you won!':newPB?'new personal best!':'match played');if(newPB&&pb!=null)setTimeout(()=>juiceCall('NEW BEST!'),400);
     $('#lobbyRes').innerHTML=`<h3>${won?(rows.length>1?'You win!':'Match over'):'Match over'}</h3><ol>${rows.slice(0,8).map((r,i)=>`<li class="${r.me?'me':''}"><span>${['🥇','🥈','🥉'][i]||(i+1)+'.'} ${esc(r.n)}</span><span>${r3(r.s)}</span></li>`).join('')}</ol><p class="sub">${newPB?'⭐ New personal best! ':pb!=null?'Your best: '+r3(pb)+' · ':''}${esc(c.score)} · next match soon</p>`;
-    $('#lobbyRes').hidden=false;LOBBY.resUntil=t+6;SFX[won?'win':'check']();}
+    $('#lobbyRes').hidden=false;LOBBY.resUntil=t+6;SFX[won?'win':'check']();if(won||newPB)setTimeout(()=>{try{if(running&&!P.dead)playAnim('me',BD()[won&&rows.length>1?'dance':'cheer'],'auto',true);}catch(e){}},900);}
   else{toast('Match over!','#ffd75e',2);questBump('match',game.id,1);earnCoins(10,'match played');}
   lobbyToLobby();MP.lastSent='';}
 function lobbyStop(){LOBBY.on=false;$('#lobbyBar').hidden=true;$('#lobbyRes').hidden=true;$('#game').classList.remove('haslobby');}
@@ -4918,7 +4918,7 @@ $('#btnStop').addEventListener('click',()=>stopGame());
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&running&&!paused)pause();});
 
 function finish(){
-  if(state.over)return;state.over=true;SFX.win();try{['#ffd54f','#ff5c8a','#5cc8ff','#7dffa8','#b388ff'].forEach((c,i)=>setTimeout(()=>burstAt(P.pos.clone().add(new V3((Math.random()-.5)*6,2+Math.random()*3,(Math.random()-.5)*6)),c),i*90));juiceCall(game.mode==='coins'?(state.coins>=state.total?'EVERY COIN!':'TIME!'):'FINISHED!');}catch(e){}if(!game.fromEditor){earnCoins(25,'finished!');questBump('finish',game.id,1);gainXP(40);}if(game.project)saveFlush(false,true);
+  if(state.over)return;state.over=true;SFX.win();try{['#ffd54f','#ff5c8a','#5cc8ff','#7dffa8','#b388ff'].forEach((c,i)=>setTimeout(()=>burstAt(P.pos.clone().add(new V3((Math.random()-.5)*6,2+Math.random()*3,(Math.random()-.5)*6)),c),i*90));juiceCall(game.mode==='coins'?(state.coins>=state.total?'EVERY COIN!':'TIME!'):'FINISHED!');setTimeout(()=>{try{if(running&&!P.dead)playAnim('me',BD().dance,'auto',true);}catch(e){}},250);}catch(e){}if(!game.fromEditor){earnCoins(25,'finished!');questBump('finish',game.id,1);gainXP(40);}if(game.project)saveFlush(false,true);
   mpEmit('fin',{time:r3(state.time)});
   const bests=store.get('bests',{});let html='';
   if(game.mode==='race'||game.mode==='project'){const prev=bests[game.id];const nb=!state.skipped&&(prev==null||state.time<prev);if(nb&&!game.fromEditor){bests[game.id]=state.time;store.set('bests',bests);ghostSave();}
