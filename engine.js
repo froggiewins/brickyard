@@ -950,7 +950,7 @@ function physics(dt,ix,iy,sprint){
   const preVy=P.vel.y;const was=P.onGround;P.onGround=false;P.ground=null;
   moveAxis(0,P.vel.x*dt,was);moveAxis(2,P.vel.z*dt,was);moveAxis(1,P.vel.y*dt,false);
   if(W.obbs.length)resolveOBB();
-  if(P.onGround){if(!was){P.landSpeed=Math.max(0,-preVy);if(P.landSpeed>75)juiceShake(Math.min(.6,(P.landSpeed-75)/120));if(P.chute)setChute(false);}if(!was&&P.airT>.25&&RT.land&&RT.land.length)rtFire('land');P.airT=0;}else P.airT=(P.airT||0)+dt;
+  if(P.onGround){if(!was){P.landSpeed=Math.max(0,-preVy);if(P.landSpeed>75)juiceShake(Math.min(.6,(P.landSpeed-75)/120));if(P.landSpeed>68&&P.model)try{burstAt(new V3(P.pos.x,P.pos.y-PH.y+.2,P.pos.z),'#d7ccc8');}catch(e){}if(P.chute)setChute(false);}if(!was&&P.airT>.25&&RT.land&&RT.land.length)rtFire('land');P.airT=0;}else P.airT=(P.airT||0)+dt;
 }
 function respawn(){
   P.debris.forEach(d=>scene.remove(d.m));P.debris=[];P.rag=null;
@@ -4942,7 +4942,7 @@ function update(dt){
     for(const p of W.special){if(p.active&&partOverlap(p,-.12)){handleTouch(p);if(P.dead||state.over)break;}}
     if(!P.dead)for(const s of W.spinners){tmp.copy(P.pos);s.pivot.worldToLocal(tmp);if(Math.abs(tmp.x)<s.len/2+.6&&Math.abs(tmp.z)<1.4&&Math.abs(tmp.y)<3){die('kill');break;}}
     if(!P.dead&&P.pos.y<W.killY)die('kill');
-    for(const c of W.coins){if(c.got)continue;if(c.mesh.position.distanceToSquared(P.pos)<10.5){c.got=true;c.pop=.3;state.coins++;SFX.coin();
+    for(const c of W.coins){if(c.got)continue;if(c.mesh.position.distanceToSquared(P.pos)<10.5){c.got=true;c.pop=.3;state.coins++;SFX.coin();try{juicePop(c.mesh.position.clone().add(new V3(0,-2,0)),'+1','big',.7);}catch(e){}
       if(game.mode==='project')changeStat('Coins',1);
       if(game.mode==='coins'&&state.coins>=state.total)finish();}}
     const m=P.model,u=m.userData;m.position.copy(P.pos);
@@ -4978,7 +4978,7 @@ function update(dt){
   if(game.project&&!state.over){scriptFrame();saveTick();lobbyTick();}
   if(MP.remotes.size)updateRemotes(dt);
   if(MP.gr&&(MP.sendT-=dt)<=0){MP.sendT=MP.p2p&&NETLIB&&NETLIB.kind==='supabase'?.1:.066;sendPresence();if((MP.plT=(MP.plT||0)-.066)<=0){MP.plT=1;if(MP.plistOpen)renderPlayerList();}}
-  if(game.project){const hp=Math.ceil(P.health);if(hp!==lastHp){lastHp=hp;$('#hpFill').style.width=(100*P.health/P.maxHealth)+'%';$('#hpFill').style.background=P.health/P.maxHealth>.5?'':P.health/P.maxHealth>.25?'var(--warn)':'var(--bad)';$('#hpTxt').textContent=hp;}}
+  if(game.project){const hp=Math.ceil(P.health);if(hp!==lastHp){lastHp=hp;$('#dmg').classList.toggle('low',!P.dead&&hp>0&&P.health/P.maxHealth<=.25);$('#hpFill').style.width=(100*P.health/P.maxHealth)+'%';$('#hpFill').style.background=P.health/P.maxHealth>.5?'':P.health/P.maxHealth>.25?'var(--warn)':'var(--bad)';$('#hpTxt').textContent=hp;}}
   rtTick();
 
   if(!state.over&&game.mode!=='build'&&game.mode!=='free')state.time+=dt;
