@@ -3979,6 +3979,10 @@ function murderDef(){const G=GK;const p=G.proj('murder','Whodunit',{sky:'#22253a
       G.sound('check'),G.msg('🔎 Clue: a witness saw Bot'+j+' far from the crime. Bot'+j+' is innocent!',3.5),G.wait(18))),G.wait(.5))),[...VARS,['clue','vclue']]);
   G.welcome(p,G.msg('Whodunit: find out who the murderer is before it is too late. Watch for clues! Bots fill the empty spots.',5));
   G.best(p,'Score','murder_score');
+  G.vars(G.script(p,'sss','Role label',G.onMsg('roles'),G.ifElse(eq(MU,G.myId()),[G.vset('vrole',G.txt('🔪 MURDERER'))],[G.ifElse(eq(SH,G.myId()),[G.vset('vrole',G.txt('🔫 SHERIFF'))],[G.vset('vrole',G.txt('😇 INNOCENT'))])]),
+    G.whileDo(G.inMatch(),G.iff(G.AND(eq(SH,G.myId()),G.NOT(eq(MU,G.myId()))),G.vset('vrole',G.txt('🔫 SHERIFF'))),G.wait(.5)),G.vset('vrole',G.txt('waiting for the next match'))),[...VARS,['role','vrole']]);
+  G.vars(G.script(p,'sss','Role start',blk('ev_start'),G.vset('vrole',G.txt('waiting for the next match'))),[['role','vrole']]);
+  G.hud(p,'Role','#37474f',G.join('You are ',G.vget('vrole'),'   ·   🪙 ',G.stat('Coins'),' / 8'));
   return G.def(p,'murder','Whodunit');}
 
 /* 22. Haunted Hotel: 40 rooms, locked doors with keys, and Dasher (hide in a wardrobe!) */
