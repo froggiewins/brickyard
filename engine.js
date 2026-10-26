@@ -2266,7 +2266,16 @@ function buildUndo(){if(MP.world){toast('Undo works in your own builds','#ff9aa4
 $('#bundo')&&$('#bundo').addEventListener('click',()=>{buildUndo();cv.focus({preventScroll:true});});
 $('#bfinish')&&$('#bfinish').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;B.fin=+b.dataset.fin;$('#bfinish').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));});
 addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='z'&&running&&game&&game.mode==='build'){e.preventDefault();buildUndo();}});
-function saveBuild(){if(MP.world){setStat(W.parts.filter(p=>p.data.built).length+' blocks');return;}store.set('build',W.parts.filter(p=>p.data.built).map(p=>p.data.rec));setStat(W.parts.filter(p=>p.data.built).length+' blocks');}
+function saveBuild(){if(MP.world){setStat(W.parts.filter(p=>p.data.built).length+' blocks');buildQuest();return;}store.set('build',W.parts.filter(p=>p.data.built).map(p=>p.data.rec));setStat(W.parts.filter(p=>p.data.built).length+' blocks');buildQuest();}
+/* build challenges in Free Build: small goals that pay coins, one after another */
+const BQ=[['Place 20 blocks',m=>m.n,20],['Build something 16 studs tall',m=>m.h,16],['Use 6 different colors',m=>m.c,6],['Use 3 finishes (neon, glass, metal…)',m=>m.f,3],
+  ['Build 30 studs tall',m=>m.h,30],['Make it 40 studs wide',m=>m.w,40],['Place 100 blocks',m=>m.n,100],['Build a sky tower 50 studs tall',m=>m.h,50],['Place 250 blocks',m=>m.n,250]];
+function buildQuest(){const el=$('#bq');if(!el)return;if(!game||game.mode!=='build'){el.hidden=true;return;}
+  let i=store.get('bqi',0);const bs=W.parts.filter(p=>p.data.built&&!p.destroyed);
+  const m={n:bs.length,h:0,c:new Set(bs.map(p=>p.data.rec&&p.data.rec[4])).size,f:new Set(bs.map(p=>p.data.rec&&p.data.rec[5]||0)).size,w:0};
+  if(bs.length){let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;bs.forEach(p=>{m.h=Math.max(m.h,p.max.y);x0=Math.min(x0,p.min.x);x1=Math.max(x1,p.max.x);z0=Math.min(z0,p.min.z);z1=Math.max(z1,p.max.z);});m.w=Math.round(Math.max(x1-x0,z1-z0));m.h=Math.round(m.h);}
+  while(i<BQ.length&&BQ[i][1](m)>=BQ[i][2]){i++;store.set('bqi',i);earnCoins(10,'build challenge');SFX.win();try{juiceCall('CHALLENGE DONE!');}catch(e){}}
+  el.hidden=false;el.textContent=i>=BQ.length?'🏆 Every build challenge done! Keep building.':`🎯 Challenge ${i+1}/${BQ.length}: ${BQ[i][0]} (${Math.min(BQ[i][1](m),BQ[i][2])}/${BQ[i][2]}) · +10 🪙`;}
 function removePart(p){scene.remove(p.mesh);removeFrom(W.parts,p);removeFrom(W.solids,p);}
 function builderClick(e){
   const hit=pickAt(e);if(!hit)return;const part=hit.object.userData.part;
@@ -2455,7 +2464,7 @@ function buildSandbox(){
   if(!saved){saved=[];const cols=['#e53935','#fb8c00','#fdd835','#7cb342','#1e88e5'];
     for(let i=0;i<5;i++)for(let h=0;h<=i;h++)saved.push([12+i*2+1,h*2+1,-11,2,cols[i]]);
     for(let i=0;i<4;i++)saved.push([-15+i*4+2,2,-14,4,'#5e35b1']);}
-  saved.forEach(r=>placeBrick(r[0],r[1],r[2],r[3],r[4],r[5]));B.undo=[];
+  saved.forEach(r=>placeBrick(r[0],r[1],r[2],r[3],r[4],r[5]));B.undo=[];setTimeout(()=>{try{buildQuest();}catch(e){}},400);
   const gm=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.45,depthWrite:false});
   B.ghost=new THREE.Mesh(BOX,gm);B.ghost.visible=false;scene.add(B.ghost);
 }
@@ -4458,7 +4467,7 @@ function planeCrashDef(){const G=GK;const p=G.proj('planecrash','Plane Crash',{s
   G.vars(G.script(p,'sss','Hot wreck',blk('ev_start'),G.forever(G.iff(G.AND(G.aliveIn(),G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('WreckFire')}}},'LT',G.num(9))),blk('pl_damage',{N:bn(8)}),G.msg('Too hot! Move away from the fire.',1)),G.wait(.5))),VARS);
   // other passengers panic with you
   const PCOL=['#ef5350','#ab47bc','#26a69a','#ffa726','#8d6e63','#42a5f5'],LINES={turbulence:['Whoa!','Hold on!','I want my mom!','This is fine...','Seatbelts!','Eek!'],'engine fire':['FIRE!!','We are going down!','Is that normal?!','Mayday!','Not again...','AAAH!'],'door open':['JUMP!','Grab a parachute!','I am staying put!','Brace!','Go go go!','Bye!']};
-  for(let k=0;k<6;k++){const sx=k%2?4.5:-4.5,z=-26+(k+2)*5.2;const r=rigNode({name:'Passenger'+(k+1),pos:[sx,PY+3.2,z],scale:.9,health:999,respawn:0,walkSpeed:0,colors:{head:'#ffcc80',torso:PCOL[k],arms:'#ffcc80',legs:'#37474f'}});p.nodes.push(r);
+  for(let k=0;k<6;k++){const sx=k%2?4.5:-4.5,z=-26+(k+2)*5.2;const r=rigNode({name:'Passenger'+(k+1),showName:false,pos:[sx,PY+3.2,z],scale:.9,health:999,respawn:0,walkSpeed:0,colors:{head:'#ffcc80',torso:PCOL[k],arms:'#ffcc80',legs:'#37474f'}});p.nodes.push(r);
     Object.entries(LINES).forEach(([ev,ls])=>G.hscript(p,r.id,'Panic '+ev,G.onMsg(ev),G.wait(k*.4),blk('rig_say',{PART:bme(),TEXT:bt(ls[k]),S:bn(2.5)})));
     G.hscript(p,r.id,'Gone',G.onMsg('crash'),blk('p_visible',{PART:bme()},{B:'FALSE'}));G.hscript(p,r.id,'Back',G.onMsg('round start'),blk('p_visible',{PART:bme()},{B:'TRUE'}));}
   // supply crates on the island: food heals, and a flare brings the helicopter sooner
@@ -4893,7 +4902,7 @@ $('#btnStop').addEventListener('click',()=>stopGame());
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&running&&!paused)pause();});
 
 function finish(){
-  if(state.over)return;state.over=true;SFX.win();if(!game.fromEditor){earnCoins(25,'finished!');questBump('finish',game.id,1);gainXP(40);}if(game.project)saveFlush(false,true);
+  if(state.over)return;state.over=true;SFX.win();try{['#ffd54f','#ff5c8a','#5cc8ff','#7dffa8','#b388ff'].forEach((c,i)=>setTimeout(()=>burstAt(P.pos.clone().add(new V3((Math.random()-.5)*6,2+Math.random()*3,(Math.random()-.5)*6)),c),i*90));juiceCall(game.mode==='coins'?(state.coins>=state.total?'EVERY COIN!':'TIME!'):'FINISHED!');}catch(e){}if(!game.fromEditor){earnCoins(25,'finished!');questBump('finish',game.id,1);gainXP(40);}if(game.project)saveFlush(false,true);
   mpEmit('fin',{time:r3(state.time)});
   const bests=store.get('bests',{});let html='';
   if(game.mode==='race'||game.mode==='project'){const prev=bests[game.id];const nb=!state.skipped&&(prev==null||state.time<prev);if(nb&&!game.fromEditor){bests[game.id]=state.time;store.set('bests',bests);ghostSave();}
@@ -5121,7 +5130,7 @@ function juiceAssist(n){const now=t;JU.deaths=JU.deaths.filter(x=>now-x<180);con
 function skipBtnShow(on){const b=$('#skipBtn');if(b)b.hidden=!on;}
 function skipStage(){const next=state.stage+1;const cp=W.parts.find(p=>p.kind==='check'&&p.data&&p.data.stage===next&&!p.destroyed);skipBtnShow(false);JU.stageDeaths=0;
   if(!cp||P.dead)return;state.skipped=true;P.pos.set(cp.pos.x,cp.max.y+PH.y+.5,cp.pos.z);P.vel.set(0,0,0);toast('Skipped to stage '+next+'. You can do it!','#ffd75e',2);}
-function juiceReset(){JU.stageDeaths=0;skipBtnShow(false);JU.bossOn=false;JU.bossR=null;{const b=$('#jboss');if(b)b.classList.remove('on');}JU.nums.forEach(n=>n.el.remove());JU.nums=[];JU.kos=[];JU.streak=0;JU.deaths=[];JU.shake=0;const f=$('#jfeed');if(f)f.textContent='';}
+function juiceReset(){{const q=$('#bq');if(q)q.hidden=true;}JU.stageDeaths=0;skipBtnShow(false);JU.bossOn=false;JU.bossR=null;{const b=$('#jboss');if(b)b.classList.remove('on');}JU.nums.forEach(n=>n.el.remove());JU.nums=[];JU.kos=[];JU.streak=0;JU.deaths=[];JU.shake=0;const f=$('#jfeed');if(f)f.textContent='';}
 function loop(){
   requestAnimationFrame(loop);
   const dt=Math.min(clock.getDelta(),.05);
