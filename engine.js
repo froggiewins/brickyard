@@ -62,7 +62,8 @@ function mDrum(t0,kind,dest){if(kind==='kick'){const o=actx.createOscillator(),g
   if(kind==='hat'){f.type='highpass';f.frequency.value=7000;g.gain.setValueAtTime(.25,t0);g.gain.exponentialRampToValueAtTime(.001,t0+.04);}
   else{f.type='bandpass';f.frequency.value=1800;g.gain.setValueAtTime(.55,t0);g.gain.exponentialRampToValueAtTime(.001,t0+.13);}
   s.connect(f);f.connect(g);g.connect(dest);s.start(t0);s.stop(t0+.2);}
-function musicStart(g){musicStop();const st=musicStyleFor(g);if(!st||!MUSIC.on||muted)return;
+function musicStartStyle(st){musicStart({id:'_custom_'+st},st);}
+function musicStart(g,force){musicStop();const st=force||musicStyleFor(g);if(!st||!MSTYLES[st]||!MUSIC.on||muted)return;
   try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume();}catch(e){return;}
   const S=MSTYLES[st];MUSIC.style=S;MUSIC.rng=mulberry(hashStr(g.id+'tune'));MUSIC.gain=actx.createGain();MUSIC.gain.gain.value=0;MUSIC.gain.connect(actx.destination);
   MUSIC.gain.gain.linearRampToValueAtTime(S.vol,actx.currentTime+1.5);
@@ -2121,6 +2122,9 @@ async function stmt(b,ctx){
     case 'pl_jump':PHYS.jump=Math.max(0,numv(inp(b,'V'),ctx));break;
     case 'pl_gravity':PHYS.gravity=Math.max(1,numv(inp(b,'V'),ctx));break;
     case 'pl_checkpoint':{const tp=topOf(partv(b,ctx));if(tp)W.checkpoint=new V3(tp.x,tp.y+PH.y+.2,tp.z);break;}
+    case 'g_callout':{const v=ev(inp(b,'TEXT'),ctx);try{juiceCall(String(v??'').slice(0,40));}catch(e){}break;}
+    case 'g_music':{const st=fld(b,'STYLE');if(st==='off')musicStop();else try{musicStartStyle(st);}catch(e){}break;}
+    case 'g_shake':{juiceShake(+fld(b,'POW')||.3);break;}
     case 'g_msg':{const v=ev(inp(b,'TEXT'),ctx);const tx=typeof v==='number'?String(r3(v)):String(v??''),sec=numv(inp(b,'S'),ctx)||2;toast(tx,'#fff',sec);if(ctx.host)mpEmit('bot',{t:'msg',x:tx.slice(0,200),s:sec,h:W.projHash});break;}
     case 'g_print':{const v=ev(inp(b,'TEXT'),ctx);logOut(typeof v==='number'?String(r3(v)):String(v??''),'info');break;}
     case 'g_stat_change':changeStat(fld(b,'STAT'),numv(inp(b,'N'),ctx),false);break;
@@ -6665,6 +6669,7 @@ function luaForScript(node,withLib){
     case 'pl_camera':L.notes.add('Camera settings belong in a LocalScript in Roblox; first person maps to StarterPlayer.CameraMode.');return l('-- set camera to '+fld(b,'MODE'));
     case 'pl_speed':return l(`BY.humanoid("WalkSpeed", ${V(b,'V','16')})`);case 'pl_jump':return l(`BY.humanoid("JumpPower", ${V(b,'V','50')})`);
     case 'pl_gravity':return l(`workspace.Gravity = ${V(b,'V','196.2')}`);case 'pl_checkpoint':return l(`BY.respawn(${Pt(b)})`);
+    case 'g_callout':return l(`BY.message(${V(b,'TEXT','""')}, 2)`);case 'g_music':return l('-- background music (Brickyard only)');case 'g_shake':return l('-- screen shake (Brickyard only)');
     case 'g_msg':return l(`BY.message(${V(b,'TEXT','""')}, ${V(b,'S','2')})`);case 'g_print':return l(`print(${V(b,'TEXT','""')})`);
     case 'g_stat_change':return l(`BY.stat(${luaStr(fld(b,'STAT'))}).Value += ${V(b,'N','1')}`);case 'g_stat_set':return l(`BY.stat(${luaStr(fld(b,'STAT'))}).Value = ${V(b,'N','0')}`);
     case 'g_win':return l('BY.message("You win!", 5)');
@@ -7050,6 +7055,9 @@ function defineBlocks(){
     S_({type:'g_win',message0:'win the game'},'game_blocks'),
     S_({type:'g_sound',message0:'play sound %1',args0:[{type:'field_dropdown',name:'SND',options:[['coin','coin'],['jump','jump'],['boing','pad'],['checkpoint','check'],['victory','win'],['whoosh','boost'],['click','click'],['boom','explode'],['oof','die']]}]},'game_blocks'),
     S_({type:'g_sky',message0:'set sky color to %1',args0:[{type:'field_colour',name:'COLOUR',colour:'#1a1f3d'}]},'game_blocks'),
+    S_({type:'g_callout',message0:'show big callout %1',args0:[{type:'input_value',name:'TEXT'}],tooltip:'A big bouncy message in the middle of the screen, like DOUBLE KO!'},'game_blocks'),
+    S_({type:'g_music',message0:'play music %1',args0:[{type:'field_dropdown',name:'STYLE',options:[['battle','battle'],['party','party'],['obby','obby'],['race','race'],['spooky','horror'],['survival','survival'],['chill build','build'],['off','off']]}],tooltip:'Background music for this player. Choose off to stop it.'},'game_blocks'),
+    S_({type:'g_shake',message0:'shake the screen %1',args0:[{type:'field_dropdown',name:'POW',options:[['a little','.3'],['a lot','.7'],['HUGE','1.1']]}],tooltip:'Shakes the camera, great for explosions.'},'game_blocks'),
     S_({type:'g_reset_timer',message0:'reset timer'},'game_blocks'),
     V_({type:'s_mouse_down',message0:'mouse down?',tooltip:'True while the player holds the left mouse button (or a finger) on the game.'},'Boolean','sense_blocks'),
     V_({type:'s_mouse_part',message0:'part under mouse',tooltip:'The part the mouse is pointing at, or nothing.'},'Part','sense_blocks'),
@@ -7103,7 +7111,7 @@ function defineBlocks(){
       K('rig_say',{PART:me(),TEXT:t_('Hello!'),S:n_(3)}),K('rig_ragdoll',{PART:me(),S:n_(3)}),K('rig_fling',{PART:me(),P:n_(80)}),K('rig_face',{PART:me()})]},
     {kind:'category',name:'Effects',categorystyle:'fx',contents:[K('pe_emit',{N:n_(30),PART:me()}),K('pe_toggle',{PART:me()})]},
     {kind:'category',name:'Storage',categorystyle:'storage',contents:[{kind:'label',text:'ReplicatedStorage'},K('rs_copy',{X:n_(0),Y:n_(20),Z:n_(0)}),K('rs_onto',{PART:me()}),K('rs_last')]},
-    {kind:'category',name:'Game',categorystyle:'game',contents:[K('g_msg',{TEXT:t_('Hello!'),S:n_(2)}),K('g_print',{TEXT:t_('Hello from my script')}),K('g_stat_change',{N:n_(1)}),K('g_stat_set',{N:n_(0)}),
+    {kind:'category',name:'Game',categorystyle:'game',contents:[K('g_msg',{TEXT:t_('Hello!'),S:n_(2)}),K('g_callout',{TEXT:t_('YOU WIN!')}),K('g_music'),K('g_shake'),K('g_print',{TEXT:t_('Hello from my script')}),K('g_stat_change',{N:n_(1)}),K('g_stat_set',{N:n_(0)}),
       K('g_win'),K('g_sound'),K('g_sky'),K('g_reset_timer')]},
     {kind:'category',name:'Sensing',categorystyle:'sensing',contents:[K('s_health'),K('s_players'),K('s_is_host'),K('s_touching',{PART:me()}),K('s_touch_count'),K('s_touch_name'),K('s_partname',{PART:me()}),K('s_key'),K('s_mouse_down'),K('s_mouse_part'),K('s_mouse_xy'),K('s_grounded'),K('s_distance',{PART:me()}),K('s_player'),K('s_prop',{PART:me()}),K('s_timer'),K('s_stat')]},
     {kind:'category',name:'Operators',categorystyle:'ops',contents:[K('math_number'),K('math_arithmetic',{A:n_(1),B:n_(1)}),K('math_random_int',{FROM:n_(1),TO:n_(10)}),K('math_round',{NUM:n_(3.1)}),
