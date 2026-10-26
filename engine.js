@@ -3733,7 +3733,7 @@ function bombTagDef(){const G=GK;const p=G.proj('bombtag','Bomb Tag',{sky:'#ffd9
         [G.iff(eq(VH,botId(k)),G.vset(VC,G.num(1)),G.shSet(VH,G.myId()),G.shSet(VB,G.num(0)),G.sound('pad'),G.wait(1.5),G.vset(VC,G.num(0)))]))),VARS);}
   G.vars(G.script(p,'player','Pass to a player',blk('ev_touch_player'),G.iff(G.AND(isMine(),eq(VC,0)),G.vset(VC,G.num(1)),G.shSet(VH,G.idOf({block:{type:'pl_touched'}})),G.shSet(VB,G.num(0)),
     G.sound('pad'),G.msg(G.join('Passed to ',G.nameOfP({block:{type:'pl_touched'}}),'!'),1.5),G.wait(1.5),G.vset(VC,G.num(0)))),VARS);
-  G.vars(G.script(p,'sss','You have it',blk('ev_start'),G.forever(G.until(isMine()),G.sound('check'),G.msg('YOU have the bomb! Tag someone before it blows!',2),G.until(G.NOT(isMine())))),VARS);
+  G.vars(G.script(p,'sss','You have it',blk('ev_start'),G.forever(G.until(isMine()),G.sound('check'),G.msg('💣 YOU have the bomb! Tag someone before it blows!',2),G.whileDo(isMine(),blk('g_shake',null,{POW:'.3'}),G.wait(.8)))),VARS);
   const bomb=G.part(p,'workspace',{name:'Bomb',shape:'ball',pos:[0,-50,0],size:[2.6,2.6,2.6],color:'#263238',material:'Metal',canCollide:false});
   p.nodes.push(emitterNode({parent:bomb.id,name:'Fuse',rate:20,speed:4},'fire'));
   p.nodes.push(emitterNode({parent:bomb.id,name:'Boom',enabled:false,speed:30,rate:80},'fire'));
