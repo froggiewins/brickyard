@@ -5020,6 +5020,7 @@ function pause(){if(!running||state.over)return;paused=true;keys.clear();jumpHel
   $('#panel').innerHTML=`<h2>Paused</h2><div class="btns"><button class="btn" data-act="resume">Resume</button>${restart}${back}</div>
   <div class="setrow"><span>Sound</span><button class="btn ghost" data-act="mute">${muted?'Off':'On'}</button></div>
   <div class="setrow"><span>Music</span><button class="btn ghost" data-act="music">${MUSIC.on?'On':'Off'}</button></div>
+  <div class="setrow"><span>Screen shake</span><button class="btn ghost" data-act="shake">${SHAKE_ON?'On':'Off'}</button></div>
   <div class="setrow"><label for="sens">Camera speed</label><input id="sens" type="range" min=".4" max="2.2" step=".1" value="${cam.sens}"></div>`;
   $('#overlay').hidden=false;
   $('#sens').oninput=e=>{cam.sens=+e.target.value;store.set('sens',cam.sens);};}
@@ -5027,6 +5028,7 @@ function resume(){paused=false;$('#overlay').hidden=true;musicDuck(false);cv.foc
 $('#panel').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;
   if(a==='resume')resume();else if(a==='restart')startGame(game);else if(a==='menu')stopGame();
   else if(a==='mute'){muted=!muted;store.set('muted',muted);b.textContent=muted?'Off':'On';if(muted)musicStop();else if(MUSIC.on&&running){musicStart(game);musicDuck(true);}}
+  else if(a==='shake'){SHAKE_ON=!SHAKE_ON;store.set('shakeOn',SHAKE_ON);b.textContent=SHAKE_ON?'On':'Off';}
   else if(a==='music'){MUSIC.on=!MUSIC.on;store.set('musicOn',MUSIC.on);b.textContent=MUSIC.on?'On':'Off';if(!MUSIC.on)musicStop();else if(running){musicStart(game);musicDuck(true);}}});
 $('#btnPause').addEventListener('click',()=>paused?resume():pause());
 $('#helpBtn').addEventListener('click',()=>{if(game&&game._help)toast(game._help,'#fff',7);cv.focus({preventScroll:true});});
@@ -5241,7 +5243,8 @@ function juicePop(p,txt,cls,life){if(!p)return;const box=$('#juice');if(!box||JU
 function juiceHitmark(kill){const e=$('#jhit');if(!e)return;e.classList.toggle('kill',!!kill);e.classList.add('on');requestAnimationFrame(()=>requestAnimationFrame(()=>e.classList.remove('on')));
   beep(kill?1500:1900,kill?600:1700,kill?.12:.035,'square',kill?.05:.03);}
 const REDUCED_MOTION=(()=>{try{return matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){return false;}})();
-function juiceShake(a){if(REDUCED_MOTION)return;JU.shake=Math.min(1.2,Math.max(JU.shake,a));}
+let SHAKE_ON=store.get('shakeOn',true);
+function juiceShake(a){if(REDUCED_MOTION||!SHAKE_ON)return;JU.shake=Math.min(1.2,Math.max(JU.shake,a));}
 function juiceLocal(){return t-JU.lastLocal<.25;}
 function juiceRigHit(r,n){if(!r||!(n>0))return;const local=juiceLocal();
   if(!local&&P.pos.distanceTo(r.pos)>60)return;
