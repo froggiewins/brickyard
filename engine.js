@@ -2271,6 +2271,10 @@ function canPlace(c,s){const h=s/2-.02;const mn=new V3(c.x-h,c.y-h,c.z-h),mx=new
   return c.y>0&&Math.abs(c.x)<128&&Math.abs(c.z)<128;}
 function placeBrick(x,y,z,s,color,fin){fin=BFIN[fin]?+fin:0;const F=BFIN[fin],op=Object.assign({},F);delete op.col;if(F.data)op.data=Object.assign({},F.data);const p=block(x,y,z,s,s,s,F.col||color,op);p.data.built=true;p.data.rec=[x,y,z,s,color,fin];return p;}
 const STAMPS={
+  obby:()=>{const o=[];const col=['#5c9dff','#9b6bff','#ff6bb5','#4fd1c5','#ffb84d'];o.push([0,0,0,'#3ddc84',7]);
+    for(let i=1;i<=5;i++)o.push([0,i>2?1:0,-i*2,col[i%5]]);for(let x=-1;x<=1;x++)o.push([x,1,-12,'#ff5a1f',5]);o.push([0,1,-14,'#9b6bff'],[0,1,-16,'#22d3ee',4]);
+    for(let i=0;i<3;i++)o.push([0,6+i,-19-i*2,col[i]]);for(let x=-1;x<=1;x++)for(let z=-1;z<=1;z++)o.push([x,9,-26+z,'#ffd54f',1]);return o;},
+  trampolines:()=>{const o=[];for(let x=-2;x<=2;x++)for(let z=-2;z<=2;z++)o.push([x,0,z,(x+z)%2?'#22d3ee':'#ff6bb5',(x+z)%2?4:1]);return o;},
   tree:()=>{const o=[];for(let y=0;y<3;y++)o.push([0,y,0,'#6d4c41']);for(let x=-1;x<=1;x++)for(let z=-1;z<=1;z++)for(let y=3;y<5;y++)if(!(y===4&&Math.abs(x)+Math.abs(z)===2))o.push([x,y,z,'#2e7d32']);o.push([0,5,0,'#43a047']);return o;},
   house:()=>{const o=[];for(let x=-2;x<=2;x++)for(let z=-2;z<=2;z++)for(let y=0;y<3;y++){const edge=Math.abs(x)===2||Math.abs(z)===2;if(!edge)continue;if(z===2&&x===0&&y<2)continue;if(y===1&&(x===0||z===0)&&!(z===2))o.push([x,y,z,'#bbdefb',2]);else o.push([x,y,z,'#ef9a9a']);}
     for(let x=-2;x<=2;x++)for(let z=-2;z<=2;z++)o.push([x,3,z,'#6d4c41']);for(let x=-1;x<=1;x++)for(let z=-1;z<=1;z++)o.push([x,4,z,'#5d4037']);o.push([0,5,0,'#4e342e']);return o;},
