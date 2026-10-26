@@ -202,6 +202,9 @@ kbd{font-family:var(--body);font-weight:800;font-size:12px;background:var(--pane
   letter-spacing:.3px;text-shadow:0 2px 0 rgba(0,0,0,.45);pointer-events:none;opacity:0;transition:opacity .25s,transform .25s;text-align:center;width:max-content;max-width:min(600px,88vw);
   background:rgba(10,14,30,.62);padding:9px 18px 10px;border-radius:16px;box-shadow:0 6px 22px rgba(0,0,0,.25);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
 #toast.show{opacity:1;transform:translateX(-50%)}
+#toast.warn{background:rgba(120,14,24,.78);box-shadow:0 0 0 2px rgba(255,90,90,.75),0 6px 22px rgba(0,0,0,.3)}#toast.warn.show{animation:twarn .5s ease-in-out 3}
+@keyframes twarn{50%{box-shadow:0 0 0 3px #ff5252,0 0 26px rgba(255,60,60,.7)}}
+#toast.gold{background:rgba(110,78,0,.8);box-shadow:0 0 0 2px #ffd54f,0 0 24px rgba(255,213,79,.45)}
 #game.haslobby #toast{top:calc(env(safe-area-inset-top,0px) + max(156px,28vh))}
 #lobbyBar{position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 60px);display:flex;gap:8px;align-items:center;
   background:rgba(10,16,28,.8);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:6px 8px 6px 14px;font-weight:800;font-size:14px;white-space:nowrap;max-width:calc(100vw - 24px);z-index:4}

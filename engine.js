@@ -2208,7 +2208,7 @@ function logOut(msg,type){
 let game=null,running=false,paused=false,state={};
 const hud={name:$('#hudName'),timer:$('#hudTimer'),stat:$('#hudStat')};
 let toastT=0;
-function toast(s,color,dur){const el=$('#toast');el.textContent=botDisp(s);el.style.color=color||'#fff';el.classList.add('show');toastT=dur||1.8;}
+function toast(s,color,dur){const el=$('#toast');el.textContent=botDisp(s);{const t0=String(s||'');el.classList.toggle('warn',/^(⚠|💣|😱|👑 THE|🌋|🌪|🌊)/u.test(t0)||/^BOOM/.test(t0));el.classList.toggle('gold',/^(🏆|👑 BOUNTY CLAIMED|YOU BEAT|RESCUED|GOLDEN)/u.test(t0));}el.style.color=color||'#fff';el.classList.add('show');toastT=dur||1.8;}
 function setStat(s){hud.stat.hidden=!s;if(hud.stat.textContent!==s)hud.stat.textContent=s;}
 
 function handleTouch(p){
@@ -7337,5 +7337,5 @@ loop();
 if(TESTCLIENT){muted=true;MP.me={name:'Player 2',id:null};document.documentElement.classList.add('testclient');$('#menu').hidden=true;
   window.parent.postMessage({by2:1,k:'ready'},'*');}
 else{initMP();bootShared();}
-window.__by={MUSIC,musicStart,musicTick,setActx:a=>{actx=a;},JU,juiceKO,juiceRigHit,damageRig,makeRag,ragStep,SB,SAVE,findAnim,playAnim,BD,openAnim,AE,ACC,renderGuiEditor,showAccountModal,MP,arenaDef,packProject,unpackProject,standaloneHtml,get SHARED(){return SHARED},IDB,MESHCACHE,uploadMesh,finalizeMesh,get ecam(){return ecam},get tc(){return tc},cam,ED,W,RT,P,state:()=>state,startGame,openStudio,newProjectObj,saveProject,insert,select,doAct,openScript,playtest,stopGame,exportRbxlx,luaForScript,parseRbxlx,listProjects,GAMES,projectDef,running:()=>running,_t:{WALLET,earnCoins,LOBBY,lobbySkip,breakAt,OUT,equipTool,activateTool,AIM,aimRay,physics,keys,PH,PHYS,setPaused:v=>{paused=v;},handleTouch,get t(){return t}}};
+window.__by={toast,MUSIC,musicStart,musicTick,setActx:a=>{actx=a;},JU,juiceKO,juiceRigHit,damageRig,makeRag,ragStep,SB,SAVE,findAnim,playAnim,BD,openAnim,AE,ACC,renderGuiEditor,showAccountModal,MP,arenaDef,packProject,unpackProject,standaloneHtml,get SHARED(){return SHARED},IDB,MESHCACHE,uploadMesh,finalizeMesh,get ecam(){return ecam},get tc(){return tc},cam,ED,W,RT,P,state:()=>state,startGame,openStudio,newProjectObj,saveProject,insert,select,doAct,openScript,playtest,stopGame,exportRbxlx,luaForScript,parseRbxlx,listProjects,GAMES,projectDef,running:()=>running,_t:{WALLET,earnCoins,LOBBY,lobbySkip,breakAt,OUT,equipTool,activateTool,AIM,aimRay,physics,keys,PH,PHYS,setPaused:v=>{paused=v;},handleTouch,get t(){return t}}};
 })();
