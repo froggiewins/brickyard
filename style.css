@@ -251,7 +251,9 @@ kbd{font-family:var(--body);font-weight:800;font-size:12px;background:var(--pane
 #buildbar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 56px);display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;
   background:rgba(10,16,28,.82);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:8px 10px;max-width:calc(100vw - 24px)}
 .coarse #buildbar{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 64px)}
-.seg{display:flex;gap:4px}
+.seg{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
+.coarse #buildbar{width:calc(100vw - 24px)}
+.coarse #bq{top:auto;bottom:calc(env(safe-area-inset-bottom,0px) + 178px)}
 .seg button{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-weight:800;font-size:13px;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--accent);color:#1a0e00;border-color:var(--accent)}
 #bcolors{display:flex;gap:4px;flex-wrap:wrap}
@@ -314,7 +316,9 @@ kbd{font-family:var(--body);font-weight:800;font-size:12px;background:var(--pane
 @keyframes jf{0%{opacity:0;transform:translateX(20px)}8%{opacity:1;transform:none}85%{opacity:1}100%{opacity:0}}
 @media (prefers-reduced-motion:reduce){#jcall,#jcall.on{transition:opacity .2s}#toast.warn.show{animation:none}#dmg.low{animation:none;opacity:.3}}
 @media (max-width:600px){#jcall{font-size:28px}.jnum{font-size:16px}
-  #lobbyBar{top:calc(env(safe-area-inset-top,0px) + 102px);font-size:12px;padding:5px 10px;max-width:92vw}
+  #lobbyBar{top:calc(env(safe-area-inset-top,0px) + 102px);font-size:12px;padding:5px 10px;max-width:calc(100vw - 72px);left:12px;transform:none}
+  .hlabel{display:none}#helpBtn{width:32px;padding:0}
+  #buildbar{gap:6px;padding:6px}#buildbar .seg button{padding:5px 7px;font-size:12px}
   #game .gui-root{top:46px}#game.haslobby .gui-root{top:50px}
   #toast{top:calc(env(safe-area-inset-top,0px) + max(150px,21vh));font-size:16px}
   #game.haslobby #toast{top:calc(env(safe-area-inset-top,0px) + max(196px,27vh))}

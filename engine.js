@@ -1600,9 +1600,10 @@ function styleGuiEl(el,n){
   el.style.left=`calc(${num(P[0],0)*100}% + ${num(P[1],0)}px)`;el.style.top=`calc(${num(P[2],0)*100}% + ${num(P[3],0)}px)`;
   el.style.width=`calc(${num(S[0],0)*100}% + ${num(S[1],0)}px)`;el.style.height=`calc(${num(S[2],0)*100}% + ${num(S[3],0)}px)`;
   el.style.transform=`translate(${-num(A[0],0)*100}%,${-num(A[1],0)*100}%)`;
+  el.style.maxWidth=(num(S[0],0)===0&&num(S[1],0)>200&&num(P[0],0)===.5&&num(A[0],0)===.5&&num(P[2],0)===0&&num(P[3],0)<170)?'calc(100vw - 96px)':'';
   el.style.background=hexA(n.bg,n.bgT);el.style.borderRadius=Math.max(0,num(n.radius,0))+'px';
   el.style.boxShadow=num(n.strokeW,0)>0?`inset 0 0 0 ${Math.min(20,num(n.strokeW,0))}px ${hexA(n.stroke,0)}`:'none';
-  el.style.color=hexA(n.tc,0);el.style.fontSize=Math.max(6,Math.min(120,num(n.ts,20)))+'px';el.style.fontFamily=GUI_FONTS[n.font]||GUI_FONTS.Body;
+  el.style.color=hexA(n.tc,0);el.style.fontSize=Math.max(6,Math.min(120,num(n.ts,20)*(el.style.maxWidth&&innerWidth<520?.82:1)))+'px';el.style.fontFamily=GUI_FONTS[n.font]||GUI_FONTS.Body;
   el.style.fontWeight=String(GUI_FONT_W[n.font]||700);
   const sw=Math.max(0,Math.min(12,num(n.strokeT,0)));el.style.webkitTextStroke=sw>0?`${sw*2}px ${hexA(n.strokeTc||'#000000',0)}`:'';el.style.paintOrder=sw>0?'stroke fill':'';
   el.style.textShadow=n.tshadow?`0 ${Math.max(2,Math.round(num(n.ts,20)/10))}px 0 rgba(0,0,0,.45)`:'';el.style.justifyContent=n.align==='left'?'flex-start':n.align==='right'?'flex-end':'center';el.style.textAlign=n.align||'center';
@@ -2763,7 +2764,7 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
   G.vars(G.hscript(p,'sss','Supply taken',blk('ev_start'),G.forever(G.until(G.cmp(G.vget('vsupopen'),'EQ',G.num(1))),G.vset('vsupopen',G.num(0)),blk('p_setpos',{PART:G.pnamed('SupplyCrate'),X:bn(0),Y:bn(-50),Z:bn(0)}))),[['supply open','vsupopen']]);
   G.script(p,'sss','Stomped',G.onMsg('king stomp'),blk('g_shake',null,{POW:'.7'}),G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('King')}}},'LT',G.num(30)),blk('pl_launch',{P:bn(55)}),blk('pl_damage',{N:bn(15)}),G.msg('The ground shakes!',1)));
   G.vars(G.script(p,'sss','Wave callout',blk('ev_start'),G.vset('vwseen',G.num(0)),G.forever(G.until(G.cmp(G.vget(WV),'GT',G.vget('vwseen'))),G.vset('vwseen',G.vget(WV)),blk('g_callout',{TEXT:G.join('WAVE ',G.vget(WV))}))),[...ZV,['wave seen','vwseen']]);
-  G.hud(p,'Horde','#33691e',G.join('🧟 Wave ',G.vget(WV),'  ·  ',G.vget(ZL),' zombies left  ·  💰 ',G.stat('Cash')));
+  G.hud(p,'Horde','#33691e',G.join('🧟 Wave ',G.vget(WV),' · ',G.vget(ZL),' left · 💰 ',G.stat('Cash')));
   G.vars(G.script(p,'sss','Night falls',G.onMsg('wave cleared'),G.iff(G.cmp(G.vget(KG),'GT',G.num(0)),G.iff(G.cmp(G.vget(WV),'EQ',G.num(4)),blk('g_sky',null,{COLOUR:'#3c4656'}),G.msg('🌙 Night is falling... the zombies get bolder.',2.5)),
     G.iff(G.cmp(G.vget(WV),'EQ',G.num(7)),blk('g_sky',null,{COLOUR:'#232a38'})))),ZV);
   G.welcome(p,G.sset('KOs',0),G.sset('Cash',0));
