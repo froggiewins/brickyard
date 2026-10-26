@@ -301,6 +301,27 @@ const W={parts:[],solids:[],obbs:[],special:[],coins:[],spinners:[],movers:[],fa
 const _box=new THREE.Box3();
 function disposeScene(){scene.traverse(o=>{if(o.geometry&&!o.geometry.userData.shared)o.geometry.dispose();
   if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{if(!m.userData.shared){if(m.map&&!(m.map.userData||{}).shared)m.map.dispose();m.dispose();}})}});}
+/* gradient sky dome with soft clouds by day and stars at night; fog matches the horizon */
+let skyDome=null;
+const SKY_VS='varying vec3 vD;void main(){vD=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}';
+const SKY_FS=`uniform vec3 top;uniform vec3 hor;uniform vec3 bot;uniform float cloud;uniform float stars;uniform float time;varying vec3 vD;
+float h21(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+float h31(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
+float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(h21(i),h21(i+vec2(1,0)),f.x),mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),f.x),f.y);}
+float fbm(vec2 p){float a=.5,s=0.;for(int i=0;i<4;i++){s+=a*vn(p);p*=2.03;a*=.5;}return s;}
+void main(){vec3 d=normalize(vD);float y=d.y;vec3 c;
+ if(y>0.0)c=mix(hor,top,pow(smoothstep(0.0,1.0,y),.55));else c=mix(hor,bot,smoothstep(0.0,0.3,-y));
+ if(cloud>0.0&&y>0.015){vec2 uv=d.xz/(y+.15)*1.3+vec2(time*.004,time*.0015);float n=fbm(uv);float m=smoothstep(.52,.78,n)*smoothstep(.015,.22,y);c=mix(c,mix(vec3(1.0),hor,.15),m*cloud*.8);}
+ if(stars>0.0&&y>0.0){vec3 q=d*260.0;vec3 id=floor(q);float r=h31(id);float s=step(.9965,r)*max(0.0,1.0-length(fract(q)-.5)*2.4);c+=vec3(stars*s*(.6+.4*sin(time*2.0+r*40.0)));}
+ gl_FragColor=vec4(c,1.0);}`;
+function makeSkyDome(){const m=new THREE.ShaderMaterial({vertexShader:SKY_VS,fragmentShader:SKY_FS,side:THREE.BackSide,depthWrite:false,depthTest:false,fog:false,
+  uniforms:{top:{value:new THREE.Color()},hor:{value:new THREE.Color()},bot:{value:new THREE.Color()},cloud:{value:0},stars:{value:0},time:{value:0}}});
+  const d=new THREE.Mesh(new THREE.SphereGeometry(1800,32,16),m);d.renderOrder=-10;d.frustumCulled=false;d.userData.sky=true;return d;}
+function setSkyColor(c){c=new THREE.Color(c);const lum=c.r*.3+c.g*.59+c.b*.11;const white=new THREE.Color(1,1,1);
+  const hor=lum>.3?c.clone().lerp(white,.38):c.clone().multiplyScalar(1.5).lerp(white,.06);
+  if(scene){scene.background=hor.clone();if(scene.fog)scene.fog.color.copy(hor);}
+  if(!skyDome)return;const u=skyDome.material.uniforms;u.top.value.copy(c).multiplyScalar(lum>.3?.86:.6);u.hor.value.copy(hor);u.bot.value.copy(hor).multiplyScalar(.82);
+  u.cloud.value=lum>.42?1:lum>.28?.45:0;u.stars.value=lum<.16?1:lum<.24?.4:0;}
 function newScene(o){o=o||{};
   W.labels=[];
   W.anims=new Map();W.baseAnims=null;W.emotes=[];P.anim=null;Object.assign(P,{frozen:false,hidden:false,shieldUntil:0,airJumps:0,airLeft:0,shirtOverride:null,airT:0,sayText:''});$('#emoteMenu').hidden=true;
@@ -309,6 +330,7 @@ function newScene(o){o=o||{};
   scene=new THREE.Scene();
   const sky=new THREE.Color(o.sky!=null?o.sky:0x9fd8ff);
   scene.background=sky; scene.fog=new THREE.Fog(sky.clone(),o.fogNear||160,o.fogFar||760);
+  try{skyDome=makeSkyDome();scene.add(skyDome);setSkyColor(sky);}catch(e){skyDome=null;}
   hemiL=new THREE.HemisphereLight(0xffffff,o.ground!=null?o.ground:0x46506a,.78*(o.brightness||1));scene.add(hemiL);
   sun=new THREE.DirectionalLight(0xffffff,.82*(o.brightness||1)); sun.castShadow=true; sun.shadow.mapSize.set(2048,2048);
   const sc=sun.shadow.camera; sc.left=-80;sc.right=80;sc.top=80;sc.bottom=-80;sc.near=1;sc.far=500; sun.shadow.bias=-.0006;
@@ -2051,7 +2073,7 @@ async function stmt(b,ctx){
     case 'g_stat_set':changeStat(fld(b,'STAT'),numv(inp(b,'N'),ctx),true);break;
     case 'g_win':finish();break;
     case 'g_sound':{const f=SFX[fld(b,'SND')];if(f)f();if(ctx.host)mpEmit('bot',{t:'snd',n:fld(b,'SND'),h:W.projHash});break;}
-    case 'g_sky':{const c=new THREE.Color(fld(b,'COLOUR')||'#9fd8ff');scene.background=c;scene.fog.color.copy(c);break;}
+    case 'g_sky':{const c=new THREE.Color(fld(b,'COLOUR')||'#9fd8ff');scene.background=c;scene.fog.color.copy(c);setSkyColor(c);break;}
     case 'g_reset_timer':RT.t0=state.time;break;
     default:break;
   }
@@ -2765,7 +2787,7 @@ function turboDef(){const G=GK;const p=G.proj('turbo','Turbo Track',{sky:'#7fb8f
     G.ifElse(G.OR(G.AND(G.cmp(G.vget(MOX),'EQ',G.num(0)),G.cmp({block:{type:'s_prop',fields:{PROP:'z'},inputs:{PART:G.pnamed('GhostRacer')}}},'GT',G.num(TRACKS[0].fin.pos[2]+3))),
         G.OR(G.AND(G.cmp(G.vget(MOX),'EQ',G.num(300)),G.cmp({block:{type:'s_prop',fields:{PROP:'z'},inputs:{PART:G.pnamed('GhostRacerB')}}},'GT',G.num(TRACKS[1].fin.pos[2]+3))),G.AND(G.cmp(G.vget(MOX),'EQ',G.num(600)),G.cmp({block:{type:'s_prop',fields:{PROP:'z'},inputs:{PART:G.pnamed('GhostRacerC')}}},'GT',G.num(TRACKS[2].fin.pos[2]+3))))),
       [G.msg('You beat the ghost racer! +2 coins',2),blk('pl_coins',{N:bn(2)})],[G.msg('The ghost beat you this lap...',1.5)]))),MV2);
-  G.welcome(p,G.sset('Laps',0),G.msg('Most laps in 2:30 wins! Two tracks take turns. Hit the boost pads and beat the purple ghost racer.',4));
+  G.welcome(p,G.sset('Laps',0),G.msg('Most laps in 2:30 wins! Three tracks take turns. Hit the boost pads and beat the purple ghost racer.',4));
   return G.def(p,'turbo','Turbo Track');}
 
 /* 6. Sumo Smash: sumo bots only fill the ring when there are not enough players */
@@ -4982,6 +5004,7 @@ function updateCamera(dt){
     camera.position.copy(target).addScaledVector(dir,cam.cur);camera.lookAt(target);
   }
   if(JU.shake>0&&!paused){const a=JU.shake*JU.shake*.35;camera.position.x+=(Math.random()-.5)*a;camera.position.y+=(Math.random()-.5)*a;camera.position.z+=(Math.random()-.5)*a;}
+  if(skyDome){skyDome.position.copy(camera.position);skyDome.material.uniforms.time.value=t;}
   const fovT=P.boost>0?84:70;if(Math.abs(camera.fov-fovT)>.1){camera.fov+=(fovT-camera.fov)*Math.min(1,dt*6);camera.updateProjectionMatrix();}
   sun.position.set(P.pos.x+50,P.pos.y+110,P.pos.z+35);sun.target.position.copy(P.pos);
 }
