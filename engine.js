@@ -5236,7 +5236,8 @@ function juiceTick(dt){
     n.el.style.left=((_jv.x*.5+.5)*w+n.dx*n.age*30)+'px';n.el.style.top=((-_jv.y*.5+.5)*h)+'px';
     n.el.style.opacity=String(Math.min(1,(1-k)*2.2));n.el.style.transform='translate(-50%,-50%) scale('+sc.toFixed(2)+')';}
   JU.shake=Math.max(0,JU.shake-dt*2.4);
-  JU.bt=(JU.bt||0)-dt;if(JU.bt<=0){JU.bt=.15;juiceBoss();}
+  JU.bt=(JU.bt||0)-dt;if(JU.bt<=0){JU.bt=.15;juiceBoss();
+    const jr=$('#jresp');if(jr){const show=P.dead&&running&&!state.over&&P.deadT>.25&&!(LOBBY.on&&LOBBY.out);jr.classList.toggle('on',show);if(show){const tx='Respawning in '+Math.ceil(P.deadT)+'…';if(jr.textContent!==tx)jr.textContent=tx;}}}
 }
 function juiceBoss(){const el=$('#jboss');if(!el)return;let best=null,bd=1e9;
   for(const r of W.rigs){if(r.dead||r.destroyed||!r.mesh.visible||!(r.maxHealth>=300)||((r.node&&r.node.scale)||1)<1.9)continue;const d=r.pos.distanceTo(P.pos);if(d<90&&d<bd){bd=d;best=r;}}
