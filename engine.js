@@ -2880,15 +2880,19 @@ function turboDef(){const G=GK;const p=G.proj('turbo','Turbo Track',{sky:'#7fb8f
       blk('g_reset_timer'),blk('pl_checkpoint',{PART:G.pnamed('StartPad'+S)}),G.tp(ox,63,0),G.vchg(LG,1)),[['lap time',LT],['lap go',LG]]);
     const gh=G.part(p,'workspace',{name:'GhostRacer'+S,pos:[ox,-40,-2],size:[2,4,2],color:'#b388ff',material:'Neon',canCollide:false,transparency:.45,label:'👻 GHOST'});
     G.vars(G.script(p,gh.id,'Race',blk('ev_start'),G.forever(G.vset('vgl'+S,G.vget(LG)),G.until(G.cmp(G.vget(LG),'GT',G.vget('vgl'+S))),
-      G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(ox)),[blk('p_setpos',{PART:bme(),X:bn(ox),Y:bn(62.6),Z:bn(-2)}),G.wait(.5),blk('p_glideto',{PART:bme(),X:bn(ox),Y:bn(fin.pos[1]+2.6),Z:bn(fin.pos[2]),S:bn(S?26:24)})],[blk('p_setpos',{PART:bme(),X:bn(ox),Y:bn(-40),Z:bn(-2)})]))),[['lap go',LG],['map x',MOX],['ghost lap'+S,'vgl'+S]]);});
+      G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(ox)),[blk('p_setpos',{PART:bme(),X:bn(ox),Y:bn(62.6),Z:bn(-2)}),G.wait(.5),blk('p_glideto',{PART:bme(),X:bn(ox),Y:bn(fin.pos[1]+2.6),Z:bn(fin.pos[2]),S:bn(S?26:24)})],[blk('p_setpos',{PART:bme(),X:bn(ox),Y:bn(-40),Z:bn(-2)})]))),[['lap go',LG],['map x',MOX],['ghost lap'+S,'vgl'+S]]);
+    // two more rivals race every lap: a fast rocket and a slow turtle
+    [['RivalRocket','🚀 ROCKET','#ff7043',S?22:20,3],['RivalTurtle','🐢 TURTLE','#66bb6a',S?33:31,-3]].forEach(([rn,lab,col,sec,dx])=>{const rv=G.part(p,'workspace',{name:rn+S,pos:[ox+dx,-40,-2],size:[2,4,2],color:col,material:'Neon',canCollide:false,transparency:.4,label:lab});
+      G.vars(G.script(p,rv.id,'Race',blk('ev_start'),G.forever(G.vset('vrl'+rn+S,G.vget(LG)),G.until(G.cmp(G.vget(LG),'GT',G.vget('vrl'+rn+S))),
+        G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(ox)),[blk('p_setpos',{PART:bme(),X:bn(ox+dx),Y:bn(62.6),Z:bn(-2)}),G.wait(.5),blk('p_glideto',{PART:bme(),X:bn(ox+dx),Y:bn(fin.pos[1]+2.6),Z:bn(fin.pos[2]),S:bn(sec)})],[blk('p_setpos',{PART:bme(),X:bn(ox+dx),Y:bn(-40),Z:bn(-2)})]))),[['lap go',LG],['map x',MOX],['rival lap '+rn+S,'vrl'+rn+S]]);});});
   G.vars(G.script(p,'sss','Pick track',G.onMsg('round start'),G.vset(MOX,G.arith('MULTIPLY',G.rnd(0,2),G.num(300))),G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#7fb8ff'}),blk('pl_checkpoint',{PART:G.pnamed('StartPad')}),G.tp(0,63,0)],
     [G.ifElse(G.cmp(G.vget(MOX),'EQ',G.num(300)),[blk('g_sky',null,{COLOUR:'#120b2e'}),G.msg('Track: NEON CITY',2),blk('pl_checkpoint',{PART:G.pnamed('StartPadB')}),G.tp(300,63,0)],[blk('g_sky',null,{COLOUR:'#a5d6a7'}),G.msg('Track: JUNGLE CANYON',2),blk('pl_checkpoint',{PART:G.pnamed('StartPadC')}),G.tp(600,63,0)])]),G.wait(.2),blk('g_reset_timer'),G.vchg(LG,1)),[...MV2,['lap go',LG]]);
   G.script(p,'sss','BestLap',blk('ev_data_loaded'),G.sset('Best Lap',G.dget('turbo_best_lap',0)));
-  G.vars(G.script(p,'sss','Lap coin',blk('ev_start'),G.forever(G.vset('vlc',G.stat('Laps')),G.until(G.cmp(G.stat('Laps'),'GT',G.vget('vlc'))),G.wait(.1),
-    G.ifElse(G.OR(G.AND(G.cmp(G.vget(MOX),'EQ',G.num(0)),G.cmp({block:{type:'s_prop',fields:{PROP:'z'},inputs:{PART:G.pnamed('GhostRacer')}}},'GT',G.num(TRACKS[0].fin.pos[2]+3))),
-        G.OR(G.AND(G.cmp(G.vget(MOX),'EQ',G.num(300)),G.cmp({block:{type:'s_prop',fields:{PROP:'z'},inputs:{PART:G.pnamed('GhostRacerB')}}},'GT',G.num(TRACKS[1].fin.pos[2]+3))),G.AND(G.cmp(G.vget(MOX),'EQ',G.num(600)),G.cmp({block:{type:'s_prop',fields:{PROP:'z'},inputs:{PART:G.pnamed('GhostRacerC')}}},'GT',G.num(TRACKS[2].fin.pos[2]+3))))),
-      [G.msg('You beat the ghost racer! +2 coins',2),blk('pl_coins',{N:bn(2)})],[G.msg('The ghost beat you this lap...',1.5)]))),MV2);
-  G.welcome(p,G.sset('Laps',0),G.msg('Most laps in 2:30 wins! Three tracks take turns. Hit the boost pads and beat the purple ghost racer.',4));
+  G.vars(G.script(p,'sss','Lap place',blk('ev_start'),G.forever(G.vset('vlc',G.stat('Laps')),G.until(G.cmp(G.stat('Laps'),'GT',G.vget('vlc'))),G.wait(.1),G.vset('vahead',G.num(0)),
+    ...TRACKS.flatMap(TK=>['GhostRacer','RivalRocket','RivalTurtle'].map(rn=>G.iff(G.AND(G.cmp(G.vget(MOX),'EQ',G.num(TK.ox)),G.cmp({block:{type:'s_prop',fields:{PROP:'z'},inputs:{PART:G.pnamed(rn+TK.S)}}},'LTE',G.num(TK.fin.pos[2]+3))),G.vchg('vahead',1)))),
+    G.ifElse(G.cmp(G.vget('vahead'),'EQ',G.num(0)),[G.sound('win'),G.msg('🏆 1st place this lap! You beat every racer! +3 coins',2.5),blk('pl_coins',{N:bn(3)})],
+      [G.ifElse(G.cmp(G.vget('vahead'),'EQ',G.num(1)),[G.msg('🥈 2nd place this lap! +1 coin',2),blk('pl_coins',{N:bn(1)})],[G.msg(G.join('You finished this lap in place ',G.arith('ADD',G.vget('vahead'),G.num(1)),' of 4. Use the boost pads!'),2)])]))),[...MV2,['racers ahead','vahead']]);
+  G.welcome(p,G.sset('Laps',0),G.msg('Most laps in 2:30 wins! Three tracks take turns. Race the ghost, the rocket and the turtle for 1st place every lap!',4));
   return G.def(p,'turbo','Turbo Track');}
 
 /* 6. Sumo Smash: sumo bots only fill the ring when there are not enough players */
