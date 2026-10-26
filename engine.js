@@ -2210,7 +2210,7 @@ function logOut(msg,type){
 let game=null,running=false,paused=false,state={};
 const hud={name:$('#hudName'),timer:$('#hudTimer'),stat:$('#hudStat')};
 let toastT=0;
-function toast(s,color,dur){const el=$('#toast');el.textContent=botDisp(s);if(running&&game&&!game._help&&state&&state.time<10&&String(s).length>45){game._help=botDisp(s);const hb=$('#helpBtn');if(hb)hb.hidden=false;}{const t0=String(s||'');el.classList.toggle('warn',/^(⚠|💣|😱|👑 THE|🌋|🌪|🌊)/u.test(t0)||/^BOOM/.test(t0));el.classList.toggle('gold',/^(🏆|👑 BOUNTY CLAIMED|YOU BEAT|RESCUED|GOLDEN)/u.test(t0));}el.style.color=color||'#fff';el.classList.add('show');toastT=dur||1.8;}
+function toast(s,color,dur){const el=$('#toast');el.textContent=botDisp(s);if(running&&game&&!game._help&&state&&state.time<10&&String(s).length>45){game._help=botDisp(s);const hb=$('#helpBtn');if(hb)hb.hidden=false;}{const t0=String(s||'');el.classList.toggle('warn',/^(⚠|💣|😱|👑 THE|🌋|🌪|🌊|🚫)/u.test(t0)||/^BOOM/.test(t0));el.classList.toggle('gold',/^(🏆|👑 BOUNTY CLAIMED|YOU BEAT|RESCUED|GOLDEN)/u.test(t0));}el.style.color=color||'#fff';el.classList.add('show');toastT=dur||1.8;}
 function setStat(s){hud.stat.hidden=!s;if(hud.stat.textContent!==s)hud.stat.textContent=s;}
 
 function handleTouch(p){
@@ -3026,7 +3026,10 @@ function colorDropDef(){const G=GK;const p=G.proj('colordrop','Color Drop',{sky:
   G.vars(G.script(p,'sss','Pick arena',G.onMsg('round start'),G.vset(COX,G.arith('MULTIPLY',G.rnd(0,2),G.num(300))),G.ifElse(G.cmp(G.vget(COX),'EQ',G.num(0)),[blk('g_sky',null,{COLOUR:'#1d2340'})],[G.ifElse(G.cmp(G.vget(COX),'EQ',G.num(300)),[blk('g_sky',null,{COLOUR:'#3a1d40'}),G.msg('Arena: COLOR WHEEL',2)],[blk('g_sky',null,{COLOUR:'#0d2a1d'}),G.msg('Arena: STRIPES',2)])]),
     G.iff(G.cmp(G.vget(COX),'GT',G.num(0)),blk('pl_tpxyz',{X:ox(G.rnd(-12,12)),Y:bn(43),Z:G.rnd(-4,12)}))),[['map x',COX]]);
   const V='vpick';const say=k=>G.msg('Stand on '+names[k].toUpperCase()+'!',2.5);
-  const branch=k=>G.iff(G.cmp(G.vget(V),'EQ',G.num(k+1)),G.iff(G.AND(G.cmp(G.vget('vcr'),'GTE',G.num(4)),G.cmp(G.rnd(1,4),'EQ',G.num(1))),G.msg('Stand on '+names[(k+1)%4].toUpperCase()+'!',1),G.wait(1),G.sound('click'),G.msg('...NO WAIT!',.7),G.wait(.7)),say(k),G.ifElse(G.cmp(G.vget('vcr'),'LT',G.num(10)),[G.wait(G.arith('MINUS',G.num(3),G.arith('MULTIPLY',G.vget('vcr'),G.num(.18))))],[G.wait(1.2)]),...names.flatMap((nm,o)=>o===k?[]:[blk('p_collide',{PART:G.mnamed(nm)},{B:'FALSE'}),blk('p_transp',{PART:G.mnamed(nm),V:bn(.9)})]));
+  const branch=k=>G.iff(G.cmp(G.vget(V),'EQ',G.num(k+1)),G.iff(G.AND(G.cmp(G.vget('vcr'),'GTE',G.num(4)),G.cmp(G.rnd(1,4),'EQ',G.num(1))),G.msg('Stand on '+names[(k+1)%4].toUpperCase()+'!',1),G.wait(1),G.sound('click'),G.msg('...NO WAIT!',.7),G.wait(.7)),G.ifElse(G.AND(G.cmp(G.vget('vcr'),'GTE',G.num(6)),G.cmp(G.rnd(1,3),'EQ',G.num(1))),
+    [G.msg('🚫 AVOID '+names[k].toUpperCase()+'! Stand on any other color!',2.5),G.ifElse(G.cmp(G.vget('vcr'),'LT',G.num(10)),[G.wait(G.arith('MINUS',G.num(3),G.arith('MULTIPLY',G.vget('vcr'),G.num(.18))))],[G.wait(1.4)]),
+      blk('p_collide',{PART:G.mnamed(names[k])},{B:'FALSE'}),blk('p_transp',{PART:G.mnamed(names[k]),V:bn(.9)})],
+    [say(k),G.ifElse(G.cmp(G.vget('vcr'),'LT',G.num(10)),[G.wait(G.arith('MINUS',G.num(3),G.arith('MULTIPLY',G.vget('vcr'),G.num(.18))))],[G.wait(1.2)]),...names.flatMap((nm,o)=>o===k?[]:[blk('p_collide',{PART:G.mnamed(nm)},{B:'FALSE'}),blk('p_transp',{PART:G.mnamed(nm),V:bn(.9)})])]));
   const restore=()=>names.flatMap(nm=>[blk('p_collide',{PART:G.mnamed(nm)},{B:'TRUE'}),blk('p_transp',{PART:G.mnamed(nm),V:bn(0)})]);
   const MV=G.matchFlags(p);
   const s=G.script(p,'sss','Rounds',chain(G.onMsg('round start'),G.vset('vcr',G.num(0)),...restore(),G.msg('Get onto the tiles! When a color is called, stand on it. Last one standing wins!',3),G.wait(5),
