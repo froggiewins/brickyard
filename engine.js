@@ -2647,7 +2647,8 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
   for(let i=0;i<10;i++){const a=i*.63,r=55+(i%3)*8;G.part(p,F.id,{name:'Crate',pos:[r3(Math.cos(a)*r),1.5,r3(Math.sin(a)*r)],size:[3,3,3],color:'#a1764b',material:'Wood'});}
   for(const t of ['Sword','Blaster']){const ns=G.prefab(p,t);ns[0].parent='pack';}
   G.prefab(p,'Healing potion',{x:0,y:2,z:16});G.prefab(p,'Healing potion',{x:-40,y:2,z:0});
-  const ZL='vzleft',RS='vreset',BR='vbrute',SP='vspawn',WV='vwave',KG='vking',ZV=[['zombies left',ZL],['reset',RS],['brute timer',BR],['to spawn',SP],['wave',WV],['king timer',KG]];
+  const ZL='vzleft',RS='vreset',BR='vbrute',SP='vspawn',WV='vwave',KG='vking',ZOX='vzox',ZV=[['zombies left',ZL],['reset',RS],['brute timer',BR],['to spawn',SP],['wave',WV],['king timer',KG],['map x',ZOX]];
+  const zox=v=>G.arith('ADD',typeof v==='number'?G.num(v):v,G.vget(ZOX));
   const kinds=[['Zombie',{scale:1,health:60,walkSpeed:10,colors:{head:'#7cb342',torso:'#4e6b3a',arms:'#7cb342',legs:'#37474f'}},12,'Braaains!'],
     ['Runner',{scale:.85,health:30,walkSpeed:15,colors:{head:'#c5e1a5',torso:'#8d6e63',arms:'#c5e1a5',legs:'#5d4037'}},8,'Hssss!'],
     ['Brute',{scale:1.8,health:320,walkSpeed:7,colors:{head:'#558b2f',torso:'#33691e',arms:'#558b2f',legs:'#1b5e20'}},30,'SMASH!'],
@@ -2665,10 +2666,10 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
       blk('rig_say',{PART:bme(),TEXT:bt('Ptooey! 🟢'),S:bn(1)}),G.iff(G.cmp(G.rnd(1,10),'LTE',G.num(5)),G.asP({block:{type:'pl_ref_nearpart',inputs:{PART:bme()}}},blk('pl_damage',{N:bn(9)}),G.msg('Acid spit!',1))))));
     if(nm==='King')G.hscript(p,Z.id,'Stomp',blk('ev_start'),G.forever(G.wait(6),G.iff(G.cmp(G.nearD(bme()),'LT',G.num(30)),blk('rig_say',{PART:bme(),TEXT:bt('STOMP!'),S:bn(1)}),G.bc('king stomp'))));
     G.vars(G.hscript(p,Z.id,'Count',blk('ev_rig_died'),G.vchg(ZL,-1)),ZV);});
-  const edge=nm=>G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[blk('rs_copy',{X:G.rnd(-80,80),Y:bn(3),Z:G.rnd(-82,-78)},{NAME:nm})],[blk('rs_copy',{X:G.rnd(-80,80),Y:bn(3),Z:G.rnd(78,82)},{NAME:nm})])],
-    [G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[blk('rs_copy',{X:G.rnd(78,82),Y:bn(3),Z:G.rnd(-80,80)},{NAME:nm})],[blk('rs_copy',{X:G.rnd(-82,-78),Y:bn(3),Z:G.rnd(-80,80)},{NAME:nm})])]);
+  const edge=nm=>G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[blk('rs_copy',{X:zox(G.rnd(-80,80)),Y:bn(3),Z:G.rnd(-82,-78)},{NAME:nm})],[blk('rs_copy',{X:zox(G.rnd(-80,80)),Y:bn(3),Z:G.rnd(78,82)},{NAME:nm})])],
+    [G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[blk('rs_copy',{X:zox(G.rnd(78,82)),Y:bn(3),Z:G.rnd(-80,80)},{NAME:nm})],[blk('rs_copy',{X:zox(G.rnd(-82,-78)),Y:bn(3),Z:G.rnd(-80,80)},{NAME:nm})])]);
   const eq=(id,n)=>G.cmp(G.vget(id),'EQ',G.num(n));
-  G.vars(G.hscript(p,'sss','Waves',blk('ev_start'),G.vset(WV,G.num(0)),G.vset(KG,G.num(0)),G.vset(RS,G.num(0)),G.vset(BR,G.num(0)),
+  G.vars(G.hscript(p,'sss','Waves',blk('ev_start'),G.vset(WV,G.num(0)),G.vset(KG,G.num(0)),G.vset(RS,G.num(0)),G.vset(BR,G.num(0)),G.vset(ZOX,G.arith('MULTIPLY',G.rnd(0,1),G.num(300))),G.wait(.3),G.bc('zmap'),
     G.msg('Zombies attack in waves: fast runners from wave 3 and a huge Brute every 5th wave. Team up online! Sword (1), blaster (2).',5),G.wait(5),
     G.forever(G.vchg(WV,1),G.msg(G.join('Wave ',G.vget(WV),'!'),2),G.sound('check'),
       G.vset(ZL,G.arith('ADD',G.arith('ADD',G.arith('MULTIPLY',G.vget(WV),G.num(3)),G.num(2)),G.arith('MULTIPLY',G.arith('MINUS',G.players(),G.num(1)),G.num(3)))),G.vset(SP,G.vget(ZL)),
@@ -2677,7 +2678,7 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
       G.iff(G.cmp(G.vget(KG),'EQ',G.num(1)),blk('g_sky',null,{COLOUR:'#55606e'})),
       blk('controls_repeat_ext',{TIMES:G.vget(SP),DO:doIn(G.iff(eq(RS,0),G.ifElse(G.AND(G.cmp(G.vget(WV),'GTE',G.num(6)),G.cmp(G.rnd(1,7),'EQ',G.num(1))),[edge('Spitter')],[G.ifElse(G.AND(G.cmp(G.vget(WV),'GTE',G.num(4)),G.cmp(G.rnd(1,6),'EQ',G.num(1))),[edge('Exploder')],[G.ifElse(G.AND(G.cmp(G.vget(WV),'GTE',G.num(3)),G.cmp(G.rnd(1,4),'EQ',G.num(1))),[edge('Runner')],[edge('Zombie')])])])),G.wait(1.1))}),
       G.until(G.cmp(G.vget(ZL),'LTE',G.num(0))),
-      G.ifElse(eq(RS,1),[G.vset(RS,G.num(0)),G.vset(WV,G.num(0)),G.vset(BR,G.num(0)),G.wait(4)],
+      G.ifElse(eq(RS,1),[G.vset(RS,G.num(0)),G.vset(WV,G.num(0)),G.vset(BR,G.num(0)),G.wait(3),G.vset(ZOX,G.arith('MULTIPLY',G.rnd(0,1),G.num(300))),G.bc('zmap'),G.wait(1)],
         [G.msg('Wave cleared! +50 health. Next wave in 5 seconds...',3),G.bc('wave cleared'),G.wait(5)]))),ZV);
   G.script(p,'sss','Heal',G.onMsg('wave cleared'),blk('pl_heal',{N:bn(50)}));
   G.vars(G.script(p,'sss','WaveStat',blk('ev_start'),G.forever(G.sset('Wave',G.vget(WV)),G.wait(.5))),ZV);
@@ -2693,12 +2694,29 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
     ['Scatter Gun',150,'#ffab40',[blk('tool_take',null,{NAME:'Scatter Gun'}),blk('tool_give',null,{NAME:'Scatter Gun'})]],['Zombie Laser',400,'#e040fb',[blk('tool_take',null,{NAME:'Zombie Laser'}),blk('tool_give',null,{NAME:'Zombie Laser'})]],
     ['Rocket Launcher',650,'#ff5252',[blk('tool_take',null,{NAME:'Rocket Launcher'}),blk('tool_give',null,{NAME:'Rocket Launcher'})]]];
   G.part(p,F.id,{name:'Armory',pos:[3,.3,-14],size:[32,.6,6],color:'#37474f',material:'Metal',label:'ARMORY'});
-  SHOP.forEach(([nm,cost,col,act],i)=>{const pad=G.part(p,F.id,{name:'Buy '+nm,pos:[-9+i*6,1,-14],size:[4,1.2,4],color:col,material:'Neon',label:nm+' · '+cost+' cash'});
-    G.script(p,pad.id,'Buy',blk('ev_touch'),G.ifElse(G.cmp(G.stat('Cash'),'GTE',G.num(cost)),[G.sadd('Cash',-cost),...act,G.sound('coin'),G.msg('Bought '+nm+'!',2)],[G.sound('click'),G.msg(nm+' costs '+cost+' cash. Knock out zombies to earn more!',2)]),G.wait(1.5));});
+  G.part(p,F.id,{name:'Armory',pos:[303,.3,-14],size:[32,.6,6],color:'#37474f',material:'Metal',label:'ARMORY'});
+  [0,300].forEach(AX=>SHOP.forEach(([nm,cost,col,act],i)=>{const pad=G.part(p,F.id,{name:'Buy '+nm,pos:[AX-9+i*6,1,-14],size:[4,1.2,4],color:col,material:'Neon',label:nm+' · '+cost+' cash'});
+    G.script(p,pad.id,'Buy',blk('ev_touch'),G.ifElse(G.cmp(G.stat('Cash'),'GTE',G.num(cost)),[G.sadd('Cash',-cost),...act,G.sound('coin'),G.msg('Bought '+nm+'!',2)],[G.sound('click'),G.msg(nm+' costs '+cost+' cash. Knock out zombies to earn more!',2)]),G.wait(1.5));}));
+  // second map: the Farm, 300 studs east. A barn to defend, crop rows, hay bales and a windmill
+  {const OX=300,FM=G.folder(p,'Farm').id;const Q=o=>G.part(p,FM,o);
+    Q({name:'Field',pos:[OX,-1,0],size:[180,2,180],color:'#8bc34a',material:'Grass'});
+    [[-90,0,2,180],[90,0,2,180],[0,-90,180,2],[0,90,180,2]].forEach(([x,z2,w,d])=>Q({name:'Fence',pos:[OX+x,2.5,z2],size:[w,5,d],color:'#a1887f',material:'Wood'}));
+    Q({name:'Barn',pos:[OX-30,6,-35],size:[24,12,18],color:'#c62828',material:'Wood'});Q({name:'BarnRoof',shape:'wedge',pos:[OX-30,14,-35],size:[24,4,18],color:'#5d4037',material:'Wood'});
+    Q({name:'BarnDoor',pos:[OX-30,4,-25.9],size:[8,8,.3],color:'#ffffff',material:'Wood'});
+    Q({name:'Silo',shape:'cyl',pos:[OX-12,10,-40],size:[8,20,8],color:'#90a4ae',material:'Metal'});Q({name:'SiloTop',shape:'ball',pos:[OX-12,20,-40],size:[8,5,8],color:'#78909c',material:'Metal'});
+    for(let r=0;r<6;r++)Q({name:'Crops',pos:[OX+30,.8,-50+r*7],size:[40,1.6,2.4],color:r%2?'#cddc39':'#ffeb3b',material:'Grass'});
+    [[-50,30],[-40,46],[20,40],[50,20],[60,-30],[-60,-10]].forEach(([x,z2])=>Q({name:'HayBale',shape:'cyl',pos:[OX+x,1.6,z2],size:[3.2,3.2,4],rot:[90,0,0],color:'#fbc02d',material:'Grass'}));
+    Q({name:'WindmillPole',pos:[OX+55,9,50],size:[2,18,2],color:'#eceff1',material:'Wood'});
+    const blade=Q({name:'WindmillBlade',pos:[OX+55,18,51.4],size:[16,1.2,.4],color:'#fafafa',material:'Wood',canCollide:false});G.script(p,blade.id,'Turn',blk('ev_start'),G.forever(blk('p_rotate',{PART:bme(),DEG:bn(3)},{AXIS:'z'}),G.wait(.05)));
+    Q({name:'Tractor',pos:[OX+10,1.6,25],size:[5,3,7],color:'#2e7d32',material:'Metal'});Q({name:'TractorWheel',shape:'cyl',pos:[OX+10,1.8,21],size:[3.6,3.6,6.4],rot:[0,0,90],color:'#212121',material:'Plastic'});
+    Q({name:'Scarecrow',pos:[OX+30,3,-20],size:[1,6,1],color:'#8d6e63',material:'Wood'});Q({name:'ScarecrowArms',pos:[OX+30,4.5,-20],size:[5,.6,.6],color:'#8d6e63',material:'Wood'});
+    Q({name:'Watchtower',pos:[OX+45,5,-60],size:[8,10,8],color:'#795548',material:'Wood'});Q({name:'TowerRamp',shape:'wedge',pos:[OX+45,5,-50],size:[4,10,12],rot:[0,180,0],color:'#a1887f',material:'Wood'});}
+  G.vars(G.script(p,'sss','Respawn on map',blk('ev_spawn'),G.wait(.05),G.iff(G.cmp(G.vget(ZOX),'GT',G.num(0)),blk('pl_tpxyz',{X:zox(G.rnd(-6,6)),Y:bn(3),Z:bn(16)}))),ZV);
+  G.vars(G.script(p,'sss','Map arrive',G.onMsg('zmap'),blk('pl_tpxyz',{X:zox(0),Y:bn(3),Z:bn(16)}),G.ifElse(G.cmp(G.vget(ZOX),'EQ',G.num(300)),[G.msg('Map: THE FARM. Defend the barn! Climb the watchtower for a better view.',3)],[G.msg('Map: THE TOWN',2)])),ZV);
   // supply drop every third wave: a crate parachutes in with a free weapon or a full heal
   const crate=G.part(p,'workspace',{name:'SupplyCrate',pos:[0,-50,0],size:[3,3,3],color:'#ffb300',material:'Wood',label:'🪂 SUPPLIES',canCollide:false});
   G.vars(G.hscript(p,'sss','Supply drop',blk('ev_start'),G.forever(G.until(G.AND(G.cmp(G.vget(WV),'GT',G.num(0)),G.cmp(G.vget('vsupw'),'NEQ',G.vget(WV)))),G.vset('vsupw',G.vget(WV)),
-    G.iff(G.cmp(G.vget('vsupcount'),'GTE',G.num(2)),G.vset('vsupcount',G.num(-1)),G.vset('vsx',G.rnd(-50,50)),G.vset('vsz',G.rnd(-50,50)),G.bc('supply'),
+    G.iff(G.cmp(G.vget('vsupcount'),'GTE',G.num(2)),G.vset('vsupcount',G.num(-1)),G.vset('vsx',zox(G.rnd(-50,50))),G.vset('vsz',G.rnd(-50,50)),G.bc('supply'),
       blk('p_setpos',{PART:G.pnamed('SupplyCrate'),X:G.vget('vsx'),Y:bn(60),Z:G.vget('vsz')}),blk('p_glide',{PART:G.pnamed('SupplyCrate'),X:bn(0),Y:bn(-58.5),Z:bn(0),S:bn(6)})),G.vchg('vsupcount',1))),[...ZV,['supply wave','vsupw'],['supply count','vsupcount'],['supply x','vsx'],['supply z','vsz']]);
   G.script(p,'sss','Supply msg',G.onMsg('supply'),G.sound('check'),G.msg('🪂 A SUPPLY DROP is falling! Grab it first!',3));
   G.vars(G.script(p,crate.id,'Open',blk('ev_touch'),G.iff(G.cmp(G.prop(bme(),'y'),'GT',G.num(-10)),G.shSet('vsupopen',G.num(1)),G.sound('win'),G.vset('vsr',G.rnd(1,3)),
@@ -4534,7 +4552,7 @@ const GAMES=[
   {id:'ghost',cat:'Survival',name:'Escape the Ghost',tag:'Horror · endless nights',desc:'Find 5 glowing keys in a dark hedge maze and reach the gate before the ghost catches you. Each night adds a ghost.',mode:'project',make:ghostDef},
   {id:'megaobby',cat:'Obby',name:'Mega Obby',tag:'Obby · 50 stages',desc:'Thirty stages that get harder as you climb: lava beams, spinners, movers, vanishing tiles and more. Checkpoints are saved.',mode:'project',make:megaObbyDef},
   {id:'lavarise',cat:'Survival',name:'Lava Rising',tag:'Survival · 3 towers',desc:'Race up the spiral tower, the scaffold and the crystal spire before the lava reaches you. The lava gets faster every round.',mode:'project',make:lavaRiseDef},
-  {id:'zombies',cat:'Battle',name:'Zombie Survival',tag:'Survival · endless waves',desc:'Hold off bigger and bigger waves of zombies, fast runners and huge brutes in a fenced town with a sword, a blaster and potions.',mode:'project',make:zombiesDef},
+  {id:'zombies',cat:'Battle',name:'Zombie Survival',tag:'Survival · 2 maps, endless waves',desc:'Hold off bigger and bigger waves of zombies, fast runners and huge brutes in a fenced town with a sword, a blaster and potions.',mode:'project',make:zombiesDef},
   {id:'rainbow',cat:'Obby',name:'Rainbow Obby',tag:'Obby · 15 stages',desc:'Ten colorful stages: lava beams, jump pads, moving and vanishing platforms, a spinner and a sky elevator.',mode:'project',make:rainbowDef},
   {id:'gems',cat:'Collect',name:'Gem Hunt',tag:'Collect · 3 maps',desc:'Most gems in 90 seconds wins, on a hilly island with jump pads. The super crystal is worth 5.',mode:'project',make:gemsDef},
   {id:'turbo',cat:'Race',name:'Turbo Track',tag:'Race · 3 tracks',desc:'Most laps in 2:30 wins on a sky racetrack with boost pads, a launcher and spinning sweepers. Beat your best lap too.',mode:'project',make:turboDef},
