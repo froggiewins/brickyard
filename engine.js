@@ -4920,7 +4920,7 @@ function lobbyEnd(){const c=LOBBY.cfg;LOBBY.inRound=false;rtFire('msg','round en
     rows.sort((a,b)=>c.low?a.s-b.s:b.s-a.s);const best=rows[0].s,won=rows.length>0&&rows.find(r=>r.me).s===best&&(c.low||best>0);
     if(won&&rows.length>1){changeStat('Wins',1);questBump('win',game.id,1);gainXP(40);WALLET.wins=(WALLET.wins||0)+1;}questBump('match',game.id,1);gainXP(20);earnCoins(won&&rows.length>1?40:newPB?25:10,won&&rows.length>1?'you won!':newPB?'new personal best!':'match played');if(newPB&&pb!=null)setTimeout(()=>juiceCall('NEW BEST!'),400);
     $('#lobbyRes').innerHTML=`<h3>${won?(rows.length>1?'You win!':'Match over'):'Match over'}</h3><ol>${rows.slice(0,8).map((r,i)=>`<li class="${r.me?'me':''}"><span>${['🥇','🥈','🥉'][i]||(i+1)+'.'} ${esc(r.n)}</span><span>${r3(r.s)}</span></li>`).join('')}</ol><p class="sub">${newPB?'⭐ New personal best! ':pb!=null?'Your best: '+r3(pb)+' · ':''}${esc(c.score)} · next match soon</p>`;
-    $('#lobbyRes').hidden=false;LOBBY.resUntil=t+6;SFX[won?'win':'check']();if(won||newPB)setTimeout(()=>{try{if(running&&!P.dead)playAnim('me',BD()[won&&rows.length>1?'dance':'cheer'],'auto',true);}catch(e){}},900);}
+    $('#lobbyRes').hidden=false;$('#toast').classList.remove('show');toastT=0;LOBBY.resUntil=t+6;SFX[won?'win':'check']();if(won||newPB)setTimeout(()=>{try{if(running&&!P.dead)playAnim('me',BD()[won&&rows.length>1?'dance':'cheer'],'auto',true);}catch(e){}},900);}
   else{toast('Match over!','#ffd75e',2);questBump('match',game.id,1);earnCoins(10,'match played');}
   lobbyToLobby();MP.lastSent='';}
 function lobbyStop(){LOBBY.on=false;$('#lobbyBar').hidden=true;$('#lobbyRes').hidden=true;$('#game').classList.remove('haslobby');}
