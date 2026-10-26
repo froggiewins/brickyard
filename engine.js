@@ -2595,7 +2595,23 @@ function lavaRiseDef(){const G=GK;const p=G.proj('lavarise','Lava Rising',{sky:'
     const g2=Q({name:'GoalB',pos:[OX,3+34*3.6,0],size:[14,1,14],color:'#ffc93c',material:'Neon',label:'TOP'});
     G.vars(G.script(p,g2.id,'NextRound',blk('ev_touch'),G.bc('lava top')),[]);
     Q({name:'StartPad',pos:[OX+4,.2,26],size:[6,.4,6],color:'#4e342e',material:'Wood'});}
-  const lava=G.part(p,'workspace',{name:'Lava',pos:[70,-3,0],size:[300,2,150],color:'#ff5a1f',material:'Neon',behavior:'kill',transparency:.08});
+  // tower C: the Crystal Spire, 280 studs east. A square spiral of crystal ledges with bouncy pads and drifting shards
+  {const OX=280,T3=G.folder(p,'Crystal Spire').id;const Q=o=>G.part(p,T3,o);
+    Q({name:'Ground',pos:[OX,-1,0],size:[80,2,80],color:'#2a2440',material:'Slate'});
+    Q({name:'Spire',pos:[OX,64,0],size:[8,128,8],color:'#7e57c2',material:'Glass',transparency:.25});
+    const path=[[1,0],[0,1],[-1,0],[0,-1]];const sq=u=>{u=((u%104)+104)%104;const side=Math.floor(u/26),f=u-side*26-13;return side===0?[f,13,0]:side===1?[13,-f,1]:side===2?[-f,-13,2]:[-13,f,3];};let x=0,z=13,d=0,y=3;
+    for(let i=0;i<34;i++){[x,z,d]=sq(i*5.2);y+=3.6;
+      const tiny=i%7===6,bounce=i%9===4;
+      const st=Q({name:bounce?'BounceCrystal':'Ledge',pos:[OX+x,r3(y),z],size:tiny?[3,1,3]:[6,1,6],color:bounce?'#00e5ff':['#b388ff','#80deea','#f48fb1','#a5d6a7'][i%4],material:bounce?'Neon':'Glass',transparency:bounce?0:.15,
+        behavior:bounce?'jump':'none',value:bounce?78:0});
+      if(i%8===3)G.script(p,st.id,'Drift',...SCR.glide(path[(d+1)%4][0]*3,0,path[(d+1)%4][1]*3,1.5).blocks.blocks);
+      if(i%11===8)G.script(p,st.id,'Vanish',...SCR.vanish().blocks.blocks);
+      if(i%4===1)Q({name:'Shard',shape:'ball',pos:[OX+x*1.6,r3(y+3),z*1.6],size:[1.2,2.4,1.2],color:'#e1bee7',material:'Neon',canCollide:false});}
+    const g3=Q({name:'GoalC',pos:[OX,r3(y+3.6),0],size:[14,1,14],color:'#ffc93c',material:'Neon',label:'TOP'});
+    Q({name:'Bridge',pos:[OX+x/2,r3(y+3.6),z/2],size:[Math.abs(x)+4,1,Math.abs(z)+4],color:'#ffe082',material:'Wood'});
+    G.vars(G.script(p,g3.id,'NextRound',blk('ev_touch'),G.bc('lava top')),[]);
+    Q({name:'StartPad',pos:[OX+4,.2,30],size:[6,.4,6],color:'#4e342e',material:'Wood'});}
+  const lava=G.part(p,'workspace',{name:'Lava',pos:[140,-3,0],size:[640,2,160],color:'#ff5a1f',material:'Neon',behavior:'kill',transparency:.08});
   const GR='vgrace',VL=[['grace',GR]];
   const speed=G.arith('DIVIDE',G.num(.85),G.arith('ADD',G.num(1),G.arith('MULTIPLY',G.stat('Round'),G.num(.35))));
   G.vars(G.script(p,lava.id,'Rise',blk('ev_start'),G.vset(GR,G.num(10)),G.forever(G.ifElse(G.cmp(G.vget(GR),'GT',G.num(0)),[G.vchg(GR,-1),G.wait(1)],
@@ -2605,17 +2621,17 @@ function lavaRiseDef(){const G=GK;const p=G.proj('lavarise','Lava Rising',{sky:'
   [8,19,29].forEach(i=>{const a=i*.52,r=12+(i%3),y=3+i*3.6;const c=G.part(p,ICE,{name:'IceCrystal',shape:'ball',pos:[r3(Math.cos(a)*r),r3(y+2),r3(Math.sin(a)*r)],size:[1.6,2.2,1.6],color:'#80deea',material:'Neon',canCollide:false,label:'❄'});
     G.vars(G.script(p,c.id,'Freeze',blk('ev_touch'),G.iff(G.cmp({block:{type:'s_prop',fields:{PROP:'t'},inputs:{PART:bme()}}},'LT',G.num(.5)),blk('p_visible',{PART:bme()},{B:'FALSE'}),blk('p_transp',{PART:bme()},{V:bn(1)}),G.vchg(GR,6),G.sound('check'),
       G.msg('❄ Lava frozen for 6 seconds!',2),blk('p_color',{PART:G.pnamed('Lava')},{COLOUR:'#4dd0e1'}),G.wait(6),blk('p_color',{PART:G.pnamed('Lava')},{COLOUR:'#ff5a1f'}))),VL);});
-  const reset=()=>[blk('p_setpos',{PART:G.pnamed('Lava'),X:bn(0),Y:bn(-3),Z:bn(0)}),G.vset(GR,G.num(5)),blk('p_visible',{PART:G.mnamed('IceCrystals')},{B:'TRUE'}),blk('p_transp',{PART:G.mnamed('IceCrystals')},{V:bn(0)})];
+  const reset=()=>[blk('p_setpos',{PART:G.pnamed('Lava'),X:bn(140),Y:bn(-3),Z:bn(0)}),G.vset(GR,G.num(5)),blk('p_visible',{PART:G.mnamed('IceCrystals')},{B:'TRUE'}),blk('p_transp',{PART:G.mnamed('IceCrystals')},{V:bn(0)})];
   G.vars(G.script(p,goal.id,'NextRound',blk('ev_touch'),G.bc('lava top')),VL);
-  G.vars(G.script(p,'sss','Round up',G.onMsg('lava top'),G.sadd('Round',1),G.sound('win'),blk('pl_coins',{N:bn(3)}),G.iff(G.cmp(G.stat('Round'),'EQ',G.num(3)),G.msg('Round 3: fire geysers start erupting from the pillar!',3),G.wait(3)),G.msg(G.join('Round ',G.stat('Round'),'! The lava gets faster...'),3),G.vset('vtower',G.arith('MINUS',G.num(1),G.vget('vtower'))),G.ifElse(G.cmp(G.vget('vtower'),'EQ',G.num(1)),[G.tp(144,4,26),G.msg('Now climb the SCAFFOLD!',2)],[G.tp(4,4,26)]),...reset()),[...VL,['tower','vtower']]);
+  G.vars(G.script(p,'sss','Round up',G.onMsg('lava top'),G.sadd('Round',1),G.sound('win'),blk('pl_coins',{N:bn(3)}),G.iff(G.cmp(G.stat('Round'),'EQ',G.num(3)),G.msg('Round 3: fire geysers start erupting from the pillar!',3),G.wait(3)),G.msg(G.join('Round ',G.stat('Round'),'! The lava gets faster...'),3),G.vchg('vtower',1),G.iff(G.cmp(G.vget('vtower'),'GT',G.num(2)),G.vset('vtower',G.num(0))),G.ifElse(G.cmp(G.vget('vtower'),'EQ',G.num(1)),[G.tp(144,4,26),G.msg('Now climb the SCAFFOLD!',2)],[G.ifElse(G.cmp(G.vget('vtower'),'EQ',G.num(2)),[G.tp(284,4,30),G.msg('Now climb the CRYSTAL SPIRE! Bouncy crystals ahead.',2.5)],[G.tp(4,4,26),G.msg('Back to the TOWER!',2)])]),...reset()),[...VL,['tower','vtower']]);
   G.vars(G.script(p,'sss','LavaGotYou',blk('ev_died'),G.msg(G.join('The lava got you on round ',G.stat('Round'),'. Back to round 1!'),3),G.sset('Round',1),G.vset('vtower',G.num(0)),...reset()),[...VL,['tower','vtower']]);
   G.welcome(p,G.sset('Round',1),G.sset('Height',0),G.msg('Reach the gold top, then climb again. The lava gets faster every round!',4),G.forever(G.sset('Height',G.ppos('y')),G.wait(.25)));
   G.best(p,'Round','lava_round');
   // from round 3, fireballs burst out of the pillar
   for(let k=0;k<3;k++){const fb=G.part(p,'workspace',{name:'Geyser'+k,shape:'ball',pos:[0,-50,0],size:[2.4,2.4,2.4],color:'#ff6d00',material:'Neon',canCollide:false,behavior:'kill',unbreakable:true});
     G.script(p,fb.id,'Erupt',blk('ev_start'),G.wait(4+k*2),G.forever(G.wait(G.rnd(3,6)),G.iff(G.cmp(G.stat('Round'),'GTE',G.num(3)),
-      G.vset('vgy'+k,G.arith('ADD',G.ppos('y'),G.rnd(2,8))),blk('p_setpos',{PART:bme(),X:bn(0),Y:G.vget('vgy'+k),Z:bn(0)}),
-      blk('p_glideto',{PART:bme(),X:G.arith('MULTIPLY',G.ppos('x'),G.num(2.4)),Y:G.vget('vgy'+k),Z:G.arith('MULTIPLY',G.ppos('z'),G.num(2.4)),S:bn(1.4)}),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-50),Z:bn(0)}))));}
+      G.vset('vgy'+k,G.arith('ADD',G.ppos('y'),G.rnd(2,8))),G.vset('vgb'+k,G.arith('MULTIPLY',G.vget('vtower'),G.num(140))),blk('p_setpos',{PART:bme(),X:G.vget('vgb'+k),Y:G.vget('vgy'+k),Z:bn(0)}),
+      blk('p_glideto',{PART:bme(),X:G.arith('ADD',G.vget('vgb'+k),G.arith('MULTIPLY',G.arith('MINUS',G.ppos('x'),G.vget('vgb'+k)),G.num(2.4))),Y:G.vget('vgy'+k),Z:G.arith('MULTIPLY',G.ppos('z'),G.num(2.4)),S:bn(1.4)}),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-50),Z:bn(0)}))));}
   G.hud(p,'LavaGap','#bf360c',G.join('🔥 Lava is ',G.round(G.arith('MINUS',G.ppos('y'),G.arith('ADD',{block:{type:'s_prop',fields:{PROP:'y'},inputs:{PART:G.pnamed('Lava')}}},G.num(1)))),' studs below you'));
   G.spawnAt(p,4,.5,26);return G.def(p,'lavarise','Lava Rising');}
 
@@ -4515,7 +4531,7 @@ const GAMES=[
   {id:'flagraid',cat:'Battle',name:'Flag Raid',tag:'Battle · 3 maps',desc:'Sneak past the red guards, steal their flag and race it home. Most captures in 3 minutes wins, and every capture adds a guard.',mode:'project',make:flagRaidDef},
   {id:'ghost',cat:'Survival',name:'Escape the Ghost',tag:'Horror · endless nights',desc:'Find 5 glowing keys in a dark hedge maze and reach the gate before the ghost catches you. Each night adds a ghost.',mode:'project',make:ghostDef},
   {id:'megaobby',cat:'Obby',name:'Mega Obby',tag:'Obby · 50 stages',desc:'Thirty stages that get harder as you climb: lava beams, spinners, movers, vanishing tiles and more. Checkpoints are saved.',mode:'project',make:megaObbyDef},
-  {id:'lavarise',cat:'Survival',name:'Lava Rising',tag:'Survival · 2 towers',desc:'Race up a spiral tower before the lava reaches you, then do it again. The lava gets faster every round.',mode:'project',make:lavaRiseDef},
+  {id:'lavarise',cat:'Survival',name:'Lava Rising',tag:'Survival · 3 towers',desc:'Race up the spiral tower, the scaffold and the crystal spire before the lava reaches you. The lava gets faster every round.',mode:'project',make:lavaRiseDef},
   {id:'zombies',cat:'Battle',name:'Zombie Survival',tag:'Survival · endless waves',desc:'Hold off bigger and bigger waves of zombies, fast runners and huge brutes in a fenced town with a sword, a blaster and potions.',mode:'project',make:zombiesDef},
   {id:'rainbow',cat:'Obby',name:'Rainbow Obby',tag:'Obby · 15 stages',desc:'Ten colorful stages: lava beams, jump pads, moving and vanishing platforms, a spinner and a sky elevator.',mode:'project',make:rainbowDef},
   {id:'gems',cat:'Collect',name:'Gem Hunt',tag:'Collect · 3 maps',desc:'Most gems in 90 seconds wins, on a hilly island with jump pads. The super crystal is worth 5.',mode:'project',make:gemsDef},
