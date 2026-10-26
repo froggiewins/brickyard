@@ -4612,10 +4612,10 @@ function planeCrashDef(){const G=GK;const p=G.proj('planecrash','Plane Crash',{s
   return G.def(p,'planecrash','Plane Crash');}
 
 const GAMES=[
-  {id:'arena',name:'Brick Battle',tag:'Battle · 3 maps',desc:'Two-minute matches in a walled arena with swords, blasters and jump pads. Most knockouts wins.',mode:'project',make:arenaDef},
+  {id:'arena',name:'Brick Battle',tag:'Battle · 3 maps',desc:'Two-minute matches with swords, blasters, snipers and power orbs on three maps. Knock out the 👑 bounty bot for 3!',mode:'project',make:arenaDef},
   {id:'tower',name:'Lava Tower',tag:'Obby · 8 stages',desc:'Climb a spiral of moving, fading and lava-striped platforms around a giant pillar. Spinners guard the middle.',
     build:buildTower,mode:'race',stageWord:'Stage',scene:{sky:0x2a1b3d,fogNear:120,fogFar:520,ground:0x5a2a1a},seed:7,objective:'Reach the golden top'},
-  {id:'coins',name:'Coin Rush',tag:'Collect · 3:10',desc:'Hop between six islands, ride the ferry, launch off the jump pad and climb the volcano to grab every coin before the clock runs out.',
+  {id:'coins',name:'Coin Rush',tag:'Collect · 3:10',desc:'Hop between six islands, ride the ferry, grab 🧲 coin magnets and climb the volcano to collect every coin before the clock runs out.',
     build:buildCoins,mode:'coins',limit:190,scene:{sky:0x9fd8ff,fogNear:180,fogFar:620},seed:21,objective:'Collect every coin'},
   {id:'sky',name:'Skyline Sprint',tag:'Race · 4 checkpoints',desc:'A speedrun course above the clouds. Hit speed pads to clear big gaps, dodge spinners, beat your best time.',
     build:buildSky,mode:'race',stageWord:'Checkpoint',scene:{sky:0x7fb8ff,fogNear:150,fogFar:560,ground:0x9fb4d6},seed:3,objective:'Cross the finish line'},
@@ -4624,9 +4624,9 @@ const GAMES=[
   {id:'towerhell',cat:'Obby',name:'Tower of Chaos',tag:'Obby · 16 random sections',desc:'A new random tower every round, the same for everyone. No checkpoints! Climb the highest before time runs out.',mode:'project',make:towerHellDef},
   {id:'murder',cat:'Party',name:'Whodunit',tag:'Party · 3 maps',desc:'One murderer, one sheriff, everyone else innocent. Bots fill the empty spots, the murderer strikes in secret, and witnesses drop clues.',mode:'project',make:murderDef},
   {id:'doors',cat:'Survival',name:'Haunted Hotel',tag:'Horror · 40 doors',desc:'Get through 40 rooms of a creepy hotel. Find keys for locked doors, and hide in a wardrobe when the lights flicker.',mode:'project',make:doorsDef},
-  {id:'arsenal',cat:'Battle',name:'Weapon Ladder',tag:'Battle · 3 maps',desc:'Every knockout swaps you to the next weapon. Score a knockout with the Golden Knife to win the match.',mode:'project',make:arsenalDef},
+  {id:'arsenal',cat:'Battle',name:'Weapon Ladder',tag:'Battle · 3 maps',desc:'Every knockout gives you the next weapon. Get a knockout with the Golden Knife before the rival bot climbs its ladder!',mode:'project',make:arsenalDef},
   {id:'deathrun',cat:'Obby',name:'Trap Run',tag:'Obby · 3 courses',desc:'Runners race a trap course while Death springs spikes, lava, sweepers and a boulder from the control room.',mode:'project',make:deathrunDef},
-  {id:'hideseek',cat:'Party',name:'Hide and Seek',tag:'Party · 3 maps',desc:'One seeker counts to 20 while everyone hides in bushes, closets and the playground tube. Bots join when players are short.',mode:'project',make:hideSeekDef},
+  {id:'hideseek',cat:'Party',name:'Hide and Seek',tag:'Party · 3 maps',desc:'One seeker counts to 20 while everyone hides. Bots join when players are short, and playing alone you take turns hiding and seeking.',mode:'project',make:hideSeekDef},
   {id:'evade',cat:'Survival',name:'Panic Run',tag:'Survival · 3 maps',desc:'Shadow chasers hunt everyone across the city. Get downed and a teammate can pick you up. A new chaser joins every 20 seconds.',mode:'project',make:evadeDef},
   {id:'planecrash',cat:'Survival',name:'Plane Crash',tag:'Survival · lobby matches',desc:'Turbulence, an engine fire and a crash landing on an island. Grab a parachute and jump, or brace in your seat, then reach the rescue helicopter.',mode:'project',make:planeCrashDef},
   {id:'disasters',cat:'Survival',name:'Disaster Zone',tag:'Survival · 7 maps, 10 disasters',desc:'Everyone in the game gets the same map and disaster. Buildings smash apart in floods, tsunamis, meteors, tornadoes, volcanoes, earthquakes and lightning.',mode:'project',make:disastersDef},
