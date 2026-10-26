@@ -183,6 +183,8 @@ function makeRigMesh(n){
   const am=mat(c.arms||'#f5cd30'),lm=mat(c.legs||'#2b3a7a');
   bx(1,2,1,am,0,-.9,0,lArm);bx(1,2,1,am,0,-.9,0,rArm);bx(1,2,1,lm,0,-1,0,lLeg);bx(1,2,1,lm,0,-1,0,rLeg);
   if(n.showName!==false&&n.name){const tag=textSprite(botDisp(n.name));tag.position.set(0,3.5,0);g.add(tag);}
+  if(/^(?:Bot|Fighter)\d{1,2}$/.test(n.name||'')&&typeof avAccessory==='function'){try{const H=['cap','beanie','party','cowboy','propeller','wizard','viking','pirate','catears','headphones','tophat','chef'];
+    body.add(avAccessory(H[(hashStr(botDisp(n.name))>>>0)%H.length]));}catch(e){}}
   g.scale.setScalar(s);g.userData.id=n.id;g.traverse(o=>{if(o.isMesh)o.userData.id=n.id;});
   g.userData.rig={body,torso,head,lArm,rArm,lLeg,rLeg};
   return g;
