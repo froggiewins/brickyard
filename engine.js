@@ -3923,8 +3923,16 @@ function doorsDef(){const G=GK;const p=G.proj('doors','Haunted Hotel',{sky:'#070
   G.script(p,'sss','Flicker',G.onMsg('rush warning'),G.sound('die'),G.msg('The lights flicker... HIDE!',2.5),blk('g_sky',null,{COLOUR:'#300000'}),G.wait(.2),blk('g_sky',null,{COLOUR:'#07080d'}),G.wait(.3),blk('g_sky',null,{COLOUR:'#300000'}),G.wait(.4),blk('g_sky',null,{COLOUR:'#07080d'}));
   G.script(p,'sss','Dasher passes',G.onMsg('rush'),G.sound('explode'),blk('controls_repeat_ext',{TIMES:bn(40),DO:doIn(
     G.iff(G.AND(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('Dasher')}}},'LT',G.num(16)),G.NOT({block:{type:'s_touching',inputs:{PART:G.mnamed('HidingSpots')}}})),G.msg('THE DASHER got you!',3),blk('pl_damage',{N:bn(1000)})),G.wait(.2))}));
-  G.script(p,'sss','Died',blk('ev_died'),G.msg(G.join('You reached door ',G.stat('Door'),'. Back to the lobby!'),3),G.sset('Door',0),G.vset('vkey',G.num(0)),
-    blk('p_collide',{PART:G.mnamed('Doors')},{B:'TRUE'}),blk('p_transp',{PART:G.mnamed('Doors')},{V:bn(0)}),blk('p_visible',{PART:G.mnamed('Keys')},{B:'TRUE'}));
+  G.script(p,'sss','Died',blk('ev_died'),G.ifElse(G.cmp(G.vget('vsafe'),'GT',G.num(0)),[G.msg(G.join('You reached door ',G.stat('Door'),'. Back to the elevator at door ',G.vget('vsafe'),'!'),3)],[G.msg(G.join('You reached door ',G.stat('Door'),'. Back to the lobby!'),3)]),
+    G.sset('Door',G.vget('vsafe')),G.vset('vkey',G.num(0)),
+    blk('p_collide',{PART:G.mnamed('Doors')},{B:'TRUE'}),blk('p_transp',{PART:G.mnamed('Doors')},{V:bn(0)}),blk('p_visible',{PART:G.mnamed('Keys')},{B:'TRUE'}),
+    ...Array.from({length:30},(_,i)=>G.iff(G.cmp(G.vget('vsafe'),'GTE',G.num(i+1)),blk('p_collide',{PART:G.pnamed('Door'+(i+1))},{B:'FALSE'}),blk('p_transp',{PART:G.pnamed('Door'+(i+1))},{V:bn(.85)}))));
+  // elevator checkpoints at doors 10, 20 and 30
+  [10,20,30].forEach(d=>{const z=-d*L-3;G.part(p,R,{name:'Elevator',pos:[0,.15,z-1],size:[8,.3,4],color:'#ffd54f',material:'Neon',canCollide:false,label:'⬆ SAVED'});});
+  G.script(p,'sss','Elevator save',blk('ev_start'),G.vset('vsafe',G.num(0)),G.forever(G.iff(G.AND(G.cmp(G.stat('Door'),'GT',G.vget('vsafe')),G.OR(G.OR(G.cmp(G.stat('Door'),'EQ',G.num(10)),G.cmp(G.stat('Door'),'EQ',G.num(20))),G.cmp(G.stat('Door'),'EQ',G.num(30)))),
+    G.vset('vsafe',G.stat('Door')),G.sound('check'),G.msg(G.join('💾 Elevator checkpoint! If you get caught you come back to door ',G.vget('vsafe'),'.'),3)),G.wait(.3)));
+  G.script(p,'sss','Back to elevator',blk('ev_spawn'),G.wait(.05),G.iff(G.cmp(G.vget('vsafe'),'GT',G.num(0)),blk('pl_tpxyz',{X:bn(0),Y:bn(3),Z:G.arith('MINUS',G.arith('MULTIPLY',G.vget('vsafe'),G.num(-L)),G.num(5))})));
+  G.hud(p,'Hotel','#4e342e',G.join('🚪 Door ',G.stat('Door'),' / ',String(N),'   ·   💰 ',G.stat('Gold')));
   // THE WATCHER: eyes appear on the walls from room 20, then at door 25 it chases you through four rooms
   for(let i=19;i<29;i++){const zc=-i*L-L/2;for(let e=0;e<(i-17)*2;e++){const sd=e%2?1:-1;P({name:'Eye',shape:'ball',pos:[sd*(Wd/2-.1),r3(2+((e*37+i*11)%60)/10),r3(zc+((e*53)%(L-4))-L/2+2)],size:[.4,1,1.4],color:'#eceff1',material:'Neon',canCollide:false});}}
   for(let i=25;i<29;i++){const zc=-i*L-L/2;P({name:'FallenShelf',pos:[i%2?-4:4,.8,zc],size:[14,1.6,1.6],color:'#4e342e',material:'Wood'});P({name:'FallenShelf',pos:[i%2?7:-7,.8,zc-9],size:[8,1.6,1.6],color:'#4e342e',material:'Wood'});}
@@ -4259,7 +4267,11 @@ function evadeDef(){const G=GK;const p=G.proj('evade','Panic Run',{sky:'#4a148c'
     blk('pl_freeze',null,{B:'FALSE'}),G.sset('Bleed out',0),G.iff(G.cmp(G.vget(DN),'EQ',G.num(1)),G.vset(DN,G.num(0)),blk('pl_damage',{N:bn(1000)})))),[...VARS,['downed',DN],['bleed','vbleed']]);
   G.vars(G.script(p,'player','Revive',blk('ev_touch_player'),G.iff(G.AND(G.aliveIn(),G.cmp(G.vget(DN),'EQ',G.num(0))),
     G.asP({block:{type:'pl_touched'}},G.iff(G.cmp(G.vget(DN),'EQ',G.num(1)),G.vset(DN,G.num(0)),blk('pl_heal',{N:bn(100)}),G.sound('check'),G.msg('A teammate picked you up!',2))))),[...VARS,['downed',DN]]);
-  G.vars(G.script(p,'sss','Picked',G.onMsg('round start'),G.vset(DN,G.num(0)),blk('pl_freeze',null,{B:'FALSE'})),[['downed',DN]]);
+  G.vars(G.script(p,'sss','Picked',G.onMsg('round start'),G.vset(DN,G.num(0)),G.vset('vsw',G.num(0)),blk('pl_freeze',null,{B:'FALSE'})),[['downed',DN],['second wind','vsw']]);
+  // playing alone? once per match you get a SECOND WIND and stand back up by yourself
+  G.vars(G.script(p,'sss','Second wind',G.onMsg('downed'),G.iff(G.AND(G.cmp(G.players(),'EQ',G.num(1)),G.cmp(G.vget('vsw'),'EQ',G.num(0))),G.vset('vsw',G.num(1)),G.wait(4),
+    G.iff(G.cmp(G.vget(DN),'EQ',G.num(1)),G.vset(DN,G.num(0)),blk('pl_heal',{N:bn(100)}),G.sound('check'),G.msg('💪 SECOND WIND! You got back up. Next time you will need a teammate!',3),blk('pl_shield',{S:bn(3)})))),[['downed',DN],['second wind','vsw']]);
+  G.hud(p,'Chasers','#6a1b9a',G.join('😱 Chasers ',G.vget(NA),' / 6   ·   ⏱ ',G.stat('Score'),'s survived'));
   // survival points every second you are up
   G.vars(G.script(p,'sss','Points',G.onMsg('round start'),G.wait(1),G.whileDo(G.aliveIn(),G.iff(G.cmp(G.vget(DN),'EQ',G.num(0)),G.sadd('Score',1)),G.wait(1))),[...VARS,['downed',DN]]);
   G.vars(G.hscript(p,'sss','Waves',G.onMsg('round start'),G.vset(NA,G.num(0)),...NBS.flatMap(([nm],k)=>[blk('p_setpos',{PART:G.pnamed(nm),X:ox(-80+k*30),Y:bn(4),Z:bn(-90)}),blk('rig_walk',{PART:G.pnamed(nm),X:ox(-80+k*30),Z:bn(-90)})]),G.msg('Chasers are coming. Keep moving, use jump pads and pick up downed friends!',4),G.wait(5),
