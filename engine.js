@@ -2749,7 +2749,7 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
     G.ifElse(G.cmp(G.vget('vsr'),'EQ',G.num(1)),[blk('tool_take',null,{NAME:'Zombie Laser'}),blk('tool_give',null,{NAME:'Zombie Laser'}),G.msg('SUPPLIES: a free Zombie Laser!',3)],
       [G.ifElse(G.cmp(G.vget('vsr'),'EQ',G.num(2)),[blk('tool_take',null,{NAME:'Scatter Gun'}),blk('tool_give',null,{NAME:'Scatter Gun'}),G.msg('SUPPLIES: a free Scatter Gun!',3)],[blk('pl_heal',{N:bn(500)}),G.sadd('Cash',100),G.msg('SUPPLIES: full heal and +100 cash!',3)])]))),[['supply open','vsupopen'],['supply roll','vsr']]);
   G.vars(G.hscript(p,'sss','Supply taken',blk('ev_start'),G.forever(G.until(G.cmp(G.vget('vsupopen'),'EQ',G.num(1))),G.vset('vsupopen',G.num(0)),blk('p_setpos',{PART:G.pnamed('SupplyCrate'),X:bn(0),Y:bn(-50),Z:bn(0)}))),[['supply open','vsupopen']]);
-  G.script(p,'sss','Stomped',G.onMsg('king stomp'),G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('King')}}},'LT',G.num(30)),blk('pl_launch',{P:bn(55)}),blk('pl_damage',{N:bn(15)}),G.msg('The ground shakes!',1)));
+  G.script(p,'sss','Stomped',G.onMsg('king stomp'),blk('g_shake',null,{POW:'.7'}),G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('King')}}},'LT',G.num(30)),blk('pl_launch',{P:bn(55)}),blk('pl_damage',{N:bn(15)}),G.msg('The ground shakes!',1)));
   G.hud(p,'Horde','#33691e',G.join('🧟 Wave ',G.vget(WV),'  ·  ',G.vget(ZL),' zombies left  ·  💰 ',G.stat('Cash')));
   G.vars(G.script(p,'sss','Night falls',G.onMsg('wave cleared'),G.iff(G.cmp(G.vget(KG),'GT',G.num(0)),G.iff(G.cmp(G.vget(WV),'EQ',G.num(4)),blk('g_sky',null,{COLOUR:'#3c4656'}),G.msg('🌙 Night is falling... the zombies get bolder.',2.5)),
     G.iff(G.cmp(G.vget(WV),'EQ',G.num(7)),blk('g_sky',null,{COLOUR:'#232a38'})))),ZV);
@@ -3310,7 +3310,7 @@ function bossDef(){const G=GK;const p=G.proj('boss','Boss Battle',{sky:'#2b1d3a'
   G.script(p,B.id,'Stomp',blk('ev_touch'),blk('pl_damage',{N:bn(20)}),blk('pl_knock',{WHO:bme(),P:bn(90)},{RAG:'TRUE'}),G.sound('explode'),G.wait(1.5));
   G.hscript(p,B.id,'Slam',blk('ev_start'),G.wait(8),G.forever(G.wait(G.rnd(6,10)),G.iff(G.cmp({block:{type:'s_rig_health',inputs:{PART:bme()}}},'GT',G.num(0)),
     blk('rig_say',{PART:bme(),TEXT:bt('GROUND SLAM! (jump!)'),S:bn(1.5)}),G.wait(1.3),G.bc('slam'))));
-  G.script(p,B.id,'Slam hits',G.onMsg('slam'),G.sound('explode'),blk('pe_emit',{N:bn(70),PART:bme()}),
+  G.script(p,B.id,'Slam hits',G.onMsg('slam'),G.sound('explode'),blk('g_shake',null,{POW:'.7'}),blk('pe_emit',{N:bn(70),PART:bme()}),
     G.iff(G.AND(G.cmp({block:{type:'s_distance',inputs:{PART:bme()}}},'LT',G.num(24)),{block:{type:'s_grounded'}}),blk('pl_damage',{N:bn(18)}),blk('pl_knock',{WHO:bme(),P:bn(80)},{RAG:'FALSE'})));
   G.vars(G.hscript(p,B.id,'Minions',blk('ev_start'),G.vset(LV,G.num(1)),G.wait(10),G.forever(blk('rig_say',{PART:bme(),TEXT:bt('Minions, attack!'),S:bn(2)}),
     blk('controls_repeat_ext',{TIMES:G.arith('ADD',G.vget(LV),G.arith('MINUS',G.players(),G.num(1))),DO:doIn(blk('rs_copy',{X:bn(-30),Y:bn(2.6),Z:bn(-40)},{NAME:'Minion'}),blk('rs_copy',{X:bn(30),Y:bn(2.6),Z:bn(-40)},{NAME:'Minion'}),G.wait(.6))}),G.wait(14))),VL);
@@ -3528,7 +3528,7 @@ function disastersDef(){const G=GK;const p=G.proj('disasters','Disaster Zone',{s
       blk('p_deadly',{PART:bme()},{B:'TRUE'}),blk('p_color',{PART:bme()},{COLOUR:'#ff3d00'}),G.sound('explode'),brk(G.vget(XV),2,G.vget(ZV),6,40),G.wait(G.rnd(3,5)),blk('p_deadly',{PART:bme()},{B:'FALSE'}),park(bme()),G.wait(G.rnd(0,1))],
       [blk('p_deadly',{PART:bme()},{B:'FALSE'}),park(bme())],[['lava x'+k,XV],['lava z'+k,ZV]]);}
   // 6 earthquake: the ground shakes, buildings crumble and rubble falls
-  G.vars(G.script(p,'sss','Quake',blk('ev_start'),G.forever(G.ifElse(on(6),[G.iff(G.AND({block:{type:'s_grounded'}},G.cmp(G.ppos('y'),'LT',G.num(60))),blk('pl_launch',{P:G.rnd(14,28)}),blk('pl_damage',{N:bn(2)})),G.sound('explode'),G.wait(G.rnd(1,2))],[G.wait(.3)]))),VARS);
+  G.vars(G.script(p,'sss','Quake',blk('ev_start'),G.forever(G.ifElse(on(6),[G.iff(G.AND({block:{type:'s_grounded'}},G.cmp(G.ppos('y'),'LT',G.num(60))),blk('pl_launch',{P:G.rnd(14,28)}),blk('pl_damage',{N:bn(2)})),blk('g_shake',null,{POW:'.7'}),G.sound('explode'),G.wait(G.rnd(1,2))],[G.wait(.3)]))),VARS);
   dscript('sss','Crumble',6,[G.wait(G.rnd(1,2)),brk(G.rnd(-55,55),G.rnd(2,20),G.rnd(-55,55),9,16)]);
   for(let k=1;k<=6;k++){const r=PP({name:'Rubble'+k,pos:[0,-80,0],size:[3+k%3,3,3+(k+1)%3],color:['#8d6e63','#9e9e9e','#bcaaa4'][k%3],material:'Brick'});const XV='vrx'+k,ZV='vrz'+k;
     dscript(r.id,'Drop',6,[G.wait(G.rnd(1,4)),G.vset(XV,G.rnd(-50,50)),G.vset(ZV,G.rnd(-50,50)),blk('p_setpos',{PART:bme(),X:G.vget(XV),Y:bn(45),Z:G.vget(ZV)}),
@@ -4559,7 +4559,7 @@ function planeCrashDef(){const G=GK;const p=G.proj('planecrash','Plane Crash',{s
   // everyone: phases on your own screen
   G.vars(G.script(p,'sss','Board',G.onMsg('round start'),G.sset('Parachute',0),G.sset('Rescued',0),blk('pl_chute',null,{B:'FALSE'}),G.vset('vjumped',G.num(0)),
     G.tp(0,PY+3,G.rnd(-20,20)),G.sound('check'),blk('g_sky',null,{COLOUR:'#90caf9'}),G.msg('Welcome aboard Flight 404! Find a seat... and check the overhead bins.',5)),[...VARS,['jumped','vjumped']]);
-  G.vars(G.script(p,'sss','Turbulence',G.onMsg('turbulence'),G.msg('⚠ TURBULENCE! Sit in a seat to hold on!',3),G.sound('die'),G.iff(G.cmp(G.vget('vstorm'),'EQ',G.num(1)),blk('g_sky',null,{COLOUR:'#263238'}),G.msg('⛈ We are flying into a STORM!',2)),
+  G.vars(G.script(p,'sss','Turbulence',G.onMsg('turbulence'),G.msg('⚠ TURBULENCE! Sit in a seat to hold on!',3),G.sound('die'),blk('g_shake',null,{POW:'.7'}),G.wait(.5),blk('g_shake',null,{POW:'.7'}),G.wait(.5),blk('g_shake',null,{POW:'.7'}),G.iff(G.cmp(G.vget('vstorm'),'EQ',G.num(1)),blk('g_sky',null,{COLOUR:'#263238'}),G.msg('⛈ We are flying into a STORM!',2)),
     blk('controls_repeat_ext',{TIMES:bn(10),DO:doIn(G.wait(G.rnd(1,2)),G.iff(G.AND(G.aliveIn(),G.NOT({block:{type:'s_touching',inputs:{PART:G.mnamed('Seats')}}})),
       G.iff(G.cmp(G.ppos('y'),'GT',G.num(PY-5)),blk('pl_launch',{P:bn(30)}),blk('pl_damage',{N:bn(6)}))))})),VARS);
   G.vars(G.script(p,'sss','Fire',G.onMsg('engine fire'),blk('g_sky',null,{COLOUR:'#ff8a65'}),G.sound('explode'),G.msg('🔥 The left engine is on FIRE! We are going down!',4)),VARS);
@@ -4571,7 +4571,7 @@ function planeCrashDef(){const G=GK;const p=G.proj('planecrash','Plane Crash',{s
   G.vars(G.script(p,'sss','Landing',blk('ev_land'),G.iff(G.AND(G.aliveIn(),G.cmp(G.vget('vjumped'),'EQ',G.num(1))),G.vset('vjumped',G.num(2)),
     G.ifElse(G.cmp({block:{type:'s_land_speed'}},'GT',G.num(60)),[G.sound('explode'),G.msg('SPLAT! You hit the ground way too fast.',3),blk('pl_damage',{N:bn(1000)})],
       [G.sadd('Points',20),G.sound('win'),G.msg('Safe landing! +20. Now get to the helipad on the hill!',4)]))),[...VARS,['jumped','vjumped']]);
-  G.vars(G.script(p,'sss','Crash',G.onMsg('crash'),blk('g_sky',null,{COLOUR:'#90caf9'}),G.iff(G.AND(G.aliveIn(),G.cmp(G.vget('vjumped'),'EQ',G.num(0))),G.sound('explode'),
+  G.vars(G.script(p,'sss','Crash',G.onMsg('crash'),blk('g_sky',null,{COLOUR:'#90caf9'}),G.iff(G.AND(G.aliveIn(),G.cmp(G.vget('vjumped'),'EQ',G.num(0))),G.sound('explode'),blk('g_shake',null,{POW:'1.1'}),
     G.ifElse({block:{type:'s_touching',inputs:{PART:G.mnamed('Seats')}}},[G.ifElse(G.cmp(G.vget('vsea'),'EQ',G.num(1)),[G.msg('SPLASHDOWN! You survived in your seat! +15. Hop across the wreckage to the beach. Sharks!',5),G.tp(-30,3,-130)],[G.msg('BRACE! The plane slams into the island... you survived in your seat! +15',4),G.tp(-30,6,G.rnd(0,20))]),blk('pl_damage',{N:G.rnd(30,70)}),G.sadd('Points',15)],
       [G.iff(G.cmp(G.rnd(1,3),'EQ',G.num(1)),G.msg('You were thrown around the cabin... but somehow survived!',4),G.ifElse(G.cmp(G.vget('vsea'),'EQ',G.num(1)),[G.tp(-30,3,-130)],[G.tp(-30,6,G.rnd(0,20))]),blk('pl_damage',{N:bn(85)})),
        G.iff(G.cmp({block:{type:'s_health'}},'GT',G.num(99)),G.msg('You were not wearing a seatbelt...',3),blk('pl_damage',{N:bn(1000)}))]),G.vset('vjumped',G.num(2)))),[...VARS,['jumped','vjumped']]);
