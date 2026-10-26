@@ -3918,8 +3918,8 @@ function gkPowerups(p,spots,o){const G=GK;o=o||{};const y=o.y||1.5;
 function towerHellDef(){const G=GK;const p=G.proj('towerhell','Tower of Chaos',{sky:'#1b1f3b',fog:700,brightness:.95,timer:false,saveStats:false,saveCheckpoint:false,lobby:true,lobbyWait:12,lobbyRound:240,lobbyScore:'Height'});
   const bp=p.nodes.find(n=>n.name==='Baseplate');Object.assign(bp,{size:[90,2,90],color:'#2b2f4a',material:'Slate'});
   G.spawnAt(p,0,.5,0,{size:[5,1,5],color:'#ffc93c'});
-  const H=14,COLS=['#ff5252','#ffab40','#ffd740','#69f0ae','#40c4ff','#7c4dff','#ff4081','#b2ff59','#ff6e40','#e0e0e0','#64ffda','#ea80fc','#ffd180','#ff8a80'];
-  const KINDS=['Stairs','Tiny Steps','Sliders','Vanishing','Spinner','Truss','Bouncy','Crushers','Lava Steps','Ghost Steps','Wall Hops','Elevators','Beams','Double Spinner'];
+  const H=14,COLS=['#ff5252','#ffab40','#ffd740','#69f0ae','#40c4ff','#7c4dff','#ff4081','#b2ff59','#ff6e40','#e0e0e0','#64ffda','#ea80fc','#ffd180','#ff8a80','#80d8ff','#ccff90'];
+  const KINDS=['Stairs','Tiny Steps','Sliders','Vanishing','Spinner','Truss','Bouncy','Crushers','Lava Steps','Ghost Steps','Wall Hops','Elevators','Beams','Double Spinner','Zigzag','Bounce Pads'];
   const centers=[];
   KINDS.forEach((kind,ki)=>{const M=G.model(p,'Section'+(ki+1),'rs').id;const col=COLS[ki];const P=o=>G.part(p,M,o);
     // floor with a hole in the middle, glass walls
@@ -3929,7 +3929,8 @@ function towerHellDef(){const G=GK;const p=G.proj('towerhell','Tower of Chaos',{
     const n=7,R=10,sz=kind==='Tiny Steps'?2.6:kind==='Truss'?1.4:kind==='Wall Hops'?1.2:kind==='Beams'?1:4;
     for(let i=0;i<n;i++){const a=i*Math.PI*2/8+.4,x=r3(Math.cos(a)*R),z=r3(Math.sin(a)*R),y=r3(2.4+i*1.35);
       const st=P({name:'Step',pos:[x,y,z],size:kind==='Truss'?[sz,1,sz*3]:kind==='Wall Hops'?[sz,1,4.2]:kind==='Beams'?[sz,1,6]:[sz,1,sz],transparency:kind==='Ghost Steps'?.88:0,rot:kind==='Truss'||kind==='Wall Hops'||kind==='Beams'?[0,r3(-a*180/Math.PI),0]:[0,0,0],color:i%2?col:'#ffffff',material:kind==='Bouncy'&&i%2?'Neon':'Plastic',
-        behavior:kind==='Bouncy'&&i===3?'jump':'none',value:kind==='Bouncy'&&i===3?75:0});
+        behavior:(kind==='Bouncy'&&i===3)||(kind==='Bounce Pads'&&i%2===1)?'jump':'none',value:(kind==='Bouncy'&&i===3)?75:(kind==='Bounce Pads'&&i%2===1)?62:0});
+      if(kind==='Zigzag'&&i>0)G.script(p,st.id,'Zig',...SCR.glide(i%2?3.2:-3.2,0,0,1.15+i*.05).blocks.blocks);
       if(kind==='Lava Steps'&&i%2&&i<6)P({name:'LavaStrip',pos:[x,y+.55,z],size:[sz*.5,.12,sz],color:'#ff3d00',material:'Neon',behavior:'kill'});
       if(kind==='Elevators'&&i%2)G.script(p,st.id,'Lift',...SCR.glide(0,2.4,0,1.3).blocks.blocks);
       if(kind==='Sliders'&&i%2)G.script(p,st.id,'Slide',...SCR.glide(0,0,i%4===1?4:-4,1.4).blocks.blocks);
@@ -4620,7 +4621,7 @@ const GAMES=[
     build:buildSky,mode:'race',stageWord:'Checkpoint',scene:{sky:0x7fb8ff,fogNear:150,fogFar:560,ground:0x9fb4d6},seed:3,objective:'Cross the finish line'},
   {id:'sandbox',name:'Free Build',tag:'Sandbox · build challenges',desc:'Place, paint and delete bricks, stamp ready-made builds, and add jump pads, lava and checkpoints to make your own obby. Saved in this browser.',
     build:buildSandbox,mode:'build',scene:{sky:0xa7d8ff,fogNear:220,fogFar:800},seed:1,objective:'Tap or click to build'},
-  {id:'towerhell',cat:'Obby',name:'Tower of Chaos',tag:'Obby · 14 random sections',desc:'A new random tower every round, the same for everyone. No checkpoints! Climb the highest before time runs out.',mode:'project',make:towerHellDef},
+  {id:'towerhell',cat:'Obby',name:'Tower of Chaos',tag:'Obby · 16 random sections',desc:'A new random tower every round, the same for everyone. No checkpoints! Climb the highest before time runs out.',mode:'project',make:towerHellDef},
   {id:'murder',cat:'Party',name:'Whodunit',tag:'Party · 3 maps',desc:'One murderer with a knife, one sheriff with a gun, everyone else innocent. Bots fill the empty spots.',mode:'project',make:murderDef},
   {id:'doors',cat:'Survival',name:'Haunted Hotel',tag:'Horror · 40 doors',desc:'Get through 40 rooms of a creepy hotel. Find keys for locked doors, and hide in a wardrobe when the lights flicker.',mode:'project',make:doorsDef},
   {id:'arsenal',cat:'Battle',name:'Weapon Ladder',tag:'Battle · 3 maps',desc:'Every knockout swaps you to the next weapon. Score a knockout with the Golden Knife to win the match.',mode:'project',make:arsenalDef},
