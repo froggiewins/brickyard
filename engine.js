@@ -4622,7 +4622,7 @@ const GAMES=[
   {id:'sandbox',name:'Free Build',tag:'Sandbox · build challenges',desc:'Place, paint and delete bricks, stamp ready-made builds, and add jump pads, lava and checkpoints to make your own obby. Saved in this browser.',
     build:buildSandbox,mode:'build',scene:{sky:0xa7d8ff,fogNear:220,fogFar:800},seed:1,objective:'Tap or click to build'},
   {id:'towerhell',cat:'Obby',name:'Tower of Chaos',tag:'Obby · 16 random sections',desc:'A new random tower every round, the same for everyone. No checkpoints! Climb the highest before time runs out.',mode:'project',make:towerHellDef},
-  {id:'murder',cat:'Party',name:'Whodunit',tag:'Party · 3 maps',desc:'One murderer with a knife, one sheriff with a gun, everyone else innocent. Bots fill the empty spots.',mode:'project',make:murderDef},
+  {id:'murder',cat:'Party',name:'Whodunit',tag:'Party · 3 maps',desc:'One murderer, one sheriff, everyone else innocent. Bots fill the empty spots, the murderer strikes in secret, and witnesses drop clues.',mode:'project',make:murderDef},
   {id:'doors',cat:'Survival',name:'Haunted Hotel',tag:'Horror · 40 doors',desc:'Get through 40 rooms of a creepy hotel. Find keys for locked doors, and hide in a wardrobe when the lights flicker.',mode:'project',make:doorsDef},
   {id:'arsenal',cat:'Battle',name:'Weapon Ladder',tag:'Battle · 3 maps',desc:'Every knockout swaps you to the next weapon. Score a knockout with the Golden Knife to win the match.',mode:'project',make:arsenalDef},
   {id:'deathrun',cat:'Obby',name:'Trap Run',tag:'Obby · 3 courses',desc:'Runners race a trap course while Death springs spikes, lava, sweepers and a boulder from the control room.',mode:'project',make:deathrunDef},
@@ -4635,17 +4635,17 @@ const GAMES=[
   {id:'ghost',cat:'Survival',name:'Escape the Ghost',tag:'Horror · endless nights',desc:'Find 5 glowing keys in a dark hedge maze and reach the gate before the ghost catches you. Each night adds a ghost.',mode:'project',make:ghostDef},
   {id:'megaobby',cat:'Obby',name:'Mega Obby',tag:'Obby · 50 stages',desc:'Thirty stages that get harder as you climb: lava beams, spinners, movers, vanishing tiles and more. Checkpoints are saved.',mode:'project',make:megaObbyDef},
   {id:'lavarise',cat:'Survival',name:'Lava Rising',tag:'Survival · 3 towers',desc:'Race up the spiral tower, the scaffold and the crystal spire before the lava reaches you. The lava gets faster every round.',mode:'project',make:lavaRiseDef},
-  {id:'zombies',cat:'Battle',name:'Zombie Survival',tag:'Survival · 2 maps, endless waves',desc:'Hold off bigger and bigger waves of zombies, fast runners and huge brutes in a fenced town with a sword, a blaster and potions.',mode:'project',make:zombiesDef},
+  {id:'zombies',cat:'Battle',name:'Zombie Survival',tag:'Survival · 2 maps, endless waves',desc:'Hold off bigger and bigger waves of zombies from every side in the Town or on the Farm. Spend cash at the armory on lasers and rocket launchers.',mode:'project',make:zombiesDef},
   {id:'rainbow',cat:'Obby',name:'Rainbow Obby',tag:'Obby · 15 stages',desc:'Ten colorful stages: lava beams, jump pads, moving and vanishing platforms, a spinner and a sky elevator.',mode:'project',make:rainbowDef},
   {id:'gems',cat:'Collect',name:'Gem Hunt',tag:'Collect · 3 maps',desc:'Most gems in 90 seconds wins, on a hilly island with jump pads. The super crystal is worth 5.',mode:'project',make:gemsDef},
-  {id:'turbo',cat:'Race',name:'Turbo Track',tag:'Race · 3 tracks',desc:'Most laps in 2:30 wins on a sky racetrack with boost pads, a launcher and spinning sweepers. Beat your best lap too.',mode:'project',make:turboDef},
+  {id:'turbo',cat:'Race',name:'Turbo Track',tag:'Race · 3 tracks',desc:'Most laps in 2:30 wins! Three sky tracks with boost pads and launchers, and every lap you race the ghost, the rocket and the turtle for 1st place.',mode:'project',make:turboDef},
   {id:'sumo',cat:'Battle',name:'Sumo Smash',tag:'Party · 3 arenas',desc:'Last one on the ring wins! More and more sumos try to shove everyone off. Bonk them, and other players, with your bat.',mode:'project',make:sumoDef},
-  {id:'colordrop',cat:'Party',name:'Color Drop',tag:'Party · 3 arenas',desc:'A color is called and every other tile vanishes. Everyone gets the same colors, rounds speed up, and the last one standing wins.',mode:'project',make:colorDropDef},
-  {id:'maze',cat:'Puzzle',name:'Maze Escape',tag:'Puzzle · 2 mazes',desc:'Escape the maze, and the exit moves to another corner. How many escapes, and how fast?',mode:'project',make:mazeDef},
+  {id:'colordrop',cat:'Party',name:'Color Drop',tag:'Party · 3 arenas',desc:'A color is called and every other tile vanishes. Watch out for AVOID rounds, outlast the rival bots, and be the last one standing.',mode:'project',make:colorDropDef},
+  {id:'maze',cat:'Puzzle',name:'Maze Escape',tag:'Puzzle · 2 mazes',desc:'Escape the stone maze and the hedge maze in turn while the Minotaur hunts you. How many escapes, and how fast?',mode:'project',make:mazeDef},
   {id:'targets',cat:'Battle',name:'Target Range',tag:'Aim · lobby matches',desc:'Most hits in 60 seconds wins. Moving targets, a fast golden target worth 3, and your record is saved.',mode:'project',make:targetsDef},
   {id:'cloudhop',cat:'Obby',name:'Cloud Hop',tag:'Obby · double jump',desc:'Double jump between clouds high in the sky. Grab the purple orb for a triple jump.',mode:'project',make:cloudHopDef},
   {id:'freezetag',cat:'Party',name:'Freeze Tag',tag:'Party · 3 maps',desc:'Most freezes wins! Runners flee from you; freeze them all before the level timer runs out to add a faster runner.',mode:'project',make:freezeTagDef},
-  {id:'boss',cat:'Battle',name:'Boss Battle',tag:'Co-op · 4 bosses',desc:'Beat the giant Brick King again and again. Each level brings more minions.',mode:'project',make:bossDef}
+  {id:'boss',cat:'Battle',name:'Boss Battle',tag:'Co-op · 4 bosses',desc:'Beat the giant Brick King again and again. The Frost Queen, the Shadow Dragon and Mecha Brick join at higher levels.',mode:'project',make:bossDef}
 ];
 GAMES.forEach(g=>{if(!g.cat)g.cat={arena:'Battle',tower:'Obby',coins:'Collect',sky:'Race',sandbox:'Build'}[g.id]||'Other';});
 let GAME_CAT=store.get('gameCat','All');
