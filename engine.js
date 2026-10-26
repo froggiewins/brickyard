@@ -121,6 +121,8 @@ const faceDecal=(()=>{const c=document.createElement('canvas');c.width=c.height=
   const m=new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),transparent:true,alphaTest:.4});m.userData.shared=true;return m;})();
 const PLANE=new THREE.PlaneGeometry(1,1);PLANE.userData.shared=true;
 const RIG_ANIMS=[['idle','Idle'],['wave','Wave'],['dance','Dance'],['cheer','Cheer'],['point','Point'],['sit','Sit']];
+const BOT_NAMES=['Bricky','Blocko','Pixel','Noodle','Waffle','Zapp','Pebble','Biscuit','Rocket','Mango','Sprocket','Gizmo','Tofu','Comet','Pickle','Dynamo'];
+function botDisp(nm){return String(nm??'').replace(/\b(?:Bot|Fighter)(\d{1,2})\b/g,(m,d)=>BOT_NAMES[(+d-1+BOT_NAMES.length)%BOT_NAMES.length]+' (bot)');}
 function makeRigMesh(n){
   const c=n.colors||{},s=n.scale||1;const g=new THREE.Group();const body=new THREE.Group();g.add(body);
   const bx=(w,h,d,m,x,y,z,parent)=>{const me=new THREE.Mesh(BOX,m);me.scale.set(w,h,d);me.position.set(x,y,z);me.castShadow=true;me.receiveShadow=true;parent.add(me);return me;};
@@ -131,7 +133,7 @@ function makeRigMesh(n){
   const lArm=pv(-1.5,1.4),rArm=pv(1.5,1.4),lLeg=pv(-.5,-.5),rLeg=pv(.5,-.5);
   const am=mat(c.arms||'#f5cd30'),lm=mat(c.legs||'#2b3a7a');
   bx(1,2,1,am,0,-.9,0,lArm);bx(1,2,1,am,0,-.9,0,rArm);bx(1,2,1,lm,0,-1,0,lLeg);bx(1,2,1,lm,0,-1,0,rLeg);
-  if(n.showName!==false&&n.name){const tag=textSprite(n.name);tag.position.set(0,3.5,0);g.add(tag);}
+  if(n.showName!==false&&n.name){const tag=textSprite(botDisp(n.name));tag.position.set(0,3.5,0);g.add(tag);}
   g.scale.setScalar(s);g.userData.id=n.id;g.traverse(o=>{if(o.isMesh)o.userData.id=n.id;});
   g.userData.rig={body,torso,head,lArm,rArm,lLeg,rLeg};
   return g;
@@ -2132,7 +2134,7 @@ function logOut(msg,type){
 let game=null,running=false,paused=false,state={};
 const hud={name:$('#hudName'),timer:$('#hudTimer'),stat:$('#hudStat')};
 let toastT=0;
-function toast(s,color,dur){const el=$('#toast');el.textContent=s;el.style.color=color||'#fff';el.classList.add('show');toastT=dur||1.8;}
+function toast(s,color,dur){const el=$('#toast');el.textContent=botDisp(s);el.style.color=color||'#fff';el.classList.add('show');toastT=dur||1.8;}
 function setStat(s){hud.stat.hidden=!s;if(hud.stat.textContent!==s)hud.stat.textContent=s;}
 
 function handleTouch(p){
@@ -2461,7 +2463,7 @@ const GK=(()=>{
   const onMsg=m=>blk('ev_msg',null,{MSG:m});
   const NOT=c=>({block:{type:'logic_negate',inputs:{BOOL:c}}});
   const whileDo=(c,...b)=>blk('controls_whileUntil',{BOOL:c,DO:doIn(...b)},{MODE:'WHILE'});
-  const hud=(p,name,col,textExpr,every)=>{const sg=guiNode('ScreenGui',{name:name+'HUD'});const lb=guiNode('TextLabel',{parent:sg.id,name,text:'',gpos:[.5,0,0,58],anchor:[.5,0],gsize:[0,340,0,40],bg:col,bgT:.15,tc:'#ffffff',font:'Cartoon',ts:20,radius:20,strokeT:1.2,strokeTc:'#0b1020'});p.nodes.push(sg,lb);
+  const hud=(p,name,col,textExpr,every)=>{const sg=guiNode('ScreenGui',{name:name+'HUD'});const lb=guiNode('TextLabel',{parent:sg.id,name,text:'',gpos:[.5,0,0,p.settings.lobby?104:58],anchor:[.5,0],gsize:[0,380,0,38],bg:col,bgT:.15,tc:'#ffffff',font:'Cartoon',ts:18,radius:20,strokeT:1.2,strokeTc:'#0b1020'});p.nodes.push(sg,lb);
     script(p,lb.id,'Update',blk('ev_start'),forever(blk('gui_settext',{GUI:{shadow:{type:'gui_this'}},TEXT:textExpr}),wait(every||.25)));return lb;};
   const round=v=>({block:{type:'math_round',fields:{OP:'ROUND'},inputs:{NUM:v}}});
   const hscript=(p,parent,name,...blocks)=>{const s=script(p,parent,name,...blocks);s.hostOnly=true;return s;};
@@ -2530,7 +2532,7 @@ function lavaRiseDef(){const G=GK;const p=G.proj('lavarise','Lava Rising',{sky:'
     G.script(p,fb.id,'Erupt',blk('ev_start'),G.wait(4+k*2),G.forever(G.wait(G.rnd(3,6)),G.iff(G.cmp(G.stat('Round'),'GTE',G.num(3)),
       G.vset('vgy'+k,G.arith('ADD',G.ppos('y'),G.rnd(2,8))),blk('p_setpos',{PART:bme(),X:bn(0),Y:G.vget('vgy'+k),Z:bn(0)}),
       blk('p_glideto',{PART:bme(),X:G.arith('MULTIPLY',G.ppos('x'),G.num(2.4)),Y:G.vget('vgy'+k),Z:G.arith('MULTIPLY',G.ppos('z'),G.num(2.4)),S:bn(1.4)}),blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-50),Z:bn(0)}))));}
-  G.hud(p,'LavaGap','#bf360c',G.join('🔥 Lava is ',G.round(G.arith('MINUS',G.ppos('y'),G.arith('ADD',{block:{type:'s_prop',fields:{PROP:'y'},inputs:{PART:G.pnamed('Lava')}}},G.num(1)))),' studs below you · climb!'));
+  G.hud(p,'LavaGap','#bf360c',G.join('🔥 Lava is ',G.round(G.arith('MINUS',G.ppos('y'),G.arith('ADD',{block:{type:'s_prop',fields:{PROP:'y'},inputs:{PART:G.pnamed('Lava')}}},G.num(1)))),' studs below you'));
   G.spawnAt(p,4,.5,26);return G.def(p,'lavarise','Lava Rising');}
 
 /* 2. Zombie Survival (co-op: the host runs the zombies, everyone fights the same horde) */
@@ -2561,7 +2563,8 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
       blk('rig_say',{PART:bme(),TEXT:bt('Ptooey! 🟢'),S:bn(1)}),G.iff(G.cmp(G.rnd(1,10),'LTE',G.num(5)),G.asP({block:{type:'pl_ref_nearpart',inputs:{PART:bme()}}},blk('pl_damage',{N:bn(9)}),G.msg('Acid spit!',1))))));
     if(nm==='King')G.hscript(p,Z.id,'Stomp',blk('ev_start'),G.forever(G.wait(6),G.iff(G.cmp(G.nearD(bme()),'LT',G.num(30)),blk('rig_say',{PART:bme(),TEXT:bt('STOMP!'),S:bn(1)}),G.bc('king stomp'))));
     G.vars(G.hscript(p,Z.id,'Count',blk('ev_rig_died'),G.vchg(ZL,-1)),ZV);});
-  const edge=nm=>G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[blk('rs_copy',{X:G.rnd(-80,80),Y:bn(3),Z:G.rnd(-82,-78)},{NAME:nm})],[blk('rs_copy',{X:G.rnd(78,82),Y:bn(3),Z:G.rnd(-80,80)},{NAME:nm})]);
+  const edge=nm=>G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[blk('rs_copy',{X:G.rnd(-80,80),Y:bn(3),Z:G.rnd(-82,-78)},{NAME:nm})],[blk('rs_copy',{X:G.rnd(-80,80),Y:bn(3),Z:G.rnd(78,82)},{NAME:nm})])],
+    [G.ifElse(G.cmp(G.rnd(1,2),'EQ',G.num(1)),[blk('rs_copy',{X:G.rnd(78,82),Y:bn(3),Z:G.rnd(-80,80)},{NAME:nm})],[blk('rs_copy',{X:G.rnd(-82,-78),Y:bn(3),Z:G.rnd(-80,80)},{NAME:nm})])]);
   const eq=(id,n)=>G.cmp(G.vget(id),'EQ',G.num(n));
   G.vars(G.hscript(p,'sss','Waves',blk('ev_start'),G.vset(WV,G.num(0)),G.vset(KG,G.num(0)),G.vset(RS,G.num(0)),G.vset(BR,G.num(0)),
     G.msg('Zombies attack in waves: fast runners from wave 3 and a huge Brute every 5th wave. Team up online! Sword (1), blaster (2).',5),G.wait(5),
@@ -2577,15 +2580,17 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
   G.script(p,'sss','Heal',G.onMsg('wave cleared'),blk('pl_heal',{N:bn(50)}));
   G.vars(G.script(p,'sss','WaveStat',blk('ev_start'),G.forever(G.sset('Wave',G.vget(WV)),G.wait(.5))),ZV);
   G.vars(G.script(p,'sss','Overrun',blk('ev_died'),G.ifElse(G.cmp(G.players(),'EQ',G.num(1)),
-    [G.msg(G.join('The zombies got you on wave ',G.vget(WV),'! Starting again from wave 1...'),4),G.vset(RS,G.num(1)),G.vset(ZL,G.num(0)),
+    [G.msg(G.join('The zombies got you on wave ',G.vget(WV),'! Starting again from wave 1...'),4),G.vset(RS,G.num(1)),G.vset(ZL,G.num(0)),blk('g_sky',null,{COLOUR:'#55606e'}),
       ...['Zombie','Runner','Brute','Exploder','Spitter','King'].map(nm=>blk('controls_repeat_ext',{TIMES:bn(60),DO:doIn(blk('p_destroy',{PART:G.pnamed(nm)}))}))],
     [G.msg('Knocked out! Your team holds on while you respawn.',3)])),ZV);
   // the armory: spend Cash from knockouts between waves
   gkGun(p,'rs','Scatter Gun',{dmg:22,cool:.7,color:'#ffab40',speed:200,len:.5,tip:'Bought at the armory'});
   gkGun(p,'rs','Zombie Laser',{dmg:60,cool:.35,color:'#e040fb',speed:400,len:1.4,tip:'Bought at the armory'});
+  gkGun(p,'rs','Rocket Launcher',{dmg:90,cool:1.1,color:'#ff5252',speed:160,len:1,tip:'Bought at the armory. Big damage!',extra:doIn(blk('p_break',{X:G.prop({block:{type:'tool_hitpart'},shadow:{type:'p_this'}},'x'),Y:G.prop({block:{type:'tool_hitpart'},shadow:{type:'p_this'}},'y'),Z:G.prop({block:{type:'tool_hitpart'},shadow:{type:'p_this'}},'z'),R:bn(5),P:bn(30)}),blk('g_sound',null,{SND:'explode'}))});
   const SHOP=[['Medkit',40,'#ef5350',[blk('pl_heal',{N:bn(100)})]],['Armor',120,'#90a4ae',[blk('pl_maxhp',{N:bn(160)}),blk('pl_heal',{N:bn(160)})]],
-    ['Scatter Gun',150,'#ffab40',[blk('tool_take',null,{NAME:'Scatter Gun'}),blk('tool_give',null,{NAME:'Scatter Gun'})]],['Zombie Laser',400,'#e040fb',[blk('tool_take',null,{NAME:'Zombie Laser'}),blk('tool_give',null,{NAME:'Zombie Laser'})]]];
-  G.part(p,F.id,{name:'Armory',pos:[0,.3,-14],size:[26,.6,6],color:'#37474f',material:'Metal',label:'ARMORY'});
+    ['Scatter Gun',150,'#ffab40',[blk('tool_take',null,{NAME:'Scatter Gun'}),blk('tool_give',null,{NAME:'Scatter Gun'})]],['Zombie Laser',400,'#e040fb',[blk('tool_take',null,{NAME:'Zombie Laser'}),blk('tool_give',null,{NAME:'Zombie Laser'})]],
+    ['Rocket Launcher',650,'#ff5252',[blk('tool_take',null,{NAME:'Rocket Launcher'}),blk('tool_give',null,{NAME:'Rocket Launcher'})]]];
+  G.part(p,F.id,{name:'Armory',pos:[3,.3,-14],size:[32,.6,6],color:'#37474f',material:'Metal',label:'ARMORY'});
   SHOP.forEach(([nm,cost,col,act],i)=>{const pad=G.part(p,F.id,{name:'Buy '+nm,pos:[-9+i*6,1,-14],size:[4,1.2,4],color:col,material:'Neon',label:nm+' · '+cost+' cash'});
     G.script(p,pad.id,'Buy',blk('ev_touch'),G.ifElse(G.cmp(G.stat('Cash'),'GTE',G.num(cost)),[G.sadd('Cash',-cost),...act,G.sound('coin'),G.msg('Bought '+nm+'!',2)],[G.sound('click'),G.msg(nm+' costs '+cost+' cash. Knock out zombies to earn more!',2)]),G.wait(1.5));});
   // supply drop every third wave: a crate parachutes in with a free weapon or a full heal
@@ -2599,6 +2604,9 @@ function zombiesDef(){const G=GK;const p=G.proj('zombies','Zombie Survival',{sky
       [G.ifElse(G.cmp(G.vget('vsr'),'EQ',G.num(2)),[blk('tool_take',null,{NAME:'Scatter Gun'}),blk('tool_give',null,{NAME:'Scatter Gun'}),G.msg('SUPPLIES: a free Scatter Gun!',3)],[blk('pl_heal',{N:bn(500)}),G.sadd('Cash',100),G.msg('SUPPLIES: full heal and +100 cash!',3)])]))),[['supply open','vsupopen'],['supply roll','vsr']]);
   G.vars(G.hscript(p,'sss','Supply taken',blk('ev_start'),G.forever(G.until(G.cmp(G.vget('vsupopen'),'EQ',G.num(1))),G.vset('vsupopen',G.num(0)),blk('p_setpos',{PART:G.pnamed('SupplyCrate'),X:bn(0),Y:bn(-50),Z:bn(0)}))),[['supply open','vsupopen']]);
   G.script(p,'sss','Stomped',G.onMsg('king stomp'),G.iff(G.cmp({block:{type:'s_distance',inputs:{PART:G.pnamed('King')}}},'LT',G.num(30)),blk('pl_launch',{P:bn(55)}),blk('pl_damage',{N:bn(15)}),G.msg('The ground shakes!',1)));
+  G.hud(p,'Horde','#33691e',G.join('🧟 Wave ',G.vget(WV),'  ·  ',G.vget(ZL),' zombies left  ·  💰 ',G.stat('Cash')));
+  G.vars(G.script(p,'sss','Night falls',G.onMsg('wave cleared'),G.iff(G.cmp(G.vget(KG),'GT',G.num(0)),G.iff(G.cmp(G.vget(WV),'EQ',G.num(4)),blk('g_sky',null,{COLOUR:'#3c4656'}),G.msg('🌙 Night is falling... the zombies get bolder.',2.5)),
+    G.iff(G.cmp(G.vget(WV),'EQ',G.num(7)),blk('g_sky',null,{COLOUR:'#232a38'})))),ZV);
   G.welcome(p,G.sset('KOs',0),G.sset('Cash',0));
   G.best(p,'Wave','zombie_wave');
   return G.def(p,'zombies','Zombie Survival');}
@@ -2684,7 +2692,7 @@ function gemsDef(){const G=GK;const p=G.proj('gems','Gem Hunt',{sky:'#a6e3ff',ti
   const cr=P({name:'Crystal',shape:'ball',pos:[0,45,-30],size:[3,3,3],color:'#d68cff',material:'Neon',canCollide:false,anchored:false,label:'+5'});p.nodes.push(emitterNode({parent:cr.id,name:'Magic'},'magic'));
   G.script(p,cr.id,'Collect',blk('ev_touch'),G.sadd('Gems',5),G.sound('win'),G.msg('Super crystal! +5 gems',2),blk('pe_emit',{N:bn(60),PART:bme()}),drop());
   G.script(p,cr.id,'Wander',blk('ev_start'),G.forever(G.wait(12),drop(),G.msg('The super crystal fell somewhere new...',2)));
-  const sg=guiNode('ScreenGui',{name:'HUD'});const lb=guiNode('TextLabel',{parent:sg.id,name:'GemLabel',text:'Gems: 0',gpos:[.5,0,0,58],anchor:[.5,0],gsize:[0,300,0,46],bg:'#7e57c2',bgT:.05,tc:'#ffffff',font:'Cartoon',ts:24,radius:23,strokeT:1.5,strokeTc:'#311b92'});p.nodes.push(sg,lb);
+  const sg=guiNode('ScreenGui',{name:'HUD'});const lb=guiNode('TextLabel',{parent:sg.id,name:'GemLabel',text:'Gems: 0',gpos:[.5,0,0,104],anchor:[.5,0],gsize:[0,300,0,46],bg:'#7e57c2',bgT:.05,tc:'#ffffff',font:'Cartoon',ts:24,radius:23,strokeT:1.5,strokeTc:'#311b92'});p.nodes.push(sg,lb);
   G.script(p,lb.id,'Count',blk('ev_start'),G.forever(blk('gui_settext',{GUI:{shadow:{type:'gui_this'}},TEXT:G.join('💎 ',G.stat('Gems'))}),G.wait(.2)));
   G.script(p,'sss','Total',blk('ev_data_loaded'),G.sset('Total',G.dget('gems_total',0)));
   G.welcome(p,G.sset('Gems',0),G.msg('Most gems in 90 seconds wins! The purple super crystal is worth 5.',4));
@@ -3968,10 +3976,10 @@ function arsenalDef(){const G=GK;const p=G.proj('arsenal','Weapon Ladder',{sky:'
     G.vars(G.hscript(p,r.id,'Fight',blk('ev_start'),G.forever(G.ifElse(G.cmp(G.num(k),'GT',G.vget(NB)),[G.wait(.5)],
       [G.ifElse(G.cmp(G.nearD(bme()),'LT',G.num(30)),[blk('rig_walk',{PART:bme(),X:G.arith('ADD',G.nearAx(bme(),'x'),G.rnd(-8,8)),Z:G.arith('ADD',G.nearAx(bme(),'z'),G.rnd(-8,8))})],
         [G.walkN(bme()),G.wait(.3)])]))),[...BV]);
-    G.vars(G.hscript(p,r.id,'Shoot',blk('ev_start'),G.forever(G.wait(G.rnd(1,2)),G.iff(G.AND(G.cmp(G.num(k),'LTE',G.vget(NB)),G.AND(G.cmp({block:{type:'s_rig_health',inputs:{PART:bme()}}},'GT',G.num(0)),G.cmp(G.nearD(bme()),'LT',G.num(40)))),
+    G.vars(G.hscript(p,r.id,'Shoot',blk('ev_start'),G.forever(G.wait(G.arith('DIVIDE',G.rnd(14,28),G.num(10))),G.iff(G.AND(G.cmp(G.num(k),'LTE',G.vget(NB)),G.AND(G.cmp({block:{type:'s_rig_health',inputs:{PART:bme()}}},'GT',G.num(0)),G.cmp(G.nearD(bme()),'LT',G.num(40)))),
       blk('p_setpos',{PART:G.pnamed('BotBolt'+k),X:G.prop(bme(),'x'),Y:G.arith('ADD',G.prop(bme(),'y'),G.num(1)),Z:G.prop(bme(),'z')}),
       blk('p_glideto',{PART:G.pnamed('BotBolt'+k),X:G.nearAx(bme(),'x'),Y:G.arith('ADD',G.nearAx(bme(),'y'),G.num(2.5)),Z:G.nearAx(bme(),'z'),S:bn(.35)}),
-      G.iff(G.cmp(G.rnd(1,10),'LTE',G.num(6)),G.asP({block:{type:'pl_ref_nearpart',inputs:{PART:bme()}}},blk('pl_damage',{N:bn(14)}))),
+      G.iff(G.AND(G.cmp(G.nearD(G.pnamed('BotBolt'+k)),'LT',G.num(4.8)),G.cmp(G.rnd(1,10),'LTE',G.num(8))),G.asP({block:{type:'pl_ref_nearpart',inputs:{PART:G.pnamed('BotBolt'+k)}}},blk('pl_damage',{N:bn(11)}))),
       blk('p_setpos',{PART:G.pnamed('BotBolt'+k),X:bn(0),Y:bn(-50),Z:bn(0)})))),BV);
     G.script(p,r.id,'KO',blk('ev_rig_died'),G.sadd('KOs',1));
     G.vars(G.hscript(p,r.id,'Back to map',blk('ev_rig_died'),G.wait(3.3),blk('p_setpos',{PART:bme(),X:ox(HOME[k-1][0]),Y:bn(2.6),Z:bn(HOME[k-1][1])})),BV);}
@@ -3985,7 +3993,15 @@ function arsenalDef(){const G=GK;const p=G.proj('arsenal','Weapon Ladder',{sky:'
       G.iff(G.cmp(G.vget('vstk'),'EQ',G.num(3)),G.sound('win'),G.msg('⚡ 3 streak: SPEED!',1.5),blk('pl_speed',{V:bn(22)})),
       G.iff(G.cmp(G.vget('vstk'),'EQ',G.num(5)),G.sound('win'),G.msg('🛡️ 5 streak: 8 second SHIELD!',1.5),blk('pl_shield',{S:bn(8)}))),G.wait(.3))),[['last kos','vlk'],['streak','vstk'],...G.MV]);
   G.vars(G.script(p,'sss','Streak lost',blk('ev_died'),G.vset('vstk',G.num(0)),blk('pl_speed',{V:bn(16)})),[['streak','vstk']]);
-  G.welcome(p,G.sset('KOs',0),G.msg('Weapon Ladder: every knockout upgrades your weapon. Get a knockout with the Golden Knife to win!',5));
+  // the rival bot climbs its own ladder: one step every 20 seconds and one each time you are knocked out
+  const RV='vrival',RVV=[['rival tier',RV],['bots',NB],['tier',TI],...G.MV];
+  G.vars(G.script(p,'sss','Rival ladder',G.onMsg('round start'),G.vset(RV,G.num(0)),G.wait(1),G.whileDo(G.AND(G.inMatch(),G.cmp(G.vget(RV),'LT',G.num(NAMES.length))),G.wait(20),
+    G.iff(G.AND(G.inMatch(),G.cmp(G.vget(NB),'GT',G.num(0))),G.vchg(RV,1),G.iff(G.cmp(G.vget(RV),'EQ',G.num(NAMES.length-1)),G.sound('nope'),G.msg('⚠️ The rival bot has the Golden Knife! Hurry!',2.5)),
+      G.iff(G.AND(G.cmp(G.vget(RV),'GTE',G.num(NAMES.length)),G.cmp(G.vget(TI),'LT',G.num(NAMES.length))),G.sound('die'),G.msg('Pixel (bot) finished the ladder first! Beat the rival next match.',4))))),RVV);
+  G.vars(G.script(p,'sss','Rival gains',blk('ev_died'),G.iff(G.AND(G.inMatch(),G.AND(G.cmp(G.vget(NB),'GT',G.num(0)),G.cmp(G.vget(RV),'LT',G.num(NAMES.length)))),G.vchg(RV,1),
+    G.iff(G.AND(G.cmp(G.vget(RV),'GTE',G.num(NAMES.length)),G.cmp(G.vget(TI),'LT',G.num(NAMES.length))),G.msg('Pixel (bot) finished the ladder first! Beat the rival next match.',4)))),RVV);
+  G.hud(p,'Ladder','#e65100',G.join('🔫 You ',G.vget(TI),'/',String(NAMES.length),'   ·   🤖 Rival ',G.vget(RV),'/',String(NAMES.length)));
+  G.welcome(p,G.sset('KOs',0),G.vset(RV,G.num(0)),G.msg('Weapon Ladder: every knockout upgrades your weapon. Get a knockout with the Golden Knife before the rival bot does!',5));
   return G.def(p,'arsenal','Weapon Ladder');}
 
 /* 24. Trap Run: run the trap course; Death (a player, or a bot if there are few players) springs the traps */
@@ -4508,7 +4524,7 @@ function newProjectObj(template,name){
   const p={id:uid(),name:name||(template==='obby'?'My Obby':'My Game'),updated:Date.now(),settings:defaultSettings(),nodes:[]};
   const N=p.nodes;
   N.push(partNode({name:'Baseplate',pos:[0,-1,0],size:[256,2,256],color:'#7a8a98',material:'Studs',locked:true}));
-  N.push(partNode({name:'SpawnLocation',pos:[0,.5,0],size:[12,1,12],color:'#c7ccd6',behavior:'spawn'}));
+  N.push(partNode({name:'SpawnLocation',pos:[0,.5,0],size:[12,1,12],color:'#56627e',material:'Studs',behavior:'spawn'}));
   if(template==='obby'){
     const C=['#5c9dff','#9b6bff','#ff6bb5','#4fd1c5'];
     const course=groupNode('Folder',{name:'Course'});N.push(course);
@@ -4577,6 +4593,11 @@ function nodesBounds(list){const bb=new THREE.Box3();
   for(const n of list){if(n.cls==='Part'){const h=new V3().fromArray(n.size).multiplyScalar(.5),c=new V3().fromArray(n.pos);bb.expandByPoint(c.clone().sub(h));bb.expandByPoint(c.clone().add(h));}
     else if(n.cls==='Rig'){const s=n.scale||1,h=new V3(2*s,2.6*s,.6*s),c=new V3().fromArray(n.pos);bb.expandByPoint(c.clone().sub(h));bb.expandByPoint(c.clone().add(h));}}
   if(bb.isEmpty())bb.expandByPoint(new V3());return bb;}
+const SPAWN_TRIM=new THREE.MeshBasicMaterial({color:0x7dd3fc,transparent:true,opacity:.9});
+function spawnTrim(p){const m=p.mesh;if(!m||!p.node||p.node.shape&&p.node.shape!=='block')return;const sx=m.scale.x,sy=m.scale.y,sz=m.scale.z;if(sx<3||sz<3)return;
+  const g=new THREE.Group();g.scale.set(1/sx,1/sy,1/sz);const y=sy/2+.04,w=.35,i=.7;
+  [[0,(sz/2-i),sx-2*i,w],[0,-(sz/2-i),sx-2*i,w],[(sx/2-i),0,w,sz-2*i+w],[-(sx/2-i),0,w,sz-2*i+w]].forEach(([x,z,a,b])=>{const e=new THREE.Mesh(BOX,SPAWN_TRIM);e.scale.set(a,.06,b);e.position.set(x,y,z);g.add(e);});
+  m.add(g);}
 function buildProject(proj){
   const S=proj.settings;
   PHYS.gravity=S.gravity;PHYS.walk=S.walkSpeed;PHYS.jump=S.jumpPower;
@@ -4586,7 +4607,7 @@ function buildProject(proj){
   let spawn=null,minY=Infinity,stages=0;
   for(const n of list){const p=W.byId.get(n.id);if(p&&!p.rig)minY=Math.min(minY,p.min.y);
     if(n.cls==='Part'&&n.behavior==='spawn'&&!spawn)spawn=p;if(n.cls==='Part'&&n.behavior==='check')stages=Math.max(stages,n.value||1);}
-  if(spawn)W.spawn.set(spawn.pos.x,spawn.max.y+PH.y+.3,spawn.pos.z);
+  if(spawn){W.spawn.set(spawn.pos.x,spawn.max.y+PH.y+.3,spawn.pos.z);try{spawnTrim(spawn);}catch(e){}}
   else W.spawn.set(0,(isFinite(minY)?Math.max(0,groundAt(0,0)):0)+PH.y+3,0);
   W.killY=(isFinite(minY)?minY:0)-60;W.stages=stages;
   state.total=W.coins.length;
@@ -4932,7 +4953,13 @@ function juiceTick(dt){
     n.el.style.left=((_jv.x*.5+.5)*w+n.dx*n.age*30)+'px';n.el.style.top=((-_jv.y*.5+.5)*h)+'px';
     n.el.style.opacity=String(Math.min(1,(1-k)*2.2));n.el.style.transform='translate(-50%,-50%) scale('+sc.toFixed(2)+')';}
   JU.shake=Math.max(0,JU.shake-dt*2.4);
+  JU.bt=(JU.bt||0)-dt;if(JU.bt<=0){JU.bt=.15;juiceBoss();}
 }
+function juiceBoss(){const el=$('#jboss');if(!el)return;let best=null,bd=1e9;
+  for(const r of W.rigs){if(r.dead||r.destroyed||!r.mesh.visible||!(r.maxHealth>=300)||((r.node&&r.node.scale)||1)<1.9)continue;const d=r.pos.distanceTo(P.pos);if(d<90&&d<bd){bd=d;best=r;}}
+  if(!best){if(JU.bossOn){el.classList.remove('on');JU.bossOn=false;}return;}
+  const f=Math.max(0,best.health/best.maxHealth);if(!JU.bossOn||JU.bossR!==best){el.querySelector('b').textContent=botDisp(best.name).toUpperCase();JU.bossR=best;}
+  el.querySelector('u').style.width=(f*100).toFixed(1)+'%';el.querySelector('s').style.width=(f*100).toFixed(1)+'%';if(!JU.bossOn){el.classList.add('on');JU.bossOn=true;}}
 function juicePop(p,txt,cls,life){if(!p)return;const box=$('#juice');if(!box||JU.nums.length>40)return;
   const el=document.createElement('div');el.className='jnum'+(cls?' '+cls:'');el.textContent=txt;box.appendChild(el);
   JU.nums.push({el,p:p.clone().add(new V3(0,3.4,0)),age:0,life:life||.9,dx:(Math.random()-.5)*2});}
@@ -4949,7 +4976,7 @@ function juiceKO(r,force){if(!r)return;if(!force&&!juiceLocal())return;
   const now=t;JU.kos=JU.kos.filter(x=>now-x<4);JU.kos.push(now);JU.streak++;
   const m=JU.kos.length;const call=m>=4?'RAMPAGE!':m===3?'TRIPLE KO!':m===2?'DOUBLE KO!':JU.streak===5?'ON FIRE! 5 in a row':JU.streak===10?'UNSTOPPABLE! 10 in a row':JU.streak===15?'LEGENDARY! 15':'';
   if(call)juiceCall(call);
-  juiceFeed('<b>You</b> knocked out '+escH(r.name||'a bot'));}
+  juiceFeed('<b>You</b> knocked out '+escH(botDisp(r.name||'a bot')));}
 function juiceCall(txt){const e=$('#jcall');if(!e)return;e.textContent=txt;e.classList.remove('on');void e.offsetWidth;e.classList.add('on');JU.callT=t;
   [880,1175,1568].forEach((f,i)=>setTimeout(()=>beep(f,f*1.01,.09,'square',.04),i*70));
   clearTimeout(JU.callTO);JU.callTO=setTimeout(()=>e.classList.remove('on'),1300);}
@@ -4957,7 +4984,7 @@ function juiceFeed(html){const f=$('#jfeed');if(!f)return;const d=document.creat
 function escH(x){return String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);}
 function juiceAssist(n){const now=t;JU.deaths=JU.deaths.filter(x=>now-x<180);const d=JU.deaths.length;
   if(n>=100)return n;return n*(d>=6?.7:d>=4?.8:d>=2?.9:1);}
-function juiceReset(){JU.nums.forEach(n=>n.el.remove());JU.nums=[];JU.kos=[];JU.streak=0;JU.deaths=[];JU.shake=0;const f=$('#jfeed');if(f)f.textContent='';}
+function juiceReset(){JU.bossOn=false;JU.bossR=null;{const b=$('#jboss');if(b)b.classList.remove('on');}JU.nums.forEach(n=>n.el.remove());JU.nums=[];JU.kos=[];JU.streak=0;JU.deaths=[];JU.shake=0;const f=$('#jfeed');if(f)f.textContent='';}
 function loop(){
   requestAnimationFrame(loop);
   const dt=Math.min(clock.getDelta(),.05);
@@ -5320,7 +5347,7 @@ const PRESETS={
   ball:()=>({name:'Ball',shape:'ball',size:[4,4,4]}),
   cyl:()=>({name:'Cylinder',shape:'cyl',size:[2,4,4]}),
   wedge:()=>({name:'Wedge',shape:'wedge',size:[4,2,4]}),
-  spawn:()=>({name:'SpawnLocation',size:[12,1,12],color:'#c7ccd6',behavior:'spawn'}),
+  spawn:()=>({name:'SpawnLocation',size:[12,1,12],color:'#56627e',material:'Studs',behavior:'spawn'}),
   kill:()=>({name:'KillBrick',size:[8,1,8],color:'#ff3b30',material:'Neon',behavior:'kill'}),
   check:()=>({name:'Checkpoint',size:[10,1,10],color:'#3ddc84',behavior:'check',value:nextStage()}),
   jump:()=>({name:'JumpPad',size:[4,.4,4],color:'#22d3ee',material:'Neon',behavior:'jump',value:100}),
