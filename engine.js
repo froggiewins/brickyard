@@ -1524,6 +1524,8 @@ function onFin(msg){if(msg.isMe||!msg.data)return;sysChat(nameOf(msg.by)+' finis
 function renderPlayerList(){
   const el=$('#plist');if(!el)return;
   const rows=[{me:true,name:myName(),sh:shirt,st:myStats()}].concat([...MP.remotes.values()].map(r=>({me:false,name:nameOf(r.by),sh:r.sh,st:r.stats})));
+  {const seen=new Set();for(const r of W.rigs||[]){if(r.destroyed||!r.mesh.visible||!/^(?:Bot|Fighter)\d{1,2}$/.test(r.name||'')||seen.has(r.name))continue;seen.add(r.name);
+    const c=r.node&&r.node.colors&&r.node.colors.torso;rows.push({me:false,bot:true,name:botDisp(r.name),sh:c||'#9e9e9e',st:{}});}}
   const keys=[...new Set(rows.flatMap(r=>Object.keys(r.st||{})))].slice(0,1);const k=keys[0];
   if(k)rows.sort((a,b)=>num(b.st[k],0)-num(a.st[k],0));
   el.innerHTML='';const h=document.createElement('div');h.className='pl-h';const h1=document.createElement('span');h1.textContent='Players';const h2=document.createElement('span');h2.textContent=k||'';h.append(h1,h2);el.appendChild(h);
