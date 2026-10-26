@@ -720,7 +720,13 @@ const BADGES=[
   ['lvl5','⭐','Rising Star','Reach level 5',()=>lvlOf(WALLET.xp)>=5,100],
   ['lvl15','🌟','Superstar','Reach level 15',()=>lvlOf(WALLET.xp)>=15,500],
   ['shop10','🛍️','Shopaholic','Own 15 avatar items',()=>WALLET.owned.size>=15,150],
-  ['quests','📜','Quest Master','Finish all three daily quests in a day',()=>!!(WALLET.q&&WALLET.q.b),100]];
+  ['quests','📜','Quest Master','Finish all three daily quests in a day',()=>!!(WALLET.q&&WALLET.q.b),100],
+  ['mecha','🤖','Mecha Breaker','Reach level 8 in Boss Battle',()=>gid()==='boss'&&st('Level')>=8,400],
+  ['hedge','🌿','Hedge Hero','Escape 4 mazes in a row in Maze Escape',()=>gid()==='maze'&&st('Escapes')>=4,150],
+  ['ladder','🔫','Rival Beater','Win Weapon Ladder before the rival bot finishes',()=>gid()==='arsenal'&&st('KOs')>=99&&RT.vars&&+RT.vars.get('rival tier')<8,250],
+  ['build9','🏗️','Master Builder','Finish every Free Build challenge',()=>store.get('bqi',0)>=9,300],
+  ['combo','🎯','Sharpshooter','Score 40 in one Target Range match',()=>gid()==='targets'&&st('Score')>=40,150],
+  ['farm','🌾','Farmhand','Reach wave 5 on the Farm in Zombie Survival',()=>gid()==='zombies'&&st('Wave')>=5&&RT.vars&&+RT.vars.get('map x')===300,150]];
 function gid(){return game&&game.id||'';}
 function st(k){return +(RT.stats&&RT.stats.get(k))||0;}
 function badgeCheck(){if(game&&game.fromEditor||TESTCLIENT)return;for(const [id,ic,nm,ds,fn,r] of BADGES){if(WALLET.badges.has(id))continue;let ok=false;try{ok=!!fn();}catch(e){}
