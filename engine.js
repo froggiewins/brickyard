@@ -602,6 +602,7 @@ const AV_ITEMS=[
   ['cap','hat','Red Cap',0,'🧢'],['beanie','hat','Beanie',0,'🧶'],['party','hat','Party Hat',60,'🥳'],['cone','hat','Traffic Cone',80,'🚧'],['chef','hat','Chef Hat',100,'👨‍🍳'],
   ['headphones','hat','Headphones',120,'🎧'],['tophat','hat','Top Hat',150,'🎩'],['bunny','hat','Bunny Ears',150,'🐰'],['cowboy','hat','Cowboy Hat',200,'🤠'],
   ['propeller','hat','Propeller Cap',250,'🚁'],['wizard','hat','Wizard Hat',300,'🧙'],['viking','hat','Viking Helmet',350,'🪓'],['pumpkin','hat','Pumpkin Head',400,'🎃'],
+  ['leafcrown','hat','Hedge Crown',400,'🌿'],['racinghelm','hat','Racing Helmet',650,'🏎️'],['mechahelm','hat','Mecha Helmet',1800,'🤖'],
   ['crown','hat','Golden Crown',500,'👑'],['halo','hat','Halo',800,'😇'],['astro','hat','Space Helmet',1000,'🧑‍🚀'],['shadow','hat','Shadow Lord Horns',5000,'😈'],
   ['backpack','back','Backpack',0,'🎒'],['cape','back','Hero Cape',200,'🦸'],['sword','back','Sword Sheath',300,'🗡️'],['guitar','back','Rock Guitar',450,'🎸'],
   ['jetpack','back','Jetpack',600,'🚀'],['batwings','back','Bat Wings',700,'🦇'],['angel','back','Angel Wings',900,'🪽'],['dragon','back','Dragon Wings',2500,'🐉'],
@@ -812,6 +813,9 @@ function avAccessory(id,u){const G=new THREE.Group();
   const T=2.75,F=.63;   // top of head, front of head
   switch(id){
     case 'cap':B(1.35,.35,1.35,'#e53935',0,T+.12,0);B(1.2,.12,.8,'#c62828',0,T,.95);break;
+    case 'leafcrown':for(let i=0;i<9;i++){const a=i*Math.PI*2/9;S(.24,i%3?'#43a047':'#2e7d32',Math.cos(a)*.62,T+.05,Math.sin(a)*.62);}S(.16,'#f06292',.62,T+.18,0);S(.16,'#fff176',-.45,T+.18,.42);break;
+    case 'racinghelm':B(1.46,1.46,1.46,'#e53935',0,2.13,0,{metal:.3});B(.32,1.48,1.48,'#ffffff',0,2.13,0);B(1.12,.36,.06,'#212121',0,2.2,F+.1,{metal:.7});break;
+    case 'mechahelm':B(1.46,1.46,1.46,'#cfd8dc',0,2.13,0,{metal:.25});B(1.16,.28,.06,'#18ffff',0,2.25,F+.1,{neon:true});C(.1,.6,'#cfd8dc',0,T+.42,0,{metal:.6});S(.17,'#ff1744',0,T+.78,0,{neon:true});B(.12,.5,.5,'#607d8b',.79,2.13,0,{metal:.6});B(.12,.5,.5,'#607d8b',-.79,2.13,0,{metal:.6});break;
     case 'beanie':C(1.42,.6,'#5e35b1',0,T+.15,0);S(.4,'#ede7f6',0,T+.55,0);break;
     case 'party':K(.9,1.2,'#ec407a',0,T+.6,0);S(.25,'#ffeb3b',0,T+1.22,0);break;
     case 'cone':K(1,1.5,'#ff6d00',0,T+.75,0);C(1.2,.1,'#ff6d00',0,T+.02,0);C(.62,.18,'#ffffff',0,T+.75,0);break;
