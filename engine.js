@@ -32,8 +32,11 @@ const SFX={
   del:()=>beep(160,90,.08,'square',.045),
   nope:()=>beep(140,120,.12,'square',.04),
   click:()=>beep(700,500,.05,'square',.04),
-  explode:()=>beep(200,40,.5,'sawtooth',.07)
+  explode:()=>{beep(160,35,.55,'sawtooth',.05);boomNoise(.6,900,.22);}
 };
+function boomNoise(dur,freq,vol){if(muted)return;try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();const n=actx.currentTime,len=Math.floor(actx.sampleRate*dur),b=actx.createBuffer(1,len,actx.sampleRate),d=b.getChannelData(0);
+  for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2);const src=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();src.buffer=b;f.type='lowpass';f.frequency.setValueAtTime(freq,n);f.frequency.exponentialRampToValueAtTime(120,n+dur);
+  g.gain.setValueAtTime(vol,n);g.gain.exponentialRampToValueAtTime(.0001,n+dur);src.connect(f);f.connect(g);g.connect(actx.destination);src.start(n);}catch(e){}}
 
 /* ---------- background music: a small chiptune band (bass, chords, lead, drums), a different mood per kind of game ---------- */
 const MUSIC={on:store.get('musicOn',true),playing:false,timer:null,step:0,next:0,gain:null,style:null,rng:null,mel:[]};
@@ -2861,6 +2864,16 @@ function arenaExtras(p){const G=GK;
   G.vars(G.script(p,'sss','Respawn on map',blk('ev_spawn'),G.wait(.05),G.iff(G.cmp(G.vget(BOX),'GT',G.num(0)),blk('pl_tpxyz',{X:ox(G.rnd(-50,50)),Y:bn(5),Z:G.rnd(-50,50)}))),BV2);
   G.script(p,'sss','Normal gravity',G.onMsg('round end'),blk('pl_gravity',{V:bn(196.2)}));
   gkFighterBots(p,{total:4,max:3,home:[[-60,-60],[60,60],[60,-60]],area:70,dmg:9,acc:4,ox:BOX});
+  // bounty: one bot wears a golden crown and is worth 3 knockouts
+  {const crown=G.part(p,'workspace',{name:'BountyCrown',shape:'cyl',pos:[0,-40,0],size:[2,1,2],color:'#ffd54f',material:'Neon',canCollide:false,unbreakable:true,label:'👑 BOUNTY'});
+   G.vars(G.script(p,crown.id,'Follow',blk('ev_start'),G.forever(G.ifElse(G.AND(G.inMatch(),G.cmp(G.vget('vbounty'),'GT',G.num(0))),[...[1,2,3].map(k=>G.iff(G.cmp(G.vget('vbounty'),'EQ',G.num(k)),
+     blk('p_setpos',{PART:bme(),X:G.prop(G.pnamed('Fighter'+k),'x'),Y:G.arith('ADD',G.prop(G.pnamed('Fighter'+k),'y'),G.num(3.6)),Z:G.prop(G.pnamed('Fighter'+k),'z')})))],[blk('p_setpos',{PART:bme(),X:bn(0),Y:bn(-40),Z:bn(0)})]),G.wait(0))),[['bounty','vbounty'],['fighter bots','vfbots'],...G.MV]);
+   G.vars(G.hscript(p,'sss','Pick bounty',G.onMsg('round start'),G.vset('vbounty',G.num(0)),G.wait(6),G.whileDo(G.inMatch(),G.iff(G.AND(G.cmp(G.vget('vbounty'),'EQ',G.num(0)),G.cmp(G.vget('vfbots'),'GT',G.num(0))),
+     G.vset('vbounty',G.rnd(1,G.vget('vfbots'))),G.bc('bounty')),G.wait(1))),[['bounty','vbounty'],['fighter bots','vfbots'],...G.MV]);
+   G.vars(G.script(p,'sss','Bounty msg',G.onMsg('bounty'),G.sound('check'),G.msg(G.join('👑 BOUNTY! Knock out Fighter',G.vget('vbounty'),' for 3 knockouts!'),2.5)),[['bounty','vbounty']]);
+   [1,2,3].forEach(k=>{const r=p.nodes.find(n=>n.name==='Fighter'+k);
+     G.vars(G.script(p,r.id,'Bounty KO',blk('ev_rig_died'),G.iff(G.cmp(G.vget('vbounty'),'EQ',G.num(k)),G.sadd('KOs',2),G.sound('win'),G.msg('👑 BOUNTY CLAIMED! +2 extra knockouts',2.5))),[['bounty','vbounty']]);
+     G.vars(G.hscript(p,r.id,'Bounty reset',blk('ev_rig_died'),G.iff(G.cmp(G.vget('vbounty'),'EQ',G.num(k)),G.wait(10),G.vset('vbounty',G.num(0)))),[['bounty','vbounty']]);});}
   // power-up orb in the middle every 20 seconds
   const orb=G.part(p,'workspace',{name:'PowerOrb',shape:'ball',pos:[0,-40,0],size:[2.4,2.4,2.4],color:'#ffd740',material:'Neon',canCollide:false,unbreakable:true,label:'POWER'});
   p.nodes.push(emitterNode({parent:orb.id,name:'Glow'},'sparkles'));
