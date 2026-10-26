@@ -310,6 +310,7 @@ kbd{font-family:var(--body);font-weight:800;font-size:12px;background:var(--pane
 #jfeed div{background:rgba(0,0,0,.55);color:#fff;font:700 13px system-ui,sans-serif;padding:4px 9px;border-radius:7px;animation:jf 4s forwards}
 #jfeed b{color:#ffd54f}
 @keyframes jf{0%{opacity:0;transform:translateX(20px)}8%{opacity:1;transform:none}85%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){#jcall,#jcall.on{transition:opacity .2s}#toast.warn.show{animation:none}#dmg.low{animation:none;opacity:.3}}
 @media (max-width:600px){#jcall{font-size:28px}.jnum{font-size:16px}
   #lobbyBar{top:calc(env(safe-area-inset-top,0px) + 102px);font-size:12px;padding:5px 10px;max-width:92vw}
   #game .gui-root{top:46px}#game.haslobby .gui-root{top:50px}

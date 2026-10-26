@@ -5240,7 +5240,8 @@ function juicePop(p,txt,cls,life){if(!p)return;const box=$('#juice');if(!box||JU
   JU.nums.push({el,p:p.clone().add(new V3(0,3.4,0)),age:0,life:life||.9,dx:(Math.random()-.5)*2});}
 function juiceHitmark(kill){const e=$('#jhit');if(!e)return;e.classList.toggle('kill',!!kill);e.classList.add('on');requestAnimationFrame(()=>requestAnimationFrame(()=>e.classList.remove('on')));
   beep(kill?1500:1900,kill?600:1700,kill?.12:.035,'square',kill?.05:.03);}
-function juiceShake(a){JU.shake=Math.min(1.2,Math.max(JU.shake,a));}
+const REDUCED_MOTION=(()=>{try{return matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){return false;}})();
+function juiceShake(a){if(REDUCED_MOTION)return;JU.shake=Math.min(1.2,Math.max(JU.shake,a));}
 function juiceLocal(){return t-JU.lastLocal<.25;}
 function juiceRigHit(r,n){if(!r||!(n>0))return;const local=juiceLocal();
   if(!local&&P.pos.distanceTo(r.pos)>60)return;
