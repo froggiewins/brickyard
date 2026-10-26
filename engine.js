@@ -2866,7 +2866,7 @@ function sumoDef(){const G=GK;const p=G.proj('sumo','Sumo Smash',{sky:'#ffcf9f',
     G.wait(15),G.iff(G.inMatch(),G.bc('sweeper'),blk('p_setpos',{PART:G.pnamed('Sweeper'),X:bn(0),Y:bn(31.6),Z:bn(0)}))),SV);
   G.script(p,'sss','Shrink msg',G.onMsg('ring shrink'),G.sound('die'),G.msg('⚠ The outer ring is falling away in 3 seconds! Get to the middle!',3));
   G.script(p,'sss','Sweeper msg',G.onMsg('sweeper'),G.sound('check'),G.msg('The SWEEPER is spinning! Jump over it!',3));
-  G.script(p,'sss','Survivor coins',G.onMsg('round end'),G.iff(G.aliveIn(),blk('pl_coins',{N:bn(5)})));
+  G.script(p,'sss','Survivor coins',G.onMsg('round end'),G.iff(G.aliveIn(),blk('pl_coins',{N:bn(10)}),G.sound('win'),G.msg('🏆 Still on the ring at the bell! +10 coins',3)));
   gkPowerups(p,[[-10,10],[10,-10],[290,10],[310,-10],[590,8],[610,-8]],{y:31.5});
   G.welcome(p,G.sset('Time',0),G.sset('Falls',0),G.sset('Bonks',0),G.msg('Last one on the ring wins! Bonk sumos and players off with your bat (1).',4),
     G.forever(G.wait(1),G.iff(G.AND(G.aliveIn(),G.AND({block:{type:'s_pl_alive'}},G.cmp(G.ppos('y'),'GT',G.num(25)))),G.sadd('Time',1))));
@@ -2896,7 +2896,7 @@ function colorDropDef(){const G=GK;const p=G.proj('colordrop','Color Drop',{sky:
       G.iff(G.AND(G.aliveIn(),G.AND(G.cmp(G.ppos('y'),'GT',G.num(38)),G.OR(G.cmp(G.ppos('z'),'GT',G.num(-24)),G.cmp(G.ppos('x'),'GT',G.num(150))))),G.sadd('Rounds',1),G.sound('check')),
       G.wait(2)),...restore()));
   s.blocks.variables=[{name:'pick',id:V},{name:'color rounds',id:'vcr'},{name:'map x',id:COX},...MV.map(([name,id])=>({name,id}))];
-  G.script(p,'sss','Fell',blk('ev_died'),G.msg(G.join('You fell after ',G.stat('Rounds'),' rounds!'),3));
+  G.script(p,'sss','Fell',blk('ev_died'),G.msg(G.join('You fell! Rounds survived: ',G.stat('Rounds')),3));
   G.best(p,'Rounds','colordrop_rounds');
   const sw=G.part(p,'workspace',{name:'TileSweeper',pos:[0,-40,0],size:[50,1.2,1.2],color:'#e040fb',material:'Neon',canCollide:false,unbreakable:true});
   G.script(p,sw.id,'Spin',blk('ev_start'),G.forever(blk('p_rotate',{PART:bme(),DEG:bn(3)},{AXIS:'y'}),G.wait(.03)));
@@ -2904,7 +2904,23 @@ function colorDropDef(){const G=GK;const p=G.proj('colordrop','Color Drop',{sky:
   G.vars(G.script(p,'sss','Sweeper',G.onMsg('round start'),blk('p_setpos',{PART:G.pnamed('TileSweeper'),X:bn(0),Y:bn(-40),Z:bn(0)}),G.until(G.OR(G.cmp(G.vget('vcr'),'GTE',G.num(7)),G.NOT(G.inMatch()))),
     G.iff(G.inMatch(),G.msg('Round 7: the SWEEPER joins in! Jump over it.',3),blk('p_setpos',{PART:G.pnamed('TileSweeper'),X:ox(0),Y:bn(41.6),Z:bn(0)}))),[['color rounds','vcr'],['map x',COX],...MV]);
   G.script(p,'sss','Winner coins',G.onMsg('round end'),G.iff(G.aliveIn(),blk('pl_coins',{N:bn(5)})));
-  G.welcome(p,G.msg('Rounds get faster the longer you survive!',2));
+  // rival bots: they hop to a tile before every drop. The longer the match goes, the more of them slip off
+  const NBC='vcbots',CBL='vcbleft',CO=k=>'vcbout'+k,CBV=[['bots',NBC],['bots left',CBL],['color rounds','vcr'],['map x',COX],...[1,2,3,4].map(k=>['bot out '+k,CO(k)]),...MV];
+  const CBC=['#ff7043','#26c6da','#ab47bc','#9ccc65'];
+  for(let k=1;k<=4;k++){const r=rigNode({name:'Bot'+k,pos:[k*6,2.6,-200],health:999,respawn:0,walkSpeed:15,colors:{head:'#ffcc80',torso:CBC[k-1],arms:'#ffcc80',legs:'#37474f'}});p.nodes.push(r);
+    G.vars(G.hscript(p,r.id,'Hop',blk('ev_start'),G.forever(G.ifElse(G.AND(G.inMatch(),G.AND(G.cmp(G.num(k),'LTE',G.vget(NBC)),G.cmp(G.vget(CO(k)),'EQ',G.num(0)))),
+      [blk('rig_walk',{PART:bme(),X:ox(G.rnd(-16,16)),Z:G.rnd(-16,16)}),G.wait(G.arith('DIVIDE',G.rnd(8,22),G.num(10)))],[G.wait(.5)]))),CBV);}
+  G.vars(G.hscript(p,'sss','Bots join',G.onMsg('round start'),G.ifElse(G.cmp(G.players(),'GTE',G.num(5)),[G.vset(NBC,G.num(0))],[G.vset(NBC,G.arith('MINUS',G.num(5),G.players()))]),G.vset(CBL,G.vget(NBC)),
+    ...[1,2,3,4].map(k=>G.ifElse(G.cmp(G.num(k),'LTE',G.vget(NBC)),[G.vset(CO(k),G.num(0)),blk('p_visible',{PART:G.pnamed('Bot'+k)},{B:'TRUE'}),blk('p_setpos',{PART:G.pnamed('Bot'+k),X:ox(k*6-15),Y:bn(42.6),Z:bn(-8)})],
+      [G.vset(CO(k),G.num(1)),blk('p_visible',{PART:G.pnamed('Bot'+k)},{B:'FALSE'}),blk('p_setpos',{PART:G.pnamed('Bot'+k),X:bn(k*6),Y:bn(2.6),Z:bn(-200)})])),
+    G.wait(5),G.vset('vcrseen',G.num(0)),G.whileDo(G.inMatch(),G.until(G.OR(G.cmp(G.vget('vcr'),'GT',G.vget('vcrseen')),G.NOT(G.inMatch()))),G.vset('vcrseen',G.vget('vcr')),
+      ...[1,2,3,4].map(k=>G.iff(G.AND(G.inMatch(),G.AND(G.cmp(G.vget(CO(k)),'EQ',G.num(0)),G.cmp(G.rnd(1,100),'LTE',G.arith('ADD',G.num(6),G.arith('MULTIPLY',G.vget('vcr'),G.num(4)))))),
+        G.vset(CO(k),G.num(1)),G.vchg(CBL,-1),blk('rig_fling',{PART:G.pnamed('Bot'+k),P:bn(40)}),G.msg(G.join('Bot'+k+' slipped off! ',G.vget(CBL),' bots left.'),2),
+        G.wait(1.5),blk('p_visible',{PART:G.pnamed('Bot'+k)},{B:'FALSE'}),blk('p_setpos',{PART:G.pnamed('Bot'+k),X:bn(k*6),Y:bn(2.6),Z:bn(-200)}))),
+      G.iff(G.AND(G.cmp(G.vget(NBC),'GT',G.num(0)),G.cmp(G.vget(CBL),'EQ',G.num(0))),G.vset(NBC,G.num(0)),G.bc('bots beaten')))),[...CBV,['rounds seen','vcrseen']]);
+  G.script(p,'sss','Beat the bots',G.onMsg('bots beaten'),G.iff(G.aliveIn(),G.sound('win'),G.sadd('Rounds',2),G.msg('🏆 You outlasted every bot! +10 coins. Keep going for a high score!',3.5),blk('pl_coins',{N:bn(10)})));
+  G.vars(G.script(p,'sss','Bots home',G.onMsg('round end'),...[1,2,3,4].map(k=>blk('p_setpos',{PART:G.pnamed('Bot'+k),X:bn(k*6),Y:bn(2.6),Z:bn(-200)}))),[]);
+  G.welcome(p,G.msg('Rounds get faster the longer you survive! Outlast the bots.',2));
   return G.def(p,'colordrop','Color Drop');}
 
 /* 8. Maze Escape */
@@ -3091,6 +3107,7 @@ function freezeTagDef(){const G=GK;const p=G.proj('freezetag','Freeze Tag',{sky:
   G.script(p,'sss','Level coins',blk('ev_start'),G.forever(G.vset('vlvc',G.vget(LV)),G.until(G.cmp(G.vget(LV),'GT',G.vget('vlvc'))),blk('pl_coins',{N:bn(2)})));
   gkPowerups(p,[[-40,-40],[40,-40],[0,-60],[300-40,-40],[340,-40],[300,-60]]);
   G.welcome(p,G.msg('Freeze Tag: matches start from the lobby. Most freezes wins! Your snowball launcher (1) freezes from range.',4));
+  G.hud(p,'Freeze','#0277bd',G.join('❄ Frozen ',G.vget(FZ),' / ',G.vget(ACT),'   ·   ⏱ ',G.vget(TL),'s   ·   Level ',G.vget(LV)));
   G.best(p,'Level','freeze_level');
   return G.def(p,'freezetag','Freeze Tag');}
 
@@ -3514,7 +3531,7 @@ function bombTagDef(){const G=GK;const p=G.proj('bombtag','Bomb Tag',{sky:'#ffd9
         G.ifElse(G.AND(eq(VB,0),G.cmp(G.nearD(bme()),'LT',G.num(28))),[blk('rig_walk',{PART:bme(),X:flee('x'),Z:flee('z')})],
           [blk('rig_walk',{PART:bme(),X:G.arith('ADD',prop(bme(),'x'),G.rnd(-14,14)),Z:G.arith('ADD',prop(bme(),'z'),G.rnd(-14,14))}),G.wait(G.rnd(0,1))])])]))),VARS);
     G.vars(G.script(p,r.id,'Tag',blk('ev_touch'),G.iff(G.AND(G.AND(eq(VC,0),eq(OUT(k),0)),G.aliveIn()),
-      G.ifElse(isMine(),[G.vset(VC,G.num(1)),G.shSet(VH,botId(k)),G.shSet(VB,G.num(1)),G.sound('pad'),G.msg('Passed! Now run from Bot '+k+'!',1.5),G.wait(1.5),G.vset(VC,G.num(0))],
+      G.ifElse(isMine(),[G.vset(VC,G.num(1)),G.shSet(VH,botId(k)),G.shSet(VB,G.num(1)),G.sound('pad'),G.msg('Passed! Now run from Bot'+k+'!',1.5),G.wait(1.5),G.vset(VC,G.num(0))],
         [G.iff(eq(VH,botId(k)),G.vset(VC,G.num(1)),G.shSet(VH,G.myId()),G.shSet(VB,G.num(0)),G.sound('pad'),G.wait(1.5),G.vset(VC,G.num(0)))]))),VARS);}
   G.vars(G.script(p,'player','Pass to a player',blk('ev_touch_player'),G.iff(G.AND(isMine(),eq(VC,0)),G.vset(VC,G.num(1)),G.shSet(VH,G.idOf({block:{type:'pl_touched'}})),G.shSet(VB,G.num(0)),
     G.sound('pad'),G.msg(G.join('Passed to ',G.nameOfP({block:{type:'pl_touched'}}),'!'),1.5),G.wait(1.5),G.vset(VC,G.num(0)))),VARS);
@@ -3541,7 +3558,7 @@ function bombTagDef(){const G=GK;const p=G.proj('bombtag','Bomb Tag',{sky:'#ffd9
     ...[1,2,3,4,5].map(k=>G.ifElse(G.cmp(G.num(k),'LTE',G.vget(NB)),[G.vset(OUT(k),G.num(0)),blk('p_setpos',{PART:bot(k),X:ox(START[k-1][0]),Y:bn(2.6),Z:bn(START[k-1][1])})],
       [G.vset(OUT(k),G.num(1)),blk('p_setpos',{PART:bot(k),X:ox(-20+k*6.5),Y:bn(4.6),Z:bn(56)})]))];
   const boomBot=[1,2,3,4,5].map(k=>G.iff(eq(VH,botId(k)),blk('rig_fling',{PART:bot(k),P:bn(150)}),G.vset(OUT(k),G.num(1)),G.vchg(VLF,-1),
-    G.msg(G.join('BOOM! Bot '+k+' is out. ',G.vget(VLF),' bots left.'),2.5),G.wait(2.6),blk('p_setpos',{PART:bot(k),X:ox(-20+k*6.5),Y:bn(4.6),Z:bn(56)}),blk('rig_say',{PART:bot(k),TEXT:bt('I am out!'),S:bn(2)})));
+    G.msg(G.join('BOOM! Bot'+k+' is out. ',G.vget(VLF),' bots left.'),2.5),G.wait(2.6),blk('p_setpos',{PART:bot(k),X:ox(-20+k*6.5),Y:bn(4.6),Z:bn(56)}),blk('rig_say',{PART:bot(k),TEXT:bt('I am out!'),S:bn(2)})));
   G.vars(G.hscript(p,'sss','Game',G.onMsg('round start'),G.vset(VH,G.txt('-')),G.vset(VB,G.num(-1)),G.vset(VF,G.num(0)),...setupBots(),G.wait(3),
     G.whileDo(G.AND(G.inMatch(),G.cmp(G.arith('ADD',nPlaying,G.vget(VLF)),'GTE',G.num(2))),G.vset(VF,G.rnd(9,15)),
       G.ifElse(G.cmp(G.rnd(1,G.arith('ADD',nPlaying,G.vget(VLF))),'LTE',nPlaying),[G.vset(VH,G.idOf(G.pref('randplaying'))),G.vset(VB,G.num(0))],
@@ -3550,14 +3567,15 @@ function bombTagDef(){const G=GK;const p=G.proj('bombtag','Bomb Tag',{sky:'#ffd9
          blk('controls_whileUntil',{BOOL:G.cmp(G.vget(VK),'GT',G.num(0)),DO:doIn(G.vset(VK,G.rnd(1,5)),...[1,2,3,4,5].map(k=>G.iff(G.AND(eq(VK,k),eq(OUT(k),1)),G.vset(VK,G.num(0)))))},{MODE:'UNTIL'}),
          G.vset(VH,G.join('b',G.vget(VK))),G.vset(VB,G.num(1))]),
       ...[1,2,3,4,5].map(k=>stopWalk(k)),G.sound('check'),
-      G.ifElse(eq(VB,1),[G.msg(G.join('Bot ',G.vget(VK),' has the bomb. RUN!'),2)],[G.msg(G.join(G.nameOfP(G.byId(G.vget(VH))),' has the bomb. RUN!'),2)]),
+      G.ifElse(eq(VB,1),[G.msg(G.join('Bot',G.vget(VK),' has the bomb. RUN!'),2)],[G.msg(G.join(G.nameOfP(G.byId(G.vget(VH))),' has the bomb. RUN!'),2)]),
       blk('controls_whileUntil',{BOOL:G.OR(G.NOT(G.inMatch()),G.cmp(G.vget(VF),'LTE',G.num(0))),DO:doIn(
         G.ifElse(G.cmp(G.vget(VF),'LTE',G.num(3)),[G.sound('click'),G.wait(.5),G.sound('click'),G.wait(.5)],[G.sound('click'),G.wait(1)]),G.vchg(VF,-1))},{MODE:'UNTIL'}),
       G.iff(G.inMatch(),G.bc('boom'),
         G.ifElse(eq(VB,1),[...boomBot],[G.asP(G.byId(G.vget(VH)),blk('pl_fling',{P:bn(140)}),G.msg('BOOM! You are out!',3),G.wait(1.2),blk('pl_damage',{N:bn(1000)})),G.wait(2)]),
         G.bc('bomb round')),
       G.vset(VH,G.txt('-')),G.vset(VB,G.num(-1)),G.wait(3)),
-    G.vset(VH,G.txt('-')),G.vset(VB,G.num(-1)),G.iff(G.inMatch(),G.msg('We have a winner! Waiting for the match to end...',4))),VARS);
+    G.vset(VH,G.txt('-')),G.vset(VB,G.num(-1)),G.iff(G.inMatch(),G.bc('bomb winner'),G.msg('We have a winner! Next match soon...',4))),VARS);
+  G.script(p,'sss','Winner',G.onMsg('bomb winner'),G.iff(G.aliveIn(),G.sound('win'),G.sadd('Rounds',3),G.msg('🏆 LAST ONE STANDING! You win! +15 coins',4),blk('pl_coins',{N:bn(15)})));
   G.vars(G.hscript(p,'sss','Match over',G.onMsg('round end'),G.vset(VH,G.txt('-')),G.vset(VB,G.num(-1))),VARS);
   G.vars(G.welcome(p,G.vset(VC,G.num(0)),G.msg('Bomb Tag! Whoever holds the bomb when it blows is out. Touch anyone to pass it on, and run when they have it! Bots fill empty spots.',5)),VARS);
   G.best(p,'Rounds','bombtag_rounds');
@@ -3848,7 +3866,18 @@ function murderDef(){const G=GK;const p=G.proj('murder','Whodunit',{sky:'#22253a
     G.iff(G.AND(G.cmp(G.stat('Coins'),'GTE',G.num(8)),G.cmp(G.vget('vbag'),'EQ',G.num(0))),G.vset('vbag',G.num(1)),G.sound('win'),
       G.ifElse(eq(MU,G.myId()),[G.msg('Coin bag full! You turn INVISIBLE for 6 seconds...',3),blk('pl_visible',null,{B:'FALSE'}),G.wait(6),blk('pl_visible',null,{B:'TRUE'})],
         [G.msg('Coin bag full! SPEED BOOST for 10 seconds!',3),blk('pl_speed',{V:bn(24)}),G.wait(10),blk('pl_speed',{V:bn(16)})])),G.wait(.5))),[...VARS,['bag','vbag']]);
-  G.welcome(p,G.msg('Whodunit: find out who the murderer is before it is too late. Bots fill the empty spots.',5));
+  // a murderer bot quietly takes out innocent bots when no player is close enough to see
+  [1,2,3,4,5].forEach(k=>G.vars(G.hscript(p,'sss','Bot murderer strikes '+k,G.onMsg('roles'),G.wait(G.rnd(16,24)),G.whileDo(G.AND(G.inMatch(),G.AND(eq(OV,0),G.AND(eq(MU,G.txt('Bot'+k)),eq(D(k),0)))),
+    G.vset('vvic',G.rnd(1,5)),
+    ...[1,2,3,4,5].filter(j=>j!==k).map(j=>G.iff(G.AND(G.AND(eq('vvic',j),eq(D(j),0)),G.AND(G.cmp(G.num(j),'LTE',G.vget(NB)),G.cmp(G.nearD(G.pnamed('Bot'+k)),'GT',G.num(22)))),
+      blk('rig_damage',{PART:G.pnamed('Bot'+j),N:bn(1000)}),G.sound('die'),G.msg('😱 Bot'+j+' was found knocked out! The murderer is close...',3))),
+    G.wait(G.rnd(14,24)))),[...VARS,['victim','vvic']]));
+  // clues: every 20 seconds a witness clears one innocent bot, so the sheriff can work it out
+  G.vars(G.hscript(p,'sss','Clues',G.onMsg('roles'),G.wait(22),G.vset('vclue',G.num(0)),G.whileDo(G.AND(G.inMatch(),eq(OV,0)),
+    G.vchg('vclue',1),G.iff(G.cmp(G.vget('vclue'),'GT',G.num(5)),G.vset('vclue',G.num(1))),
+    ...[1,2,3,4,5].map(j=>G.iff(G.AND(eq('vclue',j),G.AND(G.cmp(G.num(j),'LTE',G.vget(NB)),G.AND(eq(D(j),0),G.NOT(eq(MU,G.txt('Bot'+j)))))),
+      G.sound('check'),G.msg('🔎 Clue: a witness saw Bot'+j+' far from the crime. Bot'+j+' is innocent!',3.5),G.wait(18))),G.wait(.5))),[...VARS,['clue','vclue']]);
+  G.welcome(p,G.msg('Whodunit: find out who the murderer is before it is too late. Watch for clues! Bots fill the empty spots.',5));
   G.best(p,'Score','murder_score');
   return G.def(p,'murder','Whodunit');}
 
@@ -4135,7 +4164,8 @@ function hideSeekDef(){const G=GK;const p=G.proj('hideseek','Hide and Seek',{sky
     G.sadd('Score',10),G.sound('coin'))),[...VARS,['caught',CG]]);
   // host: choose the seeker, place bots, run the phases
   G.vars(G.hscript(p,'sss','Rounds',G.onMsg('round start'),G.vset(RD,G.num(0)),
-    G.ifElse(G.cmp(G.players(),'GTE',G.num(2)),[G.vset(SK,G.idOf(G.pref('randplaying')))],[G.vset(SK,G.txt('bot'))]),
+    G.ifElse(G.cmp(G.players(),'GTE',G.num(2)),[G.vset(SK,G.idOf(G.pref('randplaying')))],[G.vset('vsolo',G.arith('MINUS',G.num(1),G.vget('vsolo'))),
+      G.ifElse(G.cmp(G.vget('vsolo'),'EQ',G.num(1)),[G.vset(SK,G.txt('bot'))],[G.vset(SK,G.idOf(G.pref('randplaying')))])]),
     G.ifElse(G.cmp(G.players(),'GTE',G.num(5)),[G.vset(NB,G.num(0))],[G.vset(NB,G.arith('MINUS',G.num(5),G.players()))]),
     G.iff(eq(SK,G.txt('bot')),G.vset(NB,G.num(3))),
     ...[1,2,3,4].map(k=>[G.vset(FB(k),G.num(0)),G.ifElse(G.cmp(G.num(k),'LTE',G.vget(NB)),[blk('p_setpos',{PART:G.pnamed('Hider'+k),X:ox(k*4-10),Y:bn(2.6),Z:bn(30)})],[blk('p_setpos',{PART:G.pnamed('Hider'+k),X:bn(k*6),Y:bn(2.6),Z:bn(200)})])]).flat(),
