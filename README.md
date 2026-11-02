@@ -18,3 +18,7 @@ A 3D block game engine that runs in the browser. This website plays the built-in
 - `index.html` and `boot.js` build the page; exported games load `boot.js` from this site.
 - `engine.js` is the game engine and editor.
 - `vendor/` holds third-party libraries: three.js r128 (MIT), Blockly 10.4.3 (Apache 2.0) and Trystero 0.25.4 (MIT).
+
+## D.A.H. (Digital Art Hub)
+
+A separate site in `dah/`: one endless shared art wall with coordinates, published at `/brickyard/dah/`. It uses this repo's Supabase project and `vendor/supabase.js`, and doesn't touch the game. Run `dah/dah-supabase.sql` in the Supabase SQL editor to create its tables, rules and image storage. Moderation steps are at the top of that file.
